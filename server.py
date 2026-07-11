@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
@@ -33,6 +33,12 @@ Habla siempre en español formal y sé preciso y conciso."""
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return (Path("static") / "index.html").read_text()
+
+
+@app.get("/static/sw.js")
+async def service_worker():
+    return FileResponse("static/sw.js", media_type="application/javascript",
+                        headers={"Service-Worker-Allowed": "/"})
 
 
 @app.post("/chat")
