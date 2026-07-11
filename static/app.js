@@ -245,8 +245,9 @@
           if (raw === '[DONE]') continue;
           try {
             const obj = JSON.parse(raw);
-            if (obj.error) { renderContent(assistantEl, `**Error:** ${obj.error}`); break; }
-            if (obj.text)  {
+            if (obj.error)  { renderContent(assistantEl, `**Error:** ${obj.error}`); break; }
+            if (obj.status) { assistantEl.innerHTML = `<span class="fetch-status">${escHtml(obj.status)}</span>`; scrollBottom(); }
+            if (obj.text)   {
               fullText += obj.text;
               renderContent(assistantEl, fullText);
               scrollBottom();

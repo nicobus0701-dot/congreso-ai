@@ -388,6 +388,28 @@ html, body {
 }
 .copy-btn:hover { color: var(--text); border-color: var(--text); }
 
+/* Fetch status (while scraping) */
+.fetch-status {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fetch-status::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--border);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* Typing indicator */
 .typing-dot {
   display: inline-block;
