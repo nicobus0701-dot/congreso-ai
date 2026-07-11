@@ -1,0 +1,12 @@
+{
+  "name": "congreso-ai",
+  "version": "1.0.0",
+  "description": "Asistente IA para el Congreso del Perú",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox --disable-gpu-sandbox --disable-software-rasterizer"
+  },
+  "dependencies": {
+    "electron": "^32.0.0"
+  }
+}
