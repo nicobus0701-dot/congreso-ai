@@ -1,85 +1,222 @@
 (() => {
+  // ── Canvas dot-wave ──────────────────────────────
+  const canvas = document.getElementById('bg-canvas');
+  const ctx    = canvas.getContext('2d');
+  const SPACING    = 28;
+  const DOT_BASE   = 1.3;
+  const DOT_MAX    = 3.8;
+  const WAVE_R     = 160;
+  const WAVE_LEN   = 32;
+  const WAVE_SPEED = 1.8;
+
+  let dots = [], mouseX = -999, mouseY = -999;
+
+  function buildDots() {
+    dots = [];
+    const cols = Math.ceil(canvas.width  / SPACING) + 1;
+    const rows = Math.ceil(canvas.height / SPACING) + 1;
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++)
+        dots.push({ x: c * SPACING, y: r * SPACING });
+  }
+
+  function resizeCanvas() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    buildDots();
+  }
+
+  function drawDots() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const t = performance.now() / 1000;
+
+    for (const d of dots) {
+      const dist = Math.hypot(d.x - mouseX, d.y - mouseY);
+      let r = DOT_BASE;
+
+      if (dist < WAVE_R) {
+        const phase   = dist / WAVE_LEN - t * WAVE_SPEED;
+        const wave    = (Math.sin(phase * Math.PI * 2) + 1) / 2;
+        const falloff = Math.pow(1 - dist / WAVE_R, 1.8);
+        r = DOT_BASE + DOT_MAX * wave * falloff;
+      }
+
+      const alpha = 0.06 + 0.18 * ((r - DOT_BASE) / DOT_MAX);
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`;
+      ctx.fill();
+    }
+
+    requestAnimationFrame(drawDots);
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+  resizeCanvas();
+  requestAnimationFrame(drawDots);
+
+  // ── DOM refs ─────────────────────────────────────
   const chatArea  = document.getElementById('chat-area');
   const msgInput  = document.getElementById('msg-input');
   const sendBtn   = document.getElementById('send-btn');
-  const clearBtn  = document.getElementById('clear-btn');
+  const chatList  = document.getElementById('chat-list');
+  const newChatBtn= document.getElementById('new-chat-btn');
   const apiInput  = document.getElementById('api-key-input');
-  const cmdBtns   = document.querySelectorAll('.cmd-btn');
+  const cmdChips  = document.getElementById('cmd-chips');
 
-  let messages  = [];   // {role, content}
-  let streaming = false;
+  // ── Conversations (localStorage) ─────────────────
+  const STORE = 'congreso_convs';
+  let convs    = [];
+  let activeId = null;
+  let streaming= false;
 
-  // ── Persist API key ───────────────────────────────
-  const KEY_STORE = 'groq_api_key';
-  apiInput.value = localStorage.getItem(KEY_STORE) || '';
-  apiInput.addEventListener('input', () => {
-    localStorage.setItem(KEY_STORE, apiInput.value.trim());
-  });
+  function loadConvs() {
+    try { convs = JSON.parse(localStorage.getItem(STORE)) || []; }
+    catch { convs = []; }
+  }
 
-  // ── Auto-resize textarea ──────────────────────────
-  msgInput.addEventListener('input', () => {
-    msgInput.style.height = 'auto';
-    msgInput.style.height = Math.min(msgInput.scrollHeight, 160) + 'px';
-  });
+  function saveConvs() {
+    localStorage.setItem(STORE, JSON.stringify(convs));
+  }
 
-  // ── Send on Enter, newline on Shift+Enter ─────────
-  msgInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
+  function getActive() {
+    return convs.find(c => c.id === activeId) || null;
+  }
+
+  function newChat() {
+    const id = Date.now().toString();
+    convs.unshift({ id, title: 'Nueva conversación', messages: [], ts: Date.now() });
+    activeId = id;
+    saveConvs();
+    renderSidebar();
+    showWelcome();
+  }
+
+  function switchConv(id) {
+    activeId = id;
+    renderSidebar();
+    renderMessages();
+  }
+
+  function deleteConv(id, e) {
+    e.stopPropagation();
+    convs = convs.filter(c => c.id !== id);
+    if (activeId === id) {
+      activeId = convs[0]?.id || null;
     }
-  });
+    saveConvs();
+    renderSidebar();
+    if (activeId) renderMessages(); else showWelcome();
+  }
 
-  sendBtn.addEventListener('click', send);
-  clearBtn.addEventListener('click', clearChat);
+  function autoTitle(text) {
+    return text.slice(0, 38) + (text.length > 38 ? '…' : '');
+  }
 
-  // ── Quick command buttons ──────────────────────────
-  cmdBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const cmd = btn.dataset.cmd;
-      if (!cmd || streaming) return;
-      msgInput.value = cmd;
-      msgInput.dispatchEvent(new Event('input'));
-      send();
-    });
-  });
+  // ── Sidebar render ────────────────────────────────
+  function renderSidebar() {
+    chatList.innerHTML = '';
 
-  // ── Clear chat ─────────────────────────────────────
-  function clearChat() {
-    messages = [];
+    if (!convs.length) {
+      chatList.innerHTML = '<div style="padding:16px 10px;font-size:12px;color:var(--text-dim)">Sin conversaciones</div>';
+      return;
+    }
+
+    const groups = groupByDate(convs);
+
+    for (const [label, items] of groups) {
+      if (!items.length) continue;
+      const gl = document.createElement('div');
+      gl.className = 'chat-group-label';
+      gl.textContent = label;
+      chatList.appendChild(gl);
+
+      for (const c of items) {
+        const el = document.createElement('div');
+        el.className = 'chat-item' + (c.id === activeId ? ' active' : '');
+        el.dataset.id = c.id;
+        el.innerHTML = `
+          <span class="chat-item-icon">💬</span>
+          <span class="chat-item-title">${escHtml(c.title)}</span>
+          <button class="chat-item-del" title="Eliminar">✕</button>`;
+        el.addEventListener('click', () => switchConv(c.id));
+        el.querySelector('.chat-item-del').addEventListener('click', ev => deleteConv(c.id, ev));
+        chatList.appendChild(el);
+      }
+    }
+  }
+
+  function groupByDate(list) {
+    const now   = Date.now();
+    const DAY   = 86400000;
+    const today = []; const yesterday = []; const week = []; const older = [];
+    for (const c of list) {
+      const age = now - c.ts;
+      if (age < DAY)         today.push(c);
+      else if (age < 2*DAY)  yesterday.push(c);
+      else if (age < 7*DAY)  week.push(c);
+      else                   older.push(c);
+    }
+    return [['Hoy', today], ['Ayer', yesterday], ['Últimos 7 días', week], ['Anteriores', older]];
+  }
+
+  // ── Message rendering ─────────────────────────────
+  function showWelcome() {
     chatArea.innerHTML = `
       <div class="welcome">
         <div class="welcome-icon">🏛</div>
-        <h1>Asistente del Congreso</h1>
-        <p>Organizo información parlamentaria en tablas listas para copiar a Word.<br>
-        Usa los comandos de la izquierda o escribe directamente.</p>
-        <div class="welcome-tips">
-          <div class="tip">💡 Puedes <strong>pegar información</strong> del portal del Congreso y te la organizo en tabla</div>
-          <div class="tip">💡 Las tablas generadas se pueden <strong>copiar directo a Word</strong></div>
-        </div>
+        <h1>¿En qué te puedo ayudar?</h1>
+        <p>Organizo información parlamentaria en tablas listas para copiar a Word.</p>
       </div>`;
+    cmdChips.style.display = 'flex';
   }
 
-  // ── Main send ──────────────────────────────────────
-  async function send() {
-    const text = msgInput.value.trim();
+  function renderMessages() {
+    const conv = getActive();
+    if (!conv || !conv.messages.length) { showWelcome(); return; }
+    chatArea.innerHTML = '';
+    cmdChips.style.display = 'none';
+    for (const m of conv.messages) {
+      if (m.role === 'user')      appendUserBubble(m.content);
+      else if (m.role === 'assistant') appendAssistantBubble(m.content);
+    }
+    scrollBottom();
+  }
+
+  // ── Chat send ─────────────────────────────────────
+  async function send(textOverride) {
+    const text = (textOverride || msgInput.value).trim();
     if (!text || streaming) return;
 
-    const apiKey = apiInput.value.trim() || localStorage.getItem(KEY_STORE) || '';
+    const apiKey = apiInput.value.trim() || localStorage.getItem('groq_api_key') || '';
     if (!apiKey) {
-      showError('Ingresa tu API key de Groq en el panel izquierdo (gratis en console.groq.com)');
+      alert('Ingresa tu API key de Groq en el panel izquierdo.');
       apiInput.focus();
       return;
     }
 
-    removeWelcome();
-    appendUserMsg(text);
-    messages.push({ role: 'user', content: text });
+    // Create conversation if none active
+    if (!activeId || !getActive()) newChat();
+    const conv = getActive();
+
+    // First message → auto-title
+    if (!conv.messages.length) {
+      conv.title = autoTitle(text);
+    }
+
+    chatArea.querySelector('.welcome')?.remove();
+    cmdChips.style.display = 'none';
+
+    conv.messages.push({ role: 'user', content: text });
+    saveConvs();
+    renderSidebar();
+    appendUserBubble(text);
+
     msgInput.value = '';
     msgInput.style.height = 'auto';
-
-    streaming = true;
     sendBtn.disabled = true;
+    streaming = true;
 
     const assistantEl = appendAssistantTyping();
     let fullText = '';
@@ -88,10 +225,10 @@
       const resp = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, api_key: apiKey }),
+        body: JSON.stringify({ messages: conv.messages, api_key: apiKey }),
       });
 
-      const reader = resp.body.getReader();
+      const reader  = resp.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
 
@@ -108,16 +245,13 @@
           if (raw === '[DONE]') continue;
           try {
             const obj = JSON.parse(raw);
-            if (obj.error) {
-              renderContent(assistantEl, `**Error:** ${obj.error}`);
-              break;
-            }
-            if (obj.text) {
+            if (obj.error) { renderContent(assistantEl, `**Error:** ${obj.error}`); break; }
+            if (obj.text)  {
               fullText += obj.text;
               renderContent(assistantEl, fullText);
               scrollBottom();
             }
-          } catch { /* ignore parse errors */ }
+          } catch { /* ignore */ }
         }
       }
     } catch (err) {
@@ -125,67 +259,62 @@
     }
 
     if (fullText) {
-      messages.push({ role: 'assistant', content: fullText });
-      addCopyButtons(assistantEl);
+      conv.messages.push({ role: 'assistant', content: fullText });
+      saveConvs();
+      addCopyBtns(assistantEl);
     }
 
     streaming = false;
-    sendBtn.disabled = false;
+    sendBtn.disabled = !msgInput.value.trim();
     scrollBottom();
   }
 
-  // ── DOM helpers ────────────────────────────────────
-  function removeWelcome() {
-    const w = chatArea.querySelector('.welcome');
-    if (w) w.remove();
-  }
-
-  function appendUserMsg(text) {
-    const div = document.createElement('div');
-    div.className = 'message user';
-    div.innerHTML = `
+  // ── DOM helpers ───────────────────────────────────
+  function appendUserBubble(text) {
+    const d = document.createElement('div');
+    d.className = 'message user';
+    d.innerHTML = `
       <div class="msg-avatar">👤</div>
       <div class="msg-content">${escHtml(text)}</div>`;
-    chatArea.appendChild(div);
+    chatArea.appendChild(d);
     scrollBottom();
   }
 
   function appendAssistantTyping() {
-    const div = document.createElement('div');
-    div.className = 'message assistant';
-    div.innerHTML = `
+    const d = document.createElement('div');
+    d.className = 'message assistant';
+    d.innerHTML = `
       <div class="msg-avatar">🏛</div>
       <div class="msg-content">
         <span class="typing-dot"></span>
         <span class="typing-dot"></span>
         <span class="typing-dot"></span>
       </div>`;
-    chatArea.appendChild(div);
+    chatArea.appendChild(d);
     scrollBottom();
-    return div.querySelector('.msg-content');
+    return d.querySelector('.msg-content');
   }
 
-  function renderContent(el, markdown) {
-    el.innerHTML = parseMarkdown(markdown);
+  function appendAssistantBubble(md) {
+    const d = document.createElement('div');
+    d.className = 'message assistant';
+    d.innerHTML = `<div class="msg-avatar">🏛</div><div class="msg-content"></div>`;
+    chatArea.appendChild(d);
+    const el = d.querySelector('.msg-content');
+    renderContent(el, md);
+    addCopyBtns(el);
+    return el;
   }
 
-  function showError(msg) {
-    removeWelcome();
-    const div = document.createElement('div');
-    div.className = 'message assistant';
-    div.innerHTML = `
-      <div class="msg-avatar">⚠️</div>
-      <div class="msg-content" style="color:var(--red)">${escHtml(msg)}</div>`;
-    chatArea.appendChild(div);
-    scrollBottom();
+  function renderContent(el, md) {
+    el.innerHTML = parseMarkdown(md);
   }
 
   function scrollBottom() {
     chatArea.scrollTop = chatArea.scrollHeight;
   }
 
-  // ── Add copy buttons to tables ─────────────────────
-  function addCopyButtons(el) {
+  function addCopyBtns(el) {
     el.querySelectorAll('table').forEach(table => {
       const wrap = document.createElement('div');
       wrap.className = 'table-wrap';
@@ -195,7 +324,18 @@
       btn.className = 'copy-btn';
       btn.textContent = 'Copiar';
       btn.addEventListener('click', () => {
-        copyTableAsText(table);
+        const rows = Array.from(table.querySelectorAll('tr'));
+        const tsv  = rows.map(r =>
+          Array.from(r.querySelectorAll('th,td')).map(c => c.textContent.trim()).join('\t')
+        ).join('\n');
+        navigator.clipboard.writeText(tsv).catch(() => {
+          const ta = document.createElement('textarea');
+          ta.value = tsv;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        });
         btn.textContent = '✓ Copiado';
         setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
       });
@@ -203,94 +343,99 @@
     });
   }
 
-  function copyTableAsText(table) {
-    const rows = Array.from(table.querySelectorAll('tr'));
-    const lines = rows.map(row =>
-      Array.from(row.querySelectorAll('th,td'))
-        .map(c => c.textContent.trim())
-        .join('\t')
-    );
-    navigator.clipboard.writeText(lines.join('\n')).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = lines.join('\n');
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-    });
-  }
+  // ── Events ────────────────────────────────────────
+  newChatBtn.addEventListener('click', newChat);
 
-  // ── Minimal Markdown parser ────────────────────────
+  sendBtn.addEventListener('click', () => send());
+
+  msgInput.addEventListener('input', () => {
+    msgInput.style.height = 'auto';
+    msgInput.style.height = Math.min(msgInput.scrollHeight, 160) + 'px';
+    sendBtn.disabled = !msgInput.value.trim();
+  });
+
+  msgInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
+  document.querySelectorAll('.chip').forEach(btn => {
+    btn.addEventListener('click', () => { if (!streaming) send(btn.dataset.cmd); });
+  });
+
+  apiInput.value = localStorage.getItem('groq_api_key') || '';
+  apiInput.addEventListener('input', () => {
+    localStorage.setItem('groq_api_key', apiInput.value.trim());
+  });
+
+  // ── Markdown parser ───────────────────────────────
   function parseMarkdown(md) {
-    let html = escHtml(md);
+    let h = md;
 
-    // Unescape for markdown processing (we'll re-escape inline)
-    // Work on raw md instead
-    html = md;
-
-    // Tables (must come before other block rules)
-    html = html.replace(
+    // Tables
+    h = h.replace(
       /^\|(.+)\|\s*\n\|[-| :]+\|\s*\n((?:\|.+\|\s*\n?)*)/gm,
       (_, header, body) => {
-        const ths = header.split('|').filter(c => c.trim()).map(c => `<th>${escHtml(c.trim())}</th>`).join('');
-        const rows = body.trim().split('\n').map(row => {
-          if (!row.trim()) return '';
-          const tds = row.split('|').filter(c => c.trim() !== '' || row.split('|').length > 2)
-            .filter((_, i, a) => i > 0 && i < a.length - 1)
-            .map(c => `<td>${escHtml(c.trim())}</td>`).join('');
-          return `<tr>${tds}</tr>`;
+        const ths = header.split('|').filter(s => s.trim())
+          .map(s => `<th>${escHtml(s.trim())}</th>`).join('');
+        const rows = body.trim().split('\n').filter(Boolean).map(row => {
+          const cells = row.split('|').slice(1, -1)
+            .map(s => `<td>${escHtml(s.trim())}</td>`).join('');
+          return `<tr>${cells}</tr>`;
         }).join('');
         return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
       }
     );
 
     // Headings
-    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-    // Horizontal rule
-    html = html.replace(/^---$/gm, '<hr>');
+    h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    h = h.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+    h = h.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
 
     // Bold / italic
-    html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    h = h.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    h = h.replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>');
+    h = h.replace(/\*(.+?)\*/g,         '<em>$1</em>');
 
     // Inline code
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-    // Unordered lists
-    html = html.replace(/(^[-*] .+$(\n^[-*] .+$)*)/gm, block => {
+    // Lists
+    h = h.replace(/(^[-*] .+$(\n^[-*] .+$)*)/gm, block => {
       const items = block.split('\n').map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('');
       return `<ul>${items}</ul>`;
     });
-
-    // Ordered lists
-    html = html.replace(/(^\d+\. .+$(\n^\d+\. .+$)*)/gm, block => {
+    h = h.replace(/(^\d+\. .+$(\n^\d+\. .+$)*)/gm, block => {
       const items = block.split('\n').map(l => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('');
       return `<ol>${items}</ol>`;
     });
 
-    // Paragraphs: double newline
-    html = html.replace(/\n{2,}/g, '</p><p>');
-    html = html.replace(/\n/g, '<br>');
-    html = `<p>${html}</p>`;
+    // Paragraphs
+    h = h.replace(/\n{2,}/g, '</p><p>');
+    h = h.replace(/\n/g, '<br>');
+    h = `<p>${h}</p>`;
 
-    // Clean up empty paragraphs or paragraphs wrapping block elements
-    html = html.replace(/<p>(<(?:table|ul|ol|h[1-6]|hr)[^>]*>)/g, '$1');
-    html = html.replace(/(<\/(?:table|ul|ol|h[1-6]|hr)>)<\/p>/g, '$1');
-    html = html.replace(/<p><\/p>/g, '');
-    html = html.replace(/<p><br><\/p>/g, '');
+    // Clean up blocks wrapped in <p>
+    h = h.replace(/<p>(<(?:table|ul|ol|h[1-6])[^>]*>)/g, '$1');
+    h = h.replace(/(<\/(?:table|ul|ol|h[1-6])>)<\/p>/g, '$1');
+    h = h.replace(/<p><\/p>/g, '').replace(/<p><br><\/p>/g, '');
 
-    return html;
+    return h;
   }
 
-  function escHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Init ──────────────────────────────────────────
+  loadConvs();
+  renderSidebar();
+  if (convs.length) {
+    activeId = convs[0].id;
+    renderSidebar();
+    renderMessages();
+  } else {
+    showWelcome();
   }
 })();

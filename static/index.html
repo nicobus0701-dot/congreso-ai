@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Asistente Congreso Perú</title>
-  <meta name="theme-color" content="#1a1d27">
+  <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/static/manifest.json">
@@ -13,68 +13,60 @@
 </head>
 <body>
 
+<!-- Dot-wave background canvas -->
+<canvas id="bg-canvas"></canvas>
+
 <div class="layout">
 
   <!-- Sidebar -->
   <aside class="sidebar">
-    <div class="sidebar-logo">
-      <div class="logo-icon">🏛</div>
-      <div>
-        <div class="logo-title">Asistente</div>
-        <div class="logo-sub">Congreso del Perú</div>
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏛</span>
+        <span class="logo-name">Congreso IA</span>
+      </div>
+      <button id="new-chat-btn" title="Nueva conversación">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </button>
+    </div>
+
+    <nav class="chat-list" id="chat-list">
+      <!-- populated by JS -->
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="api-field">
+        <label class="api-label">API Key Groq</label>
+        <input type="password" id="api-key-input" class="api-input" placeholder="gsk_...">
+        <a href="https://console.groq.com" target="_blank" class="api-link">Obtén la tuya gratis →</a>
       </div>
     </div>
-
-    <div class="sidebar-section">
-      <div class="section-label">COMANDOS RÁPIDOS</div>
-      <button class="cmd-btn" data-cmd="Revisar proyectos de ley presentados en el Congreso">📋 Revisar proyectos</button>
-      <button class="cmd-btn" data-cmd="Revisar sesiones del Congreso">🎥 Revisar sesiones</button>
-      <button class="cmd-btn" data-cmd="Revisar agendas y convocatorias del Congreso">📅 Revisar agendas</button>
-      <button class="cmd-btn" data-cmd="Revisar destacados y citaciones del Congreso">📌 Revisar destacados</button>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="section-label">PORTALES OFICIALES</div>
-      <a class="link-btn" href="https://wb2server.congreso.gob.pe/spley-portal/#/expediente/search" target="_blank">📂 Proyectos de Ley</a>
-      <a class="link-btn" href="https://wb2server.congreso.gob.pe/visor-sesiones/#/" target="_blank">📺 Visor de Sesiones</a>
-      <a class="link-btn" href="https://www.congreso.gob.pe/home/" target="_blank">🏛 Portal Principal</a>
-      <a class="link-btn" href="https://www.youtube.com/@congresodelarepublicaperu" target="_blank">▶ YouTube Congreso</a>
-    </div>
-
-    <div class="sidebar-section api-section">
-      <div class="section-label">API KEY GROQ</div>
-      <input type="password" id="api-key-input" placeholder="gsk_..." class="api-input">
-      <div class="api-hint">Gratis en <a href="https://console.groq.com" target="_blank">console.groq.com</a></div>
-    </div>
-
-    <button class="clear-btn" id="clear-btn">🗑 Nueva conversación</button>
   </aside>
 
-  <!-- Main chat -->
+  <!-- Main -->
   <main class="main">
     <div class="chat-area" id="chat-area">
-      <div class="welcome">
-        <div class="welcome-icon">🏛</div>
-        <h1>Asistente del Congreso</h1>
-        <p>Organizo información parlamentaria en tablas listas para copiar a Word.<br>
-        Usa los comandos de la izquierda o escribe directamente.</p>
-        <div class="welcome-tips">
-          <div class="tip">💡 Puedes <strong>pegar información</strong> del portal del Congreso y te la organizo en tabla</div>
-          <div class="tip">💡 Las tablas generadas se pueden <strong>copiar directo a Word</strong></div>
-        </div>
-      </div>
+      <!-- welcome or messages inserted here by JS -->
     </div>
 
     <div class="input-area">
+      <div id="cmd-chips" class="cmd-chips">
+        <button class="chip" data-cmd="Revisar proyectos de ley del Congreso">📋 Proyectos de ley</button>
+        <button class="chip" data-cmd="Revisar sesiones del Congreso">🎥 Sesiones</button>
+        <button class="chip" data-cmd="Revisar agendas del Congreso">📅 Agendas</button>
+        <button class="chip" data-cmd="Revisar destacados del Congreso">📌 Destacados</button>
+      </div>
       <div class="input-wrap">
-        <textarea id="msg-input" placeholder="Escribe tu consulta o pega información del Congreso..." rows="1"></textarea>
-        <button id="send-btn">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        <textarea id="msg-input" placeholder="Escribe un mensaje..." rows="1"></textarea>
+        <button id="send-btn" disabled>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+            <path d="M12 3l8 18-8-4-8 4z"/>
           </svg>
         </button>
       </div>
-      <div class="input-hint">Enter para enviar · Shift+Enter para nueva línea</div>
+      <p class="input-hint">Enter para enviar · Shift+Enter para nueva línea</p>
     </div>
   </main>
 
