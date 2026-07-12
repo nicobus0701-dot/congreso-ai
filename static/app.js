@@ -240,8 +240,18 @@
 
   // ── Chat send ─────────────────────────────────────
   async function send(textOverride) {
-    const text = (textOverride || msgInput.value).trim();
+    let text = (textOverride || msgInput.value).trim();
     if (!text || streaming) return;
+
+    // Modo fact check: añadir prefijo y desactivar modo
+    if (factcheckMode && !textOverride) {
+      text = `FACT CHECK — verifica esta afirmación usando tus herramientas y proporciona el enlace directo a la fuente oficial: "${text}"`;
+      factcheckMode = false;
+      msgInput.placeholder = 'Escribe un mensaje…';
+      factcheckBtn.style.background  = '';
+      factcheckBtn.style.color       = '';
+      factcheckBtn.style.borderColor = '';
+    }
 
     // Create conversation if none active
     if (!activeId || !getActive()) newChat();
@@ -457,7 +467,29 @@
   });
 
   document.querySelectorAll('.chip').forEach(btn => {
+    if (btn.id === 'factcheck-btn') return;
     btn.addEventListener('click', () => { if (!streaming) send(btn.dataset.cmd); });
+  });
+
+  // Fact Check: cambia el placeholder y envía con prefijo especial
+  const factcheckBtn = document.getElementById('factcheck-btn');
+  let factcheckMode  = false;
+
+  factcheckBtn.addEventListener('click', () => {
+    if (streaming) return;
+    factcheckMode = !factcheckMode;
+    if (factcheckMode) {
+      msgInput.placeholder = '✓ Escribe la afirmación a verificar…';
+      factcheckBtn.style.background = 'var(--black)';
+      factcheckBtn.style.color      = 'var(--white)';
+      factcheckBtn.style.borderColor = 'var(--black)';
+      msgInput.focus();
+    } else {
+      msgInput.placeholder = 'Escribe un mensaje…';
+      factcheckBtn.style.background  = '';
+      factcheckBtn.style.color       = '';
+      factcheckBtn.style.borderColor = '';
+    }
   });
 
   // ── Markdown parser ───────────────────────────────
@@ -483,6 +515,13 @@
     h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
     h = h.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
     h = h.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+
+    // Links
+    h = h.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    // Plain URLs
+    h = h.replace(/(^|[\s>])(https?:\/\/[^\s<]+)/g,
+      '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
 
     // Bold / italic
     h = h.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');

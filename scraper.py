@@ -119,15 +119,19 @@ async def fetch_proyectos(autor=None, comision=None, numero=None,
         }
 
 
+SPLEY_PORTAL = "https://wb2server.congreso.gob.pe/spley-portal/#/expediente"
+
 def _format_proyectos(items):
     out = []
     for p in items:
+        num = p.get("pleyNum") or ""
         out.append({
-            "numero":   p.get("proyectoLey") or p.get("pleyNum") or "",
+            "numero":   p.get("proyectoLey") or num or "",
             "fecha":    _fmt_date(p.get("fecPresentacion") or ""),
             "estado":   p.get("desEstado") or "",
             "sumilla":  (p.get("titulo") or "")[:140],
             "autor":    (p.get("autores") or p.get("desProponente") or "")[:120],
+            "enlace":   f"{SPLEY_PORTAL}/{num}" if num else f"{SPLEY_PORTAL}/search",
         })
     return {"fuente": "SPLEY — api.congreso.gob.pe",
             "total": len(out), "items": out}

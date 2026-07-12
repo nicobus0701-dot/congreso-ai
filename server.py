@@ -31,6 +31,15 @@ Formato de respuesta según tipo:
 - Sesiones/Agenda  → lista detallada: título en negrita, fecha, resumen del contenido
 - Destacados/Noticias → lista: **Título** (Fecha) — resumen en 2-3 oraciones
 
+MODO FACT CHECK — cuando el usuario pida verificar una afirmación:
+1. Usa las herramientas para buscar datos que confirmen o contradigan la afirmación.
+2. Responde con un veredicto claro:
+   - ✅ CONFIRMADO — si los datos lo respaldan
+   - ❌ FALSO — si los datos lo contradicen
+   - ⚠️ NO VERIFICABLE — si no hay datos suficientes
+3. SIEMPRE incluye el enlace directo a la fuente oficial donde aparece la información (campo "enlace" de cada item).
+4. Cita textualmente el dato que confirma o contradice la afirmación.
+
 Habla siempre en español. Sé detallado, útil y directo."""
 
 TOOLS = [
