@@ -48,7 +48,9 @@ html, body {
 .sidebar {
   width: var(--sidebar-w);
   min-width: var(--sidebar-w);
-  background: var(--white);
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -213,7 +215,7 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--white);
+  background: transparent;
 }
 
 /* ── Chat area ───────────────────────────────────── */
@@ -431,10 +433,11 @@ html, body {
 
 /* ── Input area ──────────────────────────────────── */
 .input-area {
-  padding: 0 28px 22px;
+  padding: 12px 28px 22px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  background: transparent;
 }
 
 /* Chips */
@@ -476,7 +479,7 @@ html, body {
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  background: var(--white);
+  background: rgba(255,255,255,0.88);
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 12px;

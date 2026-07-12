@@ -1,65 +1,73 @@
 (() => {
-  // ── Canvas — puntitos flotantes grises ───────────
+  // ── Canvas — grid gris que se ilumina con el cursor ──
   const canvas = document.getElementById('bg-canvas');
   const ctx    = canvas.getContext('2d');
 
-  const N_DOTS   = 90;
-  const CURSOR_R = 190;
-
-  let dots   = [];
-  let mouseX = -9999, mouseY = -9999;
+  const GRID = 48;   // tamaño de celda
   let W = 0, H = 0;
-
-  function makeDots() {
-    dots = Array.from({ length: N_DOTS }, () => ({
-      x:     Math.random() * W,
-      y:     Math.random() * H,
-      vx:    (Math.random() - 0.5) * 0.28,
-      vy:    (Math.random() - 0.5) * 0.28,
-      r:     2.2 + Math.random() * 2.4,   // más grandes
-      phase: Math.random() * Math.PI * 2,
-      freq:  0.2 + Math.random() * 0.3,
-      prox:  0,
-    }));
-  }
+  let mx = -9999, my = -9999;  // posición suavizada del cursor
+  let tx = -9999, ty = -9999;  // posición real del cursor
 
   function resizeCanvas() {
     W = canvas.width  = window.innerWidth;
     H = canvas.height = window.innerHeight;
-    makeDots(); // siempre reconstruir
+  }
+
+  function drawGrid() {
+    ctx.beginPath();
+    for (let x = 0; x <= W + GRID; x += GRID) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+    }
+    for (let y = 0; y <= H + GRID; y += GRID) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+    }
+    ctx.stroke();
   }
 
   function frame() {
-    const t = performance.now() / 1000;
+    // Suavizar movimiento del cursor (lag fluido)
+    mx += (tx - mx) * 0.10;
+    my += (ty - my) * 0.10;
+
     ctx.clearRect(0, 0, W, H);
+    ctx.lineWidth = 1;
 
-    for (const d of dots) {
-      d.x += d.vx + Math.sin(t * d.freq + d.phase)       * 0.09;
-      d.y += d.vy + Math.cos(t * d.freq + d.phase + 1.4) * 0.09;
+    // 1. Grid base — gris muy suave
+    ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+    drawGrid();
 
-      if (d.x < -10) d.x = W + 10;
-      if (d.x > W+10) d.x = -10;
-      if (d.y < -10) d.y = H + 10;
-      if (d.y > H+10) d.y = -10;
+    // 2. Iluminación pequeña cerca del cursor (3 halos chicos)
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(mx, my, 90, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+    drawGrid();
+    ctx.restore();
 
-      const dist   = Math.hypot(d.x - mouseX, d.y - mouseY);
-      const target = Math.max(0, 1 - dist / CURSOR_R);
-      d.prox      += (target - d.prox) * 0.09;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(mx, my, 50, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    drawGrid();
+    ctx.restore();
 
-      const alpha  = 0.18 + d.prox * 0.65;  // más visible
-      const radius = d.r  + d.prox * 3.5;
-
-      ctx.beginPath();
-      ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`;
-      ctx.fill();
-    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(mx, my, 22, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    drawGrid();
+    ctx.restore();
 
     requestAnimationFrame(frame);
   }
 
   window.addEventListener('resize',    resizeCanvas);
-  window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+  window.addEventListener('mousemove', e => { tx = e.clientX; ty = e.clientY; });
   resizeCanvas();
   requestAnimationFrame(frame);
 
