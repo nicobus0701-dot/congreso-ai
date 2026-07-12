@@ -1,132 +1,68 @@
 (() => {
-  // ── Canvas — constelación magnética ──────────────
+  // ── Canvas — puntitos flotantes grises ───────────
   const canvas = document.getElementById('bg-canvas');
   const ctx    = canvas.getContext('2d');
 
-  const GRID  = 52;   // separación entre puntos
-  const R0    = 1.6;  // radio base del punto
-  const RMAX  = 4.5;  // radio máximo cerca del cursor
-  const CR    = 230;  // radio de influencia del cursor
-  const PULL  = 20;   // fuerza magnética (px)
-  const LMAX  = GRID * 1.55; // largo máximo de línea
-  const LERP  = 0.10; // suavidad de movimiento
+  const N_DOTS  = 72;
+  const CURSOR_R = 170;
 
-  let COLS = 0, ROWS = 0;
   let dots   = [];
   let mouseX = -9999, mouseY = -9999;
-  let bursts = [];
+  let W = 0, H = 0;
 
-  function buildDots() {
-    COLS = Math.ceil(canvas.width  / GRID) + 2;
-    ROWS = Math.ceil(canvas.height / GRID) + 2;
-    dots = [];
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const ox = col * GRID;
-        const oy = row * GRID;
-        dots.push({ ox, oy, cx: ox, cy: oy, row, col });
-      }
-    }
+  function makeDots() {
+    dots = Array.from({ length: N_DOTS }, () => ({
+      x:     Math.random() * W,
+      y:     Math.random() * H,
+      vx:    (Math.random() - 0.5) * 0.22,
+      vy:    (Math.random() - 0.5) * 0.22,
+      r:     1.4 + Math.random() * 1.8,
+      phase: Math.random() * Math.PI * 2,
+      freq:  0.25 + Math.random() * 0.35,
+      // smooth color target
+      prox:  0,
+    }));
   }
 
   function resizeCanvas() {
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
-    buildDots();
-  }
-
-  function getDot(row, col) {
-    if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return null;
-    return dots[row * COLS + col];
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    if (!dots.length) makeDots();
+    else {
+      // reposition dots that are now outside
+      dots.forEach(d => {
+        d.x = Math.min(d.x, W);
+        d.y = Math.min(d.y, H);
+      });
+    }
   }
 
   function frame() {
-    const W = canvas.width, H = canvas.height;
+    const t = performance.now() / 1000;
     ctx.clearRect(0, 0, W, H);
-    const now = performance.now();
-    bursts = bursts.filter(b => now - b.t < 900);
 
-    // 1. Mover puntos (imán + repulsión de click)
     for (const d of dots) {
-      const dx = mouseX - d.ox, dy = mouseY - d.oy;
-      const md = Math.hypot(dx, dy);
-      let tx = d.ox, ty = d.oy;
+      // Organic float: base drift + gentle sine oscillation
+      d.x += d.vx + Math.sin(t * d.freq + d.phase)       * 0.07;
+      d.y += d.vy + Math.cos(t * d.freq + d.phase + 1.2) * 0.07;
 
-      // Atracción hacia el cursor
-      if (md < CR && md > 1) {
-        const f = (1 - md / CR) * PULL;
-        tx += (dx / md) * f;
-        ty += (dy / md) * f;
-      }
+      // Wrap around edges softly
+      if (d.x < -8)  d.x = W + 8;
+      if (d.x > W+8) d.x = -8;
+      if (d.y < -8)  d.y = H + 8;
+      if (d.y > H+8) d.y = -8;
 
-      // Onda de repulsión al hacer click
-      for (const b of bursts) {
-        const bd  = Math.hypot(d.ox - b.x, d.oy - b.y);
-        const pr  = (now - b.t) / 900;
-        const rng = pr * 320;
-        const df  = Math.abs(bd - rng);
-        if (df < 45) {
-          const f   = (1 - df / 45) * (1 - pr) * 28;
-          const ang = Math.atan2(d.oy - b.y, d.ox - b.x);
-          tx += Math.cos(ang) * f;
-          ty += Math.sin(ang) * f;
-        }
-      }
+      // Cursor proximity → smoothly interpolate toward black
+      const dist    = Math.hypot(d.x - mouseX, d.y - mouseY);
+      const target  = Math.max(0, 1 - dist / CURSOR_R);
+      d.prox       += (target - d.prox) * 0.08;  // smooth
 
-      d.cx += (tx - d.cx) * LERP;
-      d.cy += (ty - d.cy) * LERP;
-    }
-
-    // 2. Dibujar líneas entre vecinos del grid (solo cerca del cursor)
-    ctx.lineWidth = 0.9;
-    for (const d of dots) {
-      const dDist = Math.hypot(d.cx - mouseX, d.cy - mouseY);
-      if (dDist > CR * 1.5) continue;
-
-      // 4 vecinos: derecha, abajo, diagonal-derecha, diagonal-izquierda
-      const neighbors = [
-        getDot(d.row,     d.col + 1),
-        getDot(d.row + 1, d.col),
-        getDot(d.row + 1, d.col + 1),
-        getDot(d.row + 1, d.col - 1),
-      ];
-
-      for (const n of neighbors) {
-        if (!n) continue;
-        const nDist   = Math.hypot(n.cx - mouseX, n.cy - mouseY);
-        const closest = Math.min(dDist, nDist);
-        if (closest > CR * 1.5) continue;
-        const ld = Math.hypot(d.cx - n.cx, d.cy - n.cy);
-        if (ld > LMAX) continue;
-
-        const a = (1 - closest / (CR * 1.5)) * (1 - ld / LMAX) * 0.32;
-        ctx.globalAlpha = a;
-        ctx.strokeStyle = '#000';
-        ctx.beginPath();
-        ctx.moveTo(d.cx, d.cy);
-        ctx.lineTo(n.cx, n.cy);
-        ctx.stroke();
-      }
-    }
-    ctx.globalAlpha = 1;
-
-    // 3. Dibujar puntos
-    for (const d of dots) {
-      const dist = Math.hypot(d.cx - mouseX, d.cy - mouseY);
-      const prox = Math.max(0, 1 - dist / CR);
-
-      let extra = 0;
-      for (const b of bursts) {
-        const bd  = Math.hypot(d.ox - b.x, d.oy - b.y);
-        const pr  = (now - b.t) / 900;
-        const rng = pr * 320;
-        const df  = Math.abs(bd - rng);
-        if (df < 45) extra = Math.max(extra, (1 - df/45) * (1 - pr) * 5);
-      }
+      const alpha  = 0.10 + d.prox * 0.55;
+      const radius = d.r  + d.prox * 2.2;
 
       ctx.beginPath();
-      ctx.arc(d.cx, d.cy, R0 + prox * RMAX + extra, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0,0,0,${(0.07 + prox * 0.38 + extra * 0.08).toFixed(3)})`;
+      ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`;
       ctx.fill();
     }
 
@@ -135,7 +71,6 @@
 
   window.addEventListener('resize',    resizeCanvas);
   window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
-  window.addEventListener('click',     e => bursts.push({ x: e.clientX, y: e.clientY, t: performance.now() }));
   resizeCanvas();
   requestAnimationFrame(frame);
 
@@ -289,7 +224,14 @@
         </svg>
         <h1>¿En qué te puedo ayudar?</h1>
         <p>Organizo información parlamentaria en tablas listas para copiar a Word.</p>
+        <div class="typewriter-wrap">
+          <span class="tw-label">Puedes preguntarme:</span>
+          <div class="tw-box">
+            <span id="tw-text"></span><span class="tw-cursor"></span>
+          </div>
+        </div>
       </div>`;
+    startTypewriter();
     cmdChips.style.display = 'flex';
   }
 
@@ -457,6 +399,54 @@
       });
       wrap.appendChild(btn);
     });
+  }
+
+  // ── Typewriter decoration ─────────────────────────
+  const TW_PHRASES = [
+    "¿Cuáles son los proyectos de ley de esta semana?",
+    "Busca proyectos sobre educación superior",
+    "¿Qué sesiones hay programadas hoy?",
+    "Muéstrame la agenda parlamentaria",
+    "Proyectos presentados por el congresista García",
+    "¿Qué comisiones sesionan esta semana?",
+    "Organiza los destacados en tabla",
+    "¿Cuáles son los últimos dictámenes aprobados?",
+    "Resumen de sesiones de la comisión de salud",
+  ];
+
+  let _twTimer = null;
+
+  function startTypewriter() {
+    clearTimeout(_twTimer);
+    const el = document.getElementById('tw-text');
+    if (!el) return;
+    let pi = 0, ci = 0, deleting = false;
+
+    function tick() {
+      const live = document.getElementById('tw-text');
+      if (!live) return; // welcome screen gone
+      const phrase = TW_PHRASES[pi];
+      if (!deleting) {
+        ci++;
+        live.textContent = phrase.slice(0, ci);
+        if (ci === phrase.length) {
+          _twTimer = setTimeout(() => { deleting = true; tick(); }, 2200);
+          return;
+        }
+        _twTimer = setTimeout(tick, 42 + Math.random() * 28);
+      } else {
+        ci--;
+        live.textContent = phrase.slice(0, ci);
+        if (ci === 0) {
+          deleting = false;
+          pi = (pi + 1) % TW_PHRASES.length;
+          _twTimer = setTimeout(tick, 380);
+          return;
+        }
+        _twTimer = setTimeout(tick, 22);
+      }
+    }
+    _twTimer = setTimeout(tick, 900);
   }
 
   // ── Events ────────────────────────────────────────
