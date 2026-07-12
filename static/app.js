@@ -1,24 +1,31 @@
 (() => {
-  // ── Canvas dot-wave ──────────────────────────────
+  // ── Canvas — constellation + magnetic dots ────────
   const canvas = document.getElementById('bg-canvas');
   const ctx    = canvas.getContext('2d');
-  const SPACING    = 28;
-  const DOT_BASE   = 1.2;
-  const DOT_MAX    = 4.2;
-  const WAVE_R     = 180;
-  const WAVE_LEN   = 34;
-  const WAVE_SPEED = 2.0;
 
-  let dots = [], mouseX = -999, mouseY = -999;
-  let clicks = []; // burst effects on click
+  const GRID      = 46;   // dot spacing
+  const DOT_R     = 1.4;  // base radius
+  const PULL_R    = 200;  // cursor magnetic radius
+  const PULL_STR  = 14;   // max pixel pull
+  const LINE_R    = 90;   // max line length between dots
+  const LERP      = 0.07; // smoothing speed
+  const BURST_DUR = 800;  // click burst ms
+
+  let dots = [];
+  let mouseX = -9999, mouseY = -9999;
+  let bursts = [];
 
   function buildDots() {
     dots = [];
-    const cols = Math.ceil(canvas.width  / SPACING) + 1;
-    const rows = Math.ceil(canvas.height / SPACING) + 1;
-    for (let r = 0; r < rows; r++)
-      for (let c = 0; c < cols; c++)
-        dots.push({ x: c * SPACING, y: r * SPACING });
+    const cols = Math.ceil(canvas.width  / GRID) + 2;
+    const rows = Math.ceil(canvas.height / GRID) + 2;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const ox = c * GRID;
+        const oy = r * GRID;
+        dots.push({ ox, oy, cx: ox, cy: oy, r: c, c: r });
+      }
+    }
   }
 
   function resizeCanvas() {
@@ -27,65 +34,104 @@
     buildDots();
   }
 
-  function drawDots() {
+  function frame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const t  = performance.now() / 1000;
     const now = performance.now();
+    bursts = bursts.filter(b => now - b.t < BURST_DUR);
 
-    // Expire old clicks
-    clicks = clicks.filter(c => now - c.t < 900);
-
+    // ── Update dot positions (magnetic pull toward cursor) ──
     for (const d of dots) {
-      const dist = Math.hypot(d.x - mouseX, d.y - mouseY);
-      let r     = DOT_BASE;
-      let color = [0, 0, 0];
-      let alpha = 0.055;
-
-      // Cursor wave
-      if (dist < WAVE_R) {
-        const phase   = dist / WAVE_LEN - t * WAVE_SPEED;
-        const wave    = (Math.sin(phase * Math.PI * 2) + 1) / 2;
-        const falloff = Math.pow(1 - dist / WAVE_R, 1.8);
-        const energy  = wave * falloff;
-        r     += DOT_MAX * energy;
-        // shift color toward indigo as energy grows
-        const p = Math.min(1, energy * 1.6);
-        color = [
-          Math.round(99  * p),   // R
-          Math.round(102 * p),   // G
-          Math.round(241 * p),   // B
-        ];
-        alpha = 0.055 + 0.22 * energy;
+      const dx   = mouseX - d.ox;
+      const dy   = mouseY - d.oy;
+      const dist = Math.hypot(dx, dy);
+      let tx = d.ox, ty = d.oy;
+      if (dist < PULL_R && dist > 0) {
+        const pull = (1 - dist / PULL_R) * PULL_STR;
+        tx = d.ox + (dx / dist) * pull;
+        ty = d.oy + (dy / dist) * pull;
       }
-
-      // Click burst rings
-      for (const ck of clicks) {
-        const cd    = Math.hypot(d.x - ck.x, d.y - ck.y);
-        const prog  = (now - ck.t) / 900;              // 0→1
-        const ring  = prog * 260;                       // expanding ring radius
-        const diff  = Math.abs(cd - ring);
-        if (diff < 18) {
-          const burst = Math.pow(1 - diff / 18, 2) * (1 - prog);
-          r    = Math.max(r, DOT_BASE + 5 * burst);
-          alpha = Math.max(alpha, 0.35 * burst);
-          color = [139, 92, 246]; // purple burst
+      // Burst repulsion
+      for (const b of bursts) {
+        const bd   = Math.hypot(d.ox - b.x, d.oy - b.y);
+        const prog = (now - b.t) / BURST_DUR;
+        const ring = prog * 280;
+        if (Math.abs(bd - ring) < 40) {
+          const force = (1 - Math.abs(bd - ring) / 40) * (1 - prog) * 22;
+          const ang   = Math.atan2(d.oy - b.y, d.ox - b.x);
+          tx += Math.cos(ang) * force;
+          ty += Math.sin(ang) * force;
         }
+      }
+      d.cx += (tx - d.cx) * LERP;
+      d.cy += (ty - d.cy) * LERP;
+    }
+
+    // ── Draw lines between nearby dots near cursor ──────────
+    ctx.save();
+    for (let i = 0; i < dots.length; i++) {
+      const a = dots[i];
+      const aDist = Math.hypot(a.cx - mouseX, a.cy - mouseY);
+      if (aDist > PULL_R * 1.4) continue;
+
+      // Only check grid neighbors (up to 2 steps away) for performance
+      const nc = a.c, nr = a.r;
+      const cols = Math.ceil(canvas.width / GRID) + 2;
+
+      const neighbors = [
+        [nc+1, nr], [nc, nr+1], [nc+1, nr+1], [nc-1, nr+1]
+      ];
+      for (const [nc2, nr2] of neighbors) {
+        const idx = nr2 * cols + nc2;
+        if (idx < 0 || idx >= dots.length) continue;
+        const b = dots[idx];
+        const lineDist = Math.hypot(a.cx - b.cx, a.cy - b.cy);
+        if (lineDist > LINE_R) continue;
+        const bDist   = Math.hypot(b.cx - mouseX, b.cy - mouseY);
+        const closest = Math.min(aDist, bDist);
+        if (closest > PULL_R * 1.4) continue;
+        const lineAlpha = (1 - lineDist / LINE_R) * (1 - closest / (PULL_R * 1.4)) * 0.28;
+        ctx.globalAlpha = lineAlpha;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth   = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(a.cx, a.cy);
+        ctx.lineTo(b.cx, b.cy);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
+    // ── Draw dots ───────────────────────────────────────────
+    for (const d of dots) {
+      const dist  = Math.hypot(d.cx - mouseX, d.cy - mouseY);
+      const prox  = Math.max(0, 1 - dist / PULL_R);
+      const r     = DOT_R + prox * 2.8;
+      const alpha = 0.08 + prox * 0.28;
+
+      // Burst glow
+      let burst = 0;
+      for (const b of bursts) {
+        const bd   = Math.hypot(d.ox - b.x, d.oy - b.y);
+        const prog = (now - b.t) / BURST_DUR;
+        const ring = prog * 280;
+        const diff = Math.abs(bd - ring);
+        if (diff < 36) burst = Math.max(burst, Math.pow(1 - diff/36, 2) * (1 - prog));
       }
 
       ctx.beginPath();
-      ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)})`;
+      ctx.arc(d.cx, d.cy, r + burst * 4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0,0,0,${Math.min(1, alpha + burst * 0.5).toFixed(3)})`;
       ctx.fill();
     }
 
-    requestAnimationFrame(drawDots);
+    requestAnimationFrame(frame);
   }
 
-  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('resize',    resizeCanvas);
   window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
-  window.addEventListener('click',     e => { clicks.push({ x: e.clientX, y: e.clientY, t: performance.now() }); });
+  window.addEventListener('click',     e => bursts.push({ x: e.clientX, y: e.clientY, t: performance.now() }));
   resizeCanvas();
-  requestAnimationFrame(drawDots);
+  requestAnimationFrame(frame);
 
   // ── DOM refs ─────────────────────────────────────
   const chatArea  = document.getElementById('chat-area');
@@ -125,9 +171,14 @@
   }
 
   function switchConv(id) {
-    activeId = id;
-    renderSidebar();
-    renderMessages();
+    if (id === activeId) return;
+    chatArea.classList.add('fading');
+    setTimeout(() => {
+      activeId = id;
+      renderSidebar();
+      renderMessages();
+      chatArea.classList.remove('fading');
+    }, 160);
   }
 
   function deleteConv(id, e) {
@@ -168,10 +219,18 @@
         el.className = 'chat-item' + (c.id === activeId ? ' active' : '');
         el.dataset.id = c.id;
         el.innerHTML = `
-          <span class="chat-item-icon">💬</span>
+          <span class="chat-item-icon">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 4h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7l-4 2V5a1 1 0 0 1 1-1z"/>
+            </svg>
+          </span>
           <span class="chat-item-title">${escHtml(c.title)}</span>
           <button class="chat-item-del" title="Eliminar">✕</button>`;
-        el.addEventListener('click', () => switchConv(c.id));
+        el.addEventListener('click', () => {
+          el.classList.add('clicking');
+          el.addEventListener('animationend', () => el.classList.remove('clicking'), { once: true });
+          switchConv(c.id);
+        });
         el.querySelector('.chat-item-del').addEventListener('click', ev => deleteConv(c.id, ev));
         chatList.appendChild(el);
       }
@@ -196,7 +255,13 @@
   function showWelcome() {
     chatArea.innerHTML = `
       <div class="welcome">
-        <div class="welcome-icon">🏛</div>
+        <svg class="welcome-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="8" y="54" width="48" height="6" rx="1.5"/>
+          <rect x="13" y="24" width="7" height="30" rx="1.5"/>
+          <rect x="28.5" y="24" width="7" height="30" rx="1.5"/>
+          <rect x="44" y="24" width="7" height="30" rx="1.5"/>
+          <path d="M4 24h56M32 6L4 24h56L32 6z"/>
+        </svg>
         <h1>¿En qué te puedo ayudar?</h1>
         <p>Organizo información parlamentaria en tablas listas para copiar a Word.</p>
       </div>`;
@@ -302,12 +367,13 @@
   }
 
   // ── DOM helpers ───────────────────────────────────
+  const SVG_USER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`;
+  const SVG_BOT  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="20" width="18" height="2" rx=".5"/><rect x="5" y="9" width="3" height="11" rx=".5"/><rect x="10.5" y="9" width="3" height="11" rx=".5"/><rect x="16" y="9" width="3" height="11" rx=".5"/><path d="M1 9h22M12 2L1 9h22L12 2z"/></svg>`;
+
   function appendUserBubble(text) {
     const d = document.createElement('div');
     d.className = 'message user';
-    d.innerHTML = `
-      <div class="msg-avatar">👤</div>
-      <div class="msg-content">${escHtml(text)}</div>`;
+    d.innerHTML = `<div class="msg-avatar">${SVG_USER}</div><div class="msg-content">${escHtml(text)}</div>`;
     chatArea.appendChild(d);
     scrollBottom();
   }
@@ -316,7 +382,7 @@
     const d = document.createElement('div');
     d.className = 'message assistant';
     d.innerHTML = `
-      <div class="msg-avatar">🏛</div>
+      <div class="msg-avatar">${SVG_BOT}</div>
       <div class="msg-content">
         <span class="typing-dot"></span>
         <span class="typing-dot"></span>
@@ -330,7 +396,7 @@
   function appendAssistantBubble(md) {
     const d = document.createElement('div');
     d.className = 'message assistant';
-    d.innerHTML = `<div class="msg-avatar">🏛</div><div class="msg-content"></div>`;
+    d.innerHTML = `<div class="msg-avatar">${SVG_BOT}</div><div class="msg-content"></div>`;
     chatArea.appendChild(d);
     const el = d.querySelector('.msg-content');
     renderContent(el, md);
