@@ -3,55 +3,56 @@
   const canvas = document.getElementById('bg-canvas');
   const ctx    = canvas.getContext('2d');
 
-  const GRID      = 48;
-  const SIDEBAR_W = 260; // mismo que CSS --sidebar-w
+  const GRID = 48;
   let W = 0, H = 0;
   let mx = -9999, my = -9999;
   let tx = -9999, ty = -9999;
+  let sidebarW = 260; // se actualiza dinámicamente
 
   function resizeCanvas() {
     W = canvas.width  = window.innerWidth;
     H = canvas.height = window.innerHeight;
   }
 
-  function drawGrid() {
+  function drawGrid(sw) {
     ctx.beginPath();
-    for (let x = SIDEBAR_W; x <= W + GRID; x += GRID) {
+    for (let x = sw; x <= W + GRID; x += GRID) {
       ctx.moveTo(x, 0);
       ctx.lineTo(x, H);
     }
     for (let y = 0; y <= H + GRID; y += GRID) {
-      ctx.moveTo(SIDEBAR_W, y);
+      ctx.moveTo(sw, y);
       ctx.lineTo(W, y);
     }
     ctx.stroke();
   }
 
   function frame() {
+    // Leer ancho real del sidebar en cada frame
+    const sidebarEl = document.querySelector('.sidebar');
+    sidebarW = sidebarEl ? sidebarEl.getBoundingClientRect().width : 260;
+
     mx += (tx - mx) * 0.14;
     my += (ty - my) * 0.14;
 
     ctx.clearRect(0, 0, W, H);
 
-    // Todo el dibujo clipeado al área principal (sin sidebar)
     ctx.save();
     ctx.beginPath();
-    ctx.rect(SIDEBAR_W, 0, W - SIDEBAR_W, H);
+    ctx.rect(sidebarW, 0, W - sidebarW, H);
     ctx.clip();
     ctx.lineWidth = 1;
 
-    // Grid gris base
     ctx.strokeStyle = 'rgba(0,0,0,0.07)';
-    drawGrid();
+    drawGrid(sidebarW);
 
-    // Iluminación del tamaño del cursor — 3 círculos muy pequeños
-    if (mx > SIDEBAR_W) {
+    if (mx > sidebarW) {
       ctx.save();
       ctx.beginPath();
       ctx.arc(mx, my, 28, 0, Math.PI * 2);
       ctx.clip();
       ctx.strokeStyle = 'rgba(0,0,0,0.30)';
-      drawGrid();
+      drawGrid(sidebarW);
       ctx.restore();
 
       ctx.save();
@@ -59,7 +60,7 @@
       ctx.arc(mx, my, 14, 0, Math.PI * 2);
       ctx.clip();
       ctx.strokeStyle = 'rgba(0,0,0,0.60)';
-      drawGrid();
+      drawGrid(sidebarW);
       ctx.restore();
 
       ctx.save();
@@ -67,12 +68,11 @@
       ctx.arc(mx, my, 6, 0, Math.PI * 2);
       ctx.clip();
       ctx.strokeStyle = 'rgba(0,0,0,0.90)';
-      drawGrid();
+      drawGrid(sidebarW);
       ctx.restore();
     }
 
-    ctx.restore(); // fin clip sidebar
-
+    ctx.restore();
     requestAnimationFrame(frame);
   }
 
