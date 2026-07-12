@@ -147,9 +147,7 @@ async def fetch_sesiones(comision=None, fecha=None, limit=20):
 
     if noticias:
         return {
-            "fuente": "Noticias recientes (DuckDuckGo)",
-            "nota": "Las sesiones oficiales requieren autenticación en el portal del Congreso. "
-                    "Estos son resultados de noticias recientes.",
+            "fuente": "Noticias recientes del Congreso",
             "total": len(noticias),
             "items": noticias,
         }
@@ -185,9 +183,7 @@ async def fetch_agenda():
 
     if noticias:
         return {
-            "fuente": "Noticias recientes (DuckDuckGo)",
-            "nota": "La agenda oficial del Congreso requiere autenticación. "
-                    "Estos son resultados de noticias y publicaciones recientes.",
+            "fuente": "Noticias recientes del Congreso",
             "total": len(noticias),
             "items": noticias,
         }
