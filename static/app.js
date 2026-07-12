@@ -3,8 +3,8 @@
   const canvas = document.getElementById('bg-canvas');
   const ctx    = canvas.getContext('2d');
 
-  const N_DOTS  = 72;
-  const CURSOR_R = 170;
+  const N_DOTS   = 90;
+  const CURSOR_R = 190;
 
   let dots   = [];
   let mouseX = -9999, mouseY = -9999;
@@ -14,12 +14,11 @@
     dots = Array.from({ length: N_DOTS }, () => ({
       x:     Math.random() * W,
       y:     Math.random() * H,
-      vx:    (Math.random() - 0.5) * 0.22,
-      vy:    (Math.random() - 0.5) * 0.22,
-      r:     1.4 + Math.random() * 1.8,
+      vx:    (Math.random() - 0.5) * 0.28,
+      vy:    (Math.random() - 0.5) * 0.28,
+      r:     2.2 + Math.random() * 2.4,   // más grandes
       phase: Math.random() * Math.PI * 2,
-      freq:  0.25 + Math.random() * 0.35,
-      // smooth color target
+      freq:  0.2 + Math.random() * 0.3,
       prox:  0,
     }));
   }
@@ -27,14 +26,7 @@
   function resizeCanvas() {
     W = canvas.width  = window.innerWidth;
     H = canvas.height = window.innerHeight;
-    if (!dots.length) makeDots();
-    else {
-      // reposition dots that are now outside
-      dots.forEach(d => {
-        d.x = Math.min(d.x, W);
-        d.y = Math.min(d.y, H);
-      });
-    }
+    makeDots(); // siempre reconstruir
   }
 
   function frame() {
@@ -42,23 +34,20 @@
     ctx.clearRect(0, 0, W, H);
 
     for (const d of dots) {
-      // Organic float: base drift + gentle sine oscillation
-      d.x += d.vx + Math.sin(t * d.freq + d.phase)       * 0.07;
-      d.y += d.vy + Math.cos(t * d.freq + d.phase + 1.2) * 0.07;
+      d.x += d.vx + Math.sin(t * d.freq + d.phase)       * 0.09;
+      d.y += d.vy + Math.cos(t * d.freq + d.phase + 1.4) * 0.09;
 
-      // Wrap around edges softly
-      if (d.x < -8)  d.x = W + 8;
-      if (d.x > W+8) d.x = -8;
-      if (d.y < -8)  d.y = H + 8;
-      if (d.y > H+8) d.y = -8;
+      if (d.x < -10) d.x = W + 10;
+      if (d.x > W+10) d.x = -10;
+      if (d.y < -10) d.y = H + 10;
+      if (d.y > H+10) d.y = -10;
 
-      // Cursor proximity → smoothly interpolate toward black
-      const dist    = Math.hypot(d.x - mouseX, d.y - mouseY);
-      const target  = Math.max(0, 1 - dist / CURSOR_R);
-      d.prox       += (target - d.prox) * 0.08;  // smooth
+      const dist   = Math.hypot(d.x - mouseX, d.y - mouseY);
+      const target = Math.max(0, 1 - dist / CURSOR_R);
+      d.prox      += (target - d.prox) * 0.09;
 
-      const alpha  = 0.10 + d.prox * 0.55;
-      const radius = d.r  + d.prox * 2.2;
+      const alpha  = 0.18 + d.prox * 0.65;  // más visible
+      const radius = d.r  + d.prox * 3.5;
 
       ctx.beginPath();
       ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
@@ -215,20 +204,8 @@
   function showWelcome() {
     chatArea.innerHTML = `
       <div class="welcome">
-        <svg class="welcome-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="8" y="54" width="48" height="6" rx="1.5"/>
-          <rect x="13" y="24" width="7" height="30" rx="1.5"/>
-          <rect x="28.5" y="24" width="7" height="30" rx="1.5"/>
-          <rect x="44" y="24" width="7" height="30" rx="1.5"/>
-          <path d="M4 24h56M32 6L4 24h56L32 6z"/>
-        </svg>
-        <h1>¿En qué te puedo ayudar?</h1>
-        <p>Organizo información parlamentaria en tablas listas para copiar a Word.</p>
-        <div class="typewriter-wrap">
-          <span class="tw-label">Puedes preguntarme:</span>
-          <div class="tw-box">
-            <span id="tw-text"></span><span class="tw-cursor"></span>
-          </div>
+        <div class="tw-main">
+          <span id="tw-text"></span><span class="tw-cursor"></span>
         </div>
       </div>`;
     startTypewriter();
