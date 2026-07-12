@@ -3,13 +3,14 @@
   const canvas = document.getElementById('bg-canvas');
   const ctx    = canvas.getContext('2d');
   const SPACING    = 28;
-  const DOT_BASE   = 1.3;
-  const DOT_MAX    = 3.8;
-  const WAVE_R     = 160;
-  const WAVE_LEN   = 32;
-  const WAVE_SPEED = 1.8;
+  const DOT_BASE   = 1.2;
+  const DOT_MAX    = 4.2;
+  const WAVE_R     = 180;
+  const WAVE_LEN   = 34;
+  const WAVE_SPEED = 2.0;
 
   let dots = [], mouseX = -999, mouseY = -999;
+  let clicks = []; // burst effects on click
 
   function buildDots() {
     dots = [];
@@ -28,23 +29,52 @@
 
   function drawDots() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const t = performance.now() / 1000;
+    const t  = performance.now() / 1000;
+    const now = performance.now();
+
+    // Expire old clicks
+    clicks = clicks.filter(c => now - c.t < 900);
 
     for (const d of dots) {
       const dist = Math.hypot(d.x - mouseX, d.y - mouseY);
-      let r = DOT_BASE;
+      let r     = DOT_BASE;
+      let color = [0, 0, 0];
+      let alpha = 0.055;
 
+      // Cursor wave
       if (dist < WAVE_R) {
         const phase   = dist / WAVE_LEN - t * WAVE_SPEED;
         const wave    = (Math.sin(phase * Math.PI * 2) + 1) / 2;
         const falloff = Math.pow(1 - dist / WAVE_R, 1.8);
-        r = DOT_BASE + DOT_MAX * wave * falloff;
+        const energy  = wave * falloff;
+        r     += DOT_MAX * energy;
+        // shift color toward indigo as energy grows
+        const p = Math.min(1, energy * 1.6);
+        color = [
+          Math.round(99  * p),   // R
+          Math.round(102 * p),   // G
+          Math.round(241 * p),   // B
+        ];
+        alpha = 0.055 + 0.22 * energy;
       }
 
-      const alpha = 0.06 + 0.18 * ((r - DOT_BASE) / DOT_MAX);
+      // Click burst rings
+      for (const ck of clicks) {
+        const cd    = Math.hypot(d.x - ck.x, d.y - ck.y);
+        const prog  = (now - ck.t) / 900;              // 0→1
+        const ring  = prog * 260;                       // expanding ring radius
+        const diff  = Math.abs(cd - ring);
+        if (diff < 18) {
+          const burst = Math.pow(1 - diff / 18, 2) * (1 - prog);
+          r    = Math.max(r, DOT_BASE + 5 * burst);
+          alpha = Math.max(alpha, 0.35 * burst);
+          color = [139, 92, 246]; // purple burst
+        }
+      }
+
       ctx.beginPath();
       ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`;
+      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)})`;
       ctx.fill();
     }
 
@@ -53,6 +83,7 @@
 
   window.addEventListener('resize', resizeCanvas);
   window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+  window.addEventListener('click',     e => { clicks.push({ x: e.clientX, y: e.clientY, t: performance.now() }); });
   resizeCanvas();
   requestAnimationFrame(drawDots);
 
