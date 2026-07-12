@@ -1,29 +1,30 @@
 (() => {
-  // ── Canvas — constellation + magnetic dots ────────
+  // ── Canvas — constelación magnética ──────────────
   const canvas = document.getElementById('bg-canvas');
   const ctx    = canvas.getContext('2d');
 
-  const GRID      = 46;   // dot spacing
-  const DOT_R     = 1.4;  // base radius
-  const PULL_R    = 200;  // cursor magnetic radius
-  const PULL_STR  = 14;   // max pixel pull
-  const LINE_R    = 90;   // max line length between dots
-  const LERP      = 0.07; // smoothing speed
-  const BURST_DUR = 800;  // click burst ms
+  const GRID  = 52;   // separación entre puntos
+  const R0    = 1.6;  // radio base del punto
+  const RMAX  = 4.5;  // radio máximo cerca del cursor
+  const CR    = 230;  // radio de influencia del cursor
+  const PULL  = 20;   // fuerza magnética (px)
+  const LMAX  = GRID * 1.55; // largo máximo de línea
+  const LERP  = 0.10; // suavidad de movimiento
 
-  let dots = [];
+  let COLS = 0, ROWS = 0;
+  let dots   = [];
   let mouseX = -9999, mouseY = -9999;
   let bursts = [];
 
   function buildDots() {
+    COLS = Math.ceil(canvas.width  / GRID) + 2;
+    ROWS = Math.ceil(canvas.height / GRID) + 2;
     dots = [];
-    const cols = Math.ceil(canvas.width  / GRID) + 2;
-    const rows = Math.ceil(canvas.height / GRID) + 2;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const ox = c * GRID;
-        const oy = r * GRID;
-        dots.push({ ox, oy, cx: ox, cy: oy, r: c, c: r });
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const ox = col * GRID;
+        const oy = row * GRID;
+        dots.push({ ox, oy, cx: ox, cy: oy, row, col });
       }
     }
   }
@@ -34,93 +35,98 @@
     buildDots();
   }
 
-  function frame() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const now = performance.now();
-    bursts = bursts.filter(b => now - b.t < BURST_DUR);
+  function getDot(row, col) {
+    if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return null;
+    return dots[row * COLS + col];
+  }
 
-    // ── Update dot positions (magnetic pull toward cursor) ──
+  function frame() {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    const now = performance.now();
+    bursts = bursts.filter(b => now - b.t < 900);
+
+    // 1. Mover puntos (imán + repulsión de click)
     for (const d of dots) {
-      const dx   = mouseX - d.ox;
-      const dy   = mouseY - d.oy;
-      const dist = Math.hypot(dx, dy);
+      const dx = mouseX - d.ox, dy = mouseY - d.oy;
+      const md = Math.hypot(dx, dy);
       let tx = d.ox, ty = d.oy;
-      if (dist < PULL_R && dist > 0) {
-        const pull = (1 - dist / PULL_R) * PULL_STR;
-        tx = d.ox + (dx / dist) * pull;
-        ty = d.oy + (dy / dist) * pull;
+
+      // Atracción hacia el cursor
+      if (md < CR && md > 1) {
+        const f = (1 - md / CR) * PULL;
+        tx += (dx / md) * f;
+        ty += (dy / md) * f;
       }
-      // Burst repulsion
+
+      // Onda de repulsión al hacer click
       for (const b of bursts) {
-        const bd   = Math.hypot(d.ox - b.x, d.oy - b.y);
-        const prog = (now - b.t) / BURST_DUR;
-        const ring = prog * 280;
-        if (Math.abs(bd - ring) < 40) {
-          const force = (1 - Math.abs(bd - ring) / 40) * (1 - prog) * 22;
-          const ang   = Math.atan2(d.oy - b.y, d.ox - b.x);
-          tx += Math.cos(ang) * force;
-          ty += Math.sin(ang) * force;
+        const bd  = Math.hypot(d.ox - b.x, d.oy - b.y);
+        const pr  = (now - b.t) / 900;
+        const rng = pr * 320;
+        const df  = Math.abs(bd - rng);
+        if (df < 45) {
+          const f   = (1 - df / 45) * (1 - pr) * 28;
+          const ang = Math.atan2(d.oy - b.y, d.ox - b.x);
+          tx += Math.cos(ang) * f;
+          ty += Math.sin(ang) * f;
         }
       }
+
       d.cx += (tx - d.cx) * LERP;
       d.cy += (ty - d.cy) * LERP;
     }
 
-    // ── Draw lines between nearby dots near cursor ──────────
-    ctx.save();
-    for (let i = 0; i < dots.length; i++) {
-      const a = dots[i];
-      const aDist = Math.hypot(a.cx - mouseX, a.cy - mouseY);
-      if (aDist > PULL_R * 1.4) continue;
+    // 2. Dibujar líneas entre vecinos del grid (solo cerca del cursor)
+    ctx.lineWidth = 0.9;
+    for (const d of dots) {
+      const dDist = Math.hypot(d.cx - mouseX, d.cy - mouseY);
+      if (dDist > CR * 1.5) continue;
 
-      // Only check grid neighbors (up to 2 steps away) for performance
-      const nc = a.c, nr = a.r;
-      const cols = Math.ceil(canvas.width / GRID) + 2;
-
+      // 4 vecinos: derecha, abajo, diagonal-derecha, diagonal-izquierda
       const neighbors = [
-        [nc+1, nr], [nc, nr+1], [nc+1, nr+1], [nc-1, nr+1]
+        getDot(d.row,     d.col + 1),
+        getDot(d.row + 1, d.col),
+        getDot(d.row + 1, d.col + 1),
+        getDot(d.row + 1, d.col - 1),
       ];
-      for (const [nc2, nr2] of neighbors) {
-        const idx = nr2 * cols + nc2;
-        if (idx < 0 || idx >= dots.length) continue;
-        const b = dots[idx];
-        const lineDist = Math.hypot(a.cx - b.cx, a.cy - b.cy);
-        if (lineDist > LINE_R) continue;
-        const bDist   = Math.hypot(b.cx - mouseX, b.cy - mouseY);
-        const closest = Math.min(aDist, bDist);
-        if (closest > PULL_R * 1.4) continue;
-        const lineAlpha = (1 - lineDist / LINE_R) * (1 - closest / (PULL_R * 1.4)) * 0.28;
-        ctx.globalAlpha = lineAlpha;
+
+      for (const n of neighbors) {
+        if (!n) continue;
+        const nDist   = Math.hypot(n.cx - mouseX, n.cy - mouseY);
+        const closest = Math.min(dDist, nDist);
+        if (closest > CR * 1.5) continue;
+        const ld = Math.hypot(d.cx - n.cx, d.cy - n.cy);
+        if (ld > LMAX) continue;
+
+        const a = (1 - closest / (CR * 1.5)) * (1 - ld / LMAX) * 0.32;
+        ctx.globalAlpha = a;
         ctx.strokeStyle = '#000';
-        ctx.lineWidth   = 0.8;
         ctx.beginPath();
-        ctx.moveTo(a.cx, a.cy);
-        ctx.lineTo(b.cx, b.cy);
+        ctx.moveTo(d.cx, d.cy);
+        ctx.lineTo(n.cx, n.cy);
         ctx.stroke();
       }
     }
-    ctx.restore();
+    ctx.globalAlpha = 1;
 
-    // ── Draw dots ───────────────────────────────────────────
+    // 3. Dibujar puntos
     for (const d of dots) {
-      const dist  = Math.hypot(d.cx - mouseX, d.cy - mouseY);
-      const prox  = Math.max(0, 1 - dist / PULL_R);
-      const r     = DOT_R + prox * 2.8;
-      const alpha = 0.08 + prox * 0.28;
+      const dist = Math.hypot(d.cx - mouseX, d.cy - mouseY);
+      const prox = Math.max(0, 1 - dist / CR);
 
-      // Burst glow
-      let burst = 0;
+      let extra = 0;
       for (const b of bursts) {
-        const bd   = Math.hypot(d.ox - b.x, d.oy - b.y);
-        const prog = (now - b.t) / BURST_DUR;
-        const ring = prog * 280;
-        const diff = Math.abs(bd - ring);
-        if (diff < 36) burst = Math.max(burst, Math.pow(1 - diff/36, 2) * (1 - prog));
+        const bd  = Math.hypot(d.ox - b.x, d.oy - b.y);
+        const pr  = (now - b.t) / 900;
+        const rng = pr * 320;
+        const df  = Math.abs(bd - rng);
+        if (df < 45) extra = Math.max(extra, (1 - df/45) * (1 - pr) * 5);
       }
 
       ctx.beginPath();
-      ctx.arc(d.cx, d.cy, r + burst * 4, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0,0,0,${Math.min(1, alpha + burst * 0.5).toFixed(3)})`;
+      ctx.arc(d.cx, d.cy, R0 + prox * RMAX + extra, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0,0,0,${(0.07 + prox * 0.38 + extra * 0.08).toFixed(3)})`;
       ctx.fill();
     }
 
@@ -134,13 +140,32 @@
   requestAnimationFrame(frame);
 
   // ── DOM refs ─────────────────────────────────────
-  const chatArea  = document.getElementById('chat-area');
-  const msgInput  = document.getElementById('msg-input');
-  const sendBtn   = document.getElementById('send-btn');
-  const chatList  = document.getElementById('chat-list');
-  const newChatBtn= document.getElementById('new-chat-btn');
-  const apiInput  = document.getElementById('api-key-input');
-  const cmdChips  = document.getElementById('cmd-chips');
+  const chatArea    = document.getElementById('chat-area');
+  const msgInput    = document.getElementById('msg-input');
+  const sendBtn     = document.getElementById('send-btn');
+  const chatList    = document.getElementById('chat-list');
+  const newChatBtn  = document.getElementById('new-chat-btn');
+  const cmdChips    = document.getElementById('cmd-chips');
+  const statusEl    = document.getElementById('server-status');
+
+  // ── Server status ping ────────────────────────────
+  async function pingStatus() {
+    try {
+      const r = await fetch('/status');
+      const d = await r.json();
+      if (d.ready) {
+        statusEl.className = 'server-status ok';
+        statusEl.querySelector('.status-text').textContent = 'IA lista';
+      } else {
+        statusEl.className = 'server-status err';
+        statusEl.querySelector('.status-text').textContent = 'Falta API key — configura el .env';
+      }
+    } catch {
+      statusEl.className = 'server-status err';
+      statusEl.querySelector('.status-text').textContent = 'Servidor desconectado';
+    }
+  }
+  pingStatus();
 
   // ── Conversations (localStorage) ─────────────────
   const STORE = 'congreso_convs';
@@ -285,13 +310,6 @@
     const text = (textOverride || msgInput.value).trim();
     if (!text || streaming) return;
 
-    const apiKey = apiInput.value.trim() || localStorage.getItem('groq_api_key') || '';
-    if (!apiKey) {
-      alert('Ingresa tu API key de Groq en el panel izquierdo.');
-      apiInput.focus();
-      return;
-    }
-
     // Create conversation if none active
     if (!activeId || !getActive()) newChat();
     const conv = getActive();
@@ -321,7 +339,7 @@
       const resp = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: conv.messages, api_key: apiKey }),
+        body: JSON.stringify({ messages: conv.messages }),
       });
 
       const reader  = resp.body.getReader();

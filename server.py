@@ -139,6 +139,12 @@ STATUS_LABELS = {
 }
 
 
+@app.get("/status")
+async def status():
+    ready = bool(os.getenv("GROQ_API_KEY", ""))
+    return {"ready": ready}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return (Path("static") / "index.html").read_text()
@@ -154,7 +160,7 @@ async def service_worker():
 async def chat(request: Request):
     body     = await request.json()
     messages = body.get("messages", [])
-    api_key  = body.get("api_key", os.getenv("GROQ_API_KEY", ""))
+    api_key  = os.getenv("GROQ_API_KEY", "")
 
     if not api_key:
         async def err():

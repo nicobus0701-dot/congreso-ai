@@ -184,40 +184,28 @@ html, body {
   border-top: 1px solid var(--border);
   padding: 14px 12px;
 }
-.api-label {
-  display: block;
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--dim);
-  margin-bottom: 6px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-}
-.api-input {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1.5px solid var(--border);
-  border-radius: 9px;
-  background: var(--off);
-  color: var(--text);
-  font-family: var(--font);
+
+.server-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   font-weight: 700;
-  outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-.api-input:focus { border-color: var(--black); background: var(--white); }
-.api-input::placeholder { color: var(--dim); font-weight: 600; }
-.api-link {
-  display: block;
-  font-size: 11px;
   color: var(--dim);
-  margin-top: 5px;
-  text-decoration: none;
-  font-weight: 700;
-  transition: color 0.15s;
 }
-.api-link:hover { color: var(--black); text-decoration: underline; }
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dim);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.server-status.ok   .status-dot { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.5); }
+.server-status.ok   .status-text { color: var(--mid); }
+.server-status.err  .status-dot { background: #ef4444; }
+.server-status.err  .status-text { color: #ef4444; }
 
 /* ── Main ────────────────────────────────────────── */
 .main {
