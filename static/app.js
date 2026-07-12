@@ -243,15 +243,6 @@
     let text = (textOverride || msgInput.value).trim();
     if (!text || streaming) return;
 
-    // Modo fact check: añadir prefijo y desactivar modo
-    if (factcheckMode && !textOverride) {
-      text = `FACT CHECK — verifica esta afirmación usando tus herramientas y proporciona el enlace directo a la fuente oficial: "${text}"`;
-      factcheckMode = false;
-      msgInput.placeholder = 'Escribe un mensaje…';
-      factcheckBtn.style.background  = '';
-      factcheckBtn.style.color       = '';
-      factcheckBtn.style.borderColor = '';
-    }
 
     // Create conversation if none active
     if (!activeId || !getActive()) newChat();
@@ -471,26 +462,6 @@
     btn.addEventListener('click', () => { if (!streaming) send(btn.dataset.cmd); });
   });
 
-  // Fact Check: cambia el placeholder y envía con prefijo especial
-  const factcheckBtn = document.getElementById('factcheck-btn');
-  let factcheckMode  = false;
-
-  factcheckBtn.addEventListener('click', () => {
-    if (streaming) return;
-    factcheckMode = !factcheckMode;
-    if (factcheckMode) {
-      msgInput.placeholder = '✓ Escribe la afirmación a verificar…';
-      factcheckBtn.style.background = 'var(--black)';
-      factcheckBtn.style.color      = 'var(--white)';
-      factcheckBtn.style.borderColor = 'var(--black)';
-      msgInput.focus();
-    } else {
-      msgInput.placeholder = 'Escribe un mensaje…';
-      factcheckBtn.style.background  = '';
-      factcheckBtn.style.color       = '';
-      factcheckBtn.style.borderColor = '';
-    }
-  });
 
   // ── Markdown parser ───────────────────────────────
   function parseMarkdown(md) {
