@@ -82,33 +82,26 @@
   requestAnimationFrame(frame);
 
   // ── DOM refs ─────────────────────────────────────
-  const chatArea    = document.getElementById('chat-area');
-  const msgInput    = document.getElementById('msg-input');
-  const sendBtn     = document.getElementById('send-btn');
-  const chatList    = document.getElementById('chat-list');
-  const newChatBtn  = document.getElementById('new-chat-btn');
-  const cmdChips    = document.getElementById('cmd-chips');
-  const statusEl    = document.getElementById('server-status');
-  const mainEl      = document.querySelector('.main');
+  const chatArea      = document.getElementById('chat-area');
+  const msgInput      = document.getElementById('msg-input');
+  const sendBtn       = document.getElementById('send-btn');
+  const chatList      = document.getElementById('chat-list');
+  const newChatBtn    = document.getElementById('new-chat-btn');
+  const cmdChips      = document.getElementById('cmd-chips');
+  const mainEl        = document.querySelector('.main');
+  const sidebar       = document.querySelector('.sidebar');
+  const sidebarToggle = document.getElementById('sidebar-toggle');
+  const sidebarOpen   = document.getElementById('sidebar-open');
 
-  // ── Server status ping ────────────────────────────
-  async function pingStatus() {
-    try {
-      const r = await fetch('/status');
-      const d = await r.json();
-      if (d.ready) {
-        statusEl.className = 'server-status ok';
-        statusEl.querySelector('.status-text').textContent = 'IA lista';
-      } else {
-        statusEl.className = 'server-status err';
-        statusEl.querySelector('.status-text').textContent = 'Falta API key — configura el .env';
-      }
-    } catch {
-      statusEl.className = 'server-status err';
-      statusEl.querySelector('.status-text').textContent = 'Servidor desconectado';
-    }
+  // ── Sidebar toggle ────────────────────────────────
+  function toggleSidebar(open) {
+    const isOpen = open !== undefined ? open : sidebar.classList.contains('collapsed');
+    sidebar.classList.toggle('collapsed', !isOpen);
+    sidebarOpen.style.display = isOpen ? 'none' : 'flex';
   }
-  pingStatus();
+
+  sidebarToggle.addEventListener('click', () => toggleSidebar());
+  sidebarOpen.addEventListener('click',   () => toggleSidebar(true));
 
   // ── Conversations (localStorage) ─────────────────
   const STORE = 'congreso_convs';
