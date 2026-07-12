@@ -89,6 +89,7 @@
   const newChatBtn  = document.getElementById('new-chat-btn');
   const cmdChips    = document.getElementById('cmd-chips');
   const statusEl    = document.getElementById('server-status');
+  const mainEl      = document.querySelector('.main');
 
   // ── Server status ping ────────────────────────────
   async function pingStatus() {
@@ -220,6 +221,7 @@
 
   // ── Message rendering ─────────────────────────────
   function showWelcome() {
+    mainEl.classList.remove('chat-mode');
     chatArea.innerHTML = `
       <div class="welcome">
         <div class="tw-main">
@@ -233,6 +235,7 @@
   function renderMessages() {
     const conv = getActive();
     if (!conv || !conv.messages.length) { showWelcome(); return; }
+    mainEl.classList.add('chat-mode');
     chatArea.innerHTML = '';
     cmdChips.style.display = 'none';
     for (const m of conv.messages) {
@@ -256,6 +259,7 @@
       conv.title = autoTitle(text);
     }
 
+    mainEl.classList.add('chat-mode');
     chatArea.querySelector('.welcome')?.remove();
     cmdChips.style.display = 'none';
 
@@ -461,11 +465,6 @@
 
   document.querySelectorAll('.chip').forEach(btn => {
     btn.addEventListener('click', () => { if (!streaming) send(btn.dataset.cmd); });
-  });
-
-  apiInput.value = localStorage.getItem('groq_api_key') || '';
-  apiInput.addEventListener('input', () => {
-    localStorage.setItem('groq_api_key', apiInput.value.trim());
   });
 
   // ── Markdown parser ───────────────────────────────

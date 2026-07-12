@@ -216,6 +216,10 @@ html, body {
   flex-direction: column;
   overflow: hidden;
   background: transparent;
+  transition: background 0.25s ease;
+}
+.main.chat-mode {
+  background: rgba(255,255,255,0.97);
 }
 
 /* ── Chat area ───────────────────────────────────── */
