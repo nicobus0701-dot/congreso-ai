@@ -3,10 +3,11 @@
   const canvas = document.getElementById('bg-canvas');
   const ctx    = canvas.getContext('2d');
 
-  const GRID = 48;   // tamaño de celda
+  const GRID      = 48;
+  const SIDEBAR_W = 260; // mismo que CSS --sidebar-w
   let W = 0, H = 0;
-  let mx = -9999, my = -9999;  // posición suavizada del cursor
-  let tx = -9999, ty = -9999;  // posición real del cursor
+  let mx = -9999, my = -9999;
+  let tx = -9999, ty = -9999;
 
   function resizeCanvas() {
     W = canvas.width  = window.innerWidth;
@@ -15,53 +16,62 @@
 
   function drawGrid() {
     ctx.beginPath();
-    for (let x = 0; x <= W + GRID; x += GRID) {
+    for (let x = SIDEBAR_W; x <= W + GRID; x += GRID) {
       ctx.moveTo(x, 0);
       ctx.lineTo(x, H);
     }
     for (let y = 0; y <= H + GRID; y += GRID) {
-      ctx.moveTo(0, y);
+      ctx.moveTo(SIDEBAR_W, y);
       ctx.lineTo(W, y);
     }
     ctx.stroke();
   }
 
   function frame() {
-    // Suavizar movimiento del cursor (lag fluido)
-    mx += (tx - mx) * 0.10;
-    my += (ty - my) * 0.10;
+    mx += (tx - mx) * 0.14;
+    my += (ty - my) * 0.14;
 
     ctx.clearRect(0, 0, W, H);
+
+    // Todo el dibujo clipeado al área principal (sin sidebar)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(SIDEBAR_W, 0, W - SIDEBAR_W, H);
+    ctx.clip();
     ctx.lineWidth = 1;
 
-    // 1. Grid base — gris muy suave
+    // Grid gris base
     ctx.strokeStyle = 'rgba(0,0,0,0.07)';
     drawGrid();
 
-    // 2. Iluminación pequeña cerca del cursor (3 halos chicos)
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(mx, my, 90, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.strokeStyle = 'rgba(0,0,0,0.28)';
-    drawGrid();
-    ctx.restore();
+    // Iluminación del tamaño del cursor — 3 círculos muy pequeños
+    if (mx > SIDEBAR_W) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(mx, my, 28, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+      drawGrid();
+      ctx.restore();
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(mx, my, 50, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-    drawGrid();
-    ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(mx, my, 14, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(0,0,0,0.60)';
+      drawGrid();
+      ctx.restore();
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(mx, my, 22, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-    drawGrid();
-    ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(mx, my, 6, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(0,0,0,0.90)';
+      drawGrid();
+      ctx.restore();
+    }
+
+    ctx.restore(); // fin clip sidebar
 
     requestAnimationFrame(frame);
   }
