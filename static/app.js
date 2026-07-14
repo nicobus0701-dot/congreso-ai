@@ -544,25 +544,50 @@ ${html}
       wrap.appendChild(table);
       const btn = document.createElement('button');
       btn.className = 'copy-btn';
-      btn.textContent = 'Copiar';
+      btn.textContent = 'Copiar tabla';
       btn.addEventListener('click', () => {
+        // HTML rico: Word lo pega como tabla con formato completo
+        const htmlTable = `
+<html><body>
+<style>
+  table{border-collapse:collapse;font-family:Calibri,sans-serif;font-size:11pt}
+  th{background:#1a1a1a;color:#fff;padding:6px 12px;font-weight:bold;border:1px solid #333}
+  td{padding:5px 12px;border:1px solid #ccc}
+  tr:nth-child(even) td{background:#f5f5f5}
+</style>
+${table.outerHTML}
+</body></html>`;
+
+        // Texto plano como fallback (TSV pega como tabla en Word también)
         const rows = Array.from(table.querySelectorAll('tr'));
         const tsv  = rows.map(r =>
           Array.from(r.querySelectorAll('th,td')).map(c => c.textContent.trim()).join('\t')
         ).join('\n');
-        navigator.clipboard.writeText(tsv).catch(() => {
-          const ta = document.createElement('textarea');
-          ta.value = tsv;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          ta.remove();
-        });
+
+        if (window.ClipboardItem) {
+          const item = new ClipboardItem({
+            'text/html':  new Blob([htmlTable], { type: 'text/html' }),
+            'text/plain': new Blob([tsv],       { type: 'text/plain' }),
+          });
+          navigator.clipboard.write([item]).catch(() => fallbackCopy(tsv));
+        } else {
+          fallbackCopy(tsv);
+        }
+
         btn.textContent = '✓ Copiado';
-        setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+        setTimeout(() => { btn.textContent = 'Copiar tabla'; }, 2000);
       });
       wrap.appendChild(btn);
     });
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
   }
 
   // ── Typewriter decoration ─────────────────────────
