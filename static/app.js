@@ -732,298 +732,38 @@ ${table.outerHTML}
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // ── Vista de Videos ───────────────────────────────
-  const navChat      = document.getElementById('nav-chat');
-  const navVideos    = document.getElementById('nav-videos');
-  const viewVideos   = document.getElementById('view-videos');
-  const mainContent  = document.querySelector('.main');
-  const videoList    = document.getElementById('video-list');
-  const videoLoading = document.getElementById('video-loading');
-  const videoRefresh = document.getElementById('video-refresh-btn');
-  const videoSummaryEmpty   = document.getElementById('video-summary-empty');
-  const videoSummaryContent = document.getElementById('video-summary-content');
-  const videoSummaryTitle   = document.getElementById('video-summary-title');
-  const videoResumirBtn     = document.getElementById('video-resumir-btn');
-  const videoSummaryResult  = document.getElementById('video-summary-result');
-  const videoPastePanel     = document.getElementById('video-paste-panel');
-  const videoPasteArea      = document.getElementById('video-paste-area');
-  const videoPasteBtn       = document.getElementById('video-paste-resumir-btn');
-  const videoYtOpenBtn      = document.getElementById('video-yt-open-btn');
-
-  let selectedVideo = null;
-  let videosFetched = false;
-
-  const chatArea2  = document.getElementById('chat-area');
-  const inputArea  = document.querySelector('.input-area');
-
+  // ── Navegación Chat / Live ────────────────────────
+  const navChat    = document.getElementById('nav-chat');
   const navLive    = document.getElementById('nav-live');
   const viewLive   = document.getElementById('view-live');
   const liveIframe = document.getElementById('live-iframe');
+  const chatArea2  = document.getElementById('chat-area');
+  const inputArea  = document.querySelector('.input-area');
 
   function switchToChat() {
     navChat.classList.add('active');
-    navVideos.classList.remove('active');
     if (navLive) navLive.classList.remove('active');
-    viewVideos.style.display = 'none';
     if (viewLive) viewLive.style.display = 'none';
-    chatArea2.style.display  = '';
-    inputArea.style.display  = '';
-  }
-
-  function switchToVideos() {
-    navVideos.classList.add('active');
-    navChat.classList.remove('active');
-    if (navLive) navLive.classList.remove('active');
-    chatArea2.style.display  = 'none';
-    inputArea.style.display  = 'none';
-    if (viewLive) viewLive.style.display = 'none';
-    viewVideos.style.display = 'flex';
-    if (!videosFetched) loadVideos();
+    chatArea2.style.display = '';
+    inputArea.style.display = '';
   }
 
   function switchToLive() {
     if (navLive) navLive.classList.add('active');
     navChat.classList.remove('active');
-    navVideos.classList.remove('active');
-    chatArea2.style.display  = 'none';
-    inputArea.style.display  = 'none';
-    viewVideos.style.display = 'none';
-    viewLive.style.display   = '';
+    chatArea2.style.display = 'none';
+    inputArea.style.display = 'none';
+    viewLive.style.display  = '';
     if (!liveIframe.src || liveIframe.src === window.location.href) {
       liveIframe.src = '/live';
     }
   }
 
-  navChat.addEventListener('click',   switchToChat);
-  navVideos.addEventListener('click', switchToVideos);
+  navChat.addEventListener('click', switchToChat);
   if (navLive) navLive.addEventListener('click', switchToLive);
-  videoRefresh.addEventListener('click', () => { videosFetched = false; loadVideos(); });
 
-  // Volver al chat desde el iframe de live
   window.addEventListener('message', (e) => {
     if (e.data === 'close-live') switchToChat();
-  });
-
-  // Mensaje desde el iframe de live para volver al chat
-  window.addEventListener('message', (e) => {
-    if (e.data === 'close-live') switchToChat();
-  });
-
-  async function loadVideos() {
-    videosFetched = true;
-    videoLoading.style.display = 'flex';
-    videoList.innerHTML = '';
-    selectedVideo = null;
-    videoSummaryEmpty.style.display   = 'flex';
-    videoSummaryContent.style.display = 'none';
-
-    // Check if YouTube cookies are configured
-    try {
-      const ck = await fetch('/sesiones/cookies-status').then(r => r.json());
-      const cookieBanner = document.getElementById('cookie-setup-banner');
-      if (cookieBanner) cookieBanner.style.display = ck.ok ? 'none' : 'block';
-    } catch {}
-
-    try {
-      const r    = await fetch('/sesiones/videos');
-      const data = await r.json();
-      videoLoading.style.display = 'none';
-
-      if (!data.ok || !data.videos?.length) {
-        videoList.innerHTML = '<div style="padding:20px 16px;font-size:13px;color:var(--text-dim)">No se pudieron cargar los videos. Verifica tu conexión.</div>';
-        return;
-      }
-
-      // Lives activos primero, luego el resto
-      const sorted = [...data.videos].sort((a, b) => (b.en_vivo ? 1 : 0) - (a.en_vivo ? 1 : 0));
-
-      sorted.forEach(v => {
-        const el = document.createElement('div');
-        el.className = 'video-item' + (v.en_vivo ? ' video-item--live' : '');
-        const badge = v.en_vivo
-          ? '<span class="badge-live">🔴 EN VIVO</span>'
-          : v.fue_live
-            ? '<span class="badge-was-live">📡 LIVE</span>'
-            : '';
-        el.innerHTML = `
-          <img class="video-thumb" src="${escHtml(v.thumb)}" alt="" loading="lazy" onerror="this.style.background='#ddd'">
-          <div class="video-info">
-            <div class="video-titulo">${escHtml(v.titulo)}</div>
-            <div class="video-meta">
-              ${badge}
-              ${v.fecha ? `<span>${escHtml(v.fecha)}</span>` : ''}
-              ${v.duracion ? `<span>${escHtml(v.duracion)}</span>` : ''}
-            </div>
-          </div>`;
-        el.addEventListener('click', () => selectVideo(v, el));
-        videoList.appendChild(el);
-      });
-    } catch (e) {
-      videoLoading.style.display = 'none';
-      videoList.innerHTML = '<div style="padding:20px 16px;font-size:13px;color:var(--text-dim)">Error al cargar videos.</div>';
-    }
-  }
-
-  function selectVideo(v, el) {
-    document.querySelectorAll('.video-item').forEach(x => x.classList.remove('selected'));
-    el.classList.add('selected');
-    selectedVideo = v;
-
-    videoSummaryEmpty.style.display   = 'none';
-    videoSummaryContent.style.display = 'block';
-    videoSummaryResult.innerHTML      = '';
-    videoPastePanel.style.display     = 'none';
-    videoPasteArea.value              = '';
-    videoResumirBtn.disabled          = false;
-    if (videoYtOpenBtn) videoYtOpenBtn.href = v.url || '#';
-
-    // Título con badge de tipo
-    const badge = v.en_vivo
-      ? '<span class="badge-live" style="font-size:11px;margin-right:8px">🔴 EN VIVO</span>'
-      : v.fue_live
-        ? '<span class="badge-was-live" style="font-size:11px;margin-right:8px">📡 LIVE</span>'
-        : '';
-    videoSummaryTitle.innerHTML = badge + escHtml(v.titulo);
-
-    // Si es live activo: mostrar link para ver + botón parcial
-    const liveLink = v.en_vivo
-      ? `<a href="${escHtml(v.url)}" target="_blank" class="video-yt-link">▶ Ver en YouTube</a>`
-      : '';
-    document.getElementById('video-live-link').innerHTML = liveLink;
-
-    // Texto del botón según tipo
-    const btnLabel = v.en_vivo
-      ? 'Resumir lo que va hasta ahora'
-      : 'Resumir esta sesión';
-    videoResumirBtn.innerHTML = `
-      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-        <circle cx="9" cy="9" r="7"/><path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
-      </svg>
-      ${btnLabel}`;
-  }
-
-  videoResumirBtn.addEventListener('click', async () => {
-    if (!selectedVideo) return;
-
-    videoResumirBtn.disabled     = true;
-    videoResumirBtn.textContent  = 'Analizando...';
-    videoSummaryResult.innerHTML = '<div style="padding:12px 0;color:var(--text-dim);font-size:13px"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
-
-    let fullText = '';
-
-    try {
-      const resp   = await fetch('/sesiones/resumir', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_id: selectedVideo.id, titulo: selectedVideo.titulo, en_vivo: selectedVideo.en_vivo }),
-      });
-      const reader  = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop();
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const raw = line.slice(6).trim();
-          if (raw === '[DONE]') continue;
-          try {
-            const obj = JSON.parse(raw);
-            if (obj.error)  {
-              videoSummaryResult.innerHTML = '';
-              videoPastePanel.style.display = 'block';
-              break;
-            }
-            if (obj.status) {
-              videoSummaryResult.innerHTML = `<p style="color:var(--text-dim);font-size:13px">${escHtml(obj.status)}</p>`;
-            }
-            if (obj.text) {
-              fullText += obj.text;
-              videoSummaryResult.innerHTML = '';
-              const wrapper = document.createElement('div');
-              wrapper.className = 'msg-content';
-              renderContent(wrapper, fullText);
-              videoSummaryResult.appendChild(wrapper);
-              addCopyBtns(wrapper);
-            }
-          } catch { /* ignore */ }
-        }
-      }
-    } catch (e) {
-      videoSummaryResult.innerHTML = '';
-      videoPastePanel.style.display = 'block';
-    }
-
-    // Agregar botones de exportar si hay resumen
-    if (fullText) {
-      const wrapper = videoSummaryResult.querySelector('.msg-content');
-      if (wrapper) {
-        const exportDiv = document.createElement('div');
-        exportDiv.style.marginTop = '12px';
-        videoSummaryResult.appendChild(exportDiv);
-        addExportBtns(exportDiv, fullText);
-      }
-    }
-
-    videoResumirBtn.disabled = false;
-    const afterLabel = selectedVideo?.en_vivo ? 'Actualizar resumen' : 'Resumir de nuevo';
-    videoResumirBtn.innerHTML = `
-      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-        <circle cx="9" cy="9" r="7"/><path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
-      </svg>
-      ${afterLabel}`;
-  });
-
-  // ── Paste transcript y resumir ────────────────────
-  async function streamSummary(url, body) {
-    const resp   = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const reader  = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '', fullText = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n'); buf = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const raw = line.slice(6).trim();
-        if (raw === '[DONE]') continue;
-        try {
-          const obj = JSON.parse(raw);
-          if (obj.status) videoSummaryResult.innerHTML = `<p style="color:var(--text-dim);font-size:13px">${escHtml(obj.status)}</p>`;
-          if (obj.error)  { videoPastePanel.style.display = 'block'; return ''; }
-          if (obj.text) {
-            fullText += obj.text;
-            videoSummaryResult.innerHTML = '';
-            const w = document.createElement('div'); w.className = 'msg-content';
-            renderContent(w, fullText); videoSummaryResult.appendChild(w); addCopyBtns(w);
-          }
-        } catch {}
-      }
-    }
-    return fullText;
-  }
-
-  videoPasteBtn.addEventListener('click', async () => {
-    const texto = videoPasteArea.value.trim();
-    if (!texto) { videoPasteArea.focus(); return; }
-    videoPastePanel.style.display = 'none';
-    videoSummaryResult.innerHTML = '<div style="padding:12px 0;color:var(--text-dim);font-size:13px"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
-    videoPasteBtn.disabled = true;
-    const fullText = await streamSummary('/sesiones/resumir-texto', { texto, titulo: selectedVideo?.titulo || '' });
-    if (fullText) {
-      const w = videoSummaryResult.querySelector('.msg-content');
-      if (w) { const d = document.createElement('div'); d.style.marginTop = '12px'; videoSummaryResult.appendChild(d); addExportBtns(d, fullText); }
-    } else {
-      videoPastePanel.style.display = 'block';
-    }
-    videoPasteBtn.disabled = false;
   });
 
   // ── Init ──────────────────────────────────────────

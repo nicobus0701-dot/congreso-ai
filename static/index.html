@@ -51,13 +51,6 @@
         </svg>
         Chats
       </button>
-      <button class="sidenav-btn" id="nav-videos" title="Sesiones de video">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="10" cy="10" r="8"/>
-          <path d="M8 7l6 3-6 3V7z" stroke-linejoin="round"/>
-        </svg>
-        Sesiones
-      </button>
       <button class="sidenav-btn" id="nav-live" title="Live — Transcripción en vivo">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="10" cy="10" r="8"/>
@@ -139,82 +132,6 @@
       <iframe id="live-iframe" src="" style="width:100%;height:100%;border:none;"></iframe>
     </div>
 
-    <!-- Vista Sesiones de Video (dentro del main para no tapar el sidebar) -->
-    <div id="view-videos" class="video-view" style="display:none">
-  <div class="video-view-header">
-    <div class="video-view-title">
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="10" cy="10" r="8"/>
-        <path d="M8 7l6 3-6 3V7z" stroke-linejoin="round"/>
-      </svg>
-      Sesiones del Congreso — YouTube
-    </div>
-    <button class="video-refresh-btn" id="video-refresh-btn" title="Actualizar lista">
-      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-        <path d="M1 9a8 8 0 1 0 1.6-4.8"/><path d="M1 4v4h4"/>
-      </svg>
-      Actualizar
-    </button>
-  </div>
-
-  <div class="video-layout">
-    <div class="video-list-panel" id="video-list-panel">
-      <div class="video-loading" id="video-loading">
-        <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
-        <span style="margin-left:8px;font-size:13px;color:var(--text-dim)">Cargando videos del Congreso...</span>
-      </div>
-      <div id="video-list"></div>
-    </div>
-
-    <div class="video-summary-panel" id="video-summary-panel">
-      <div class="video-summary-empty" id="video-summary-empty">
-        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <circle cx="24" cy="24" r="20"/>
-          <path d="M19 17l14 7-14 7V17z" stroke-linejoin="round"/>
-        </svg>
-        <p>Selecciona un video de la lista<br>y haz clic en <strong>Resumir</strong></p>
-      </div>
-      <div id="video-summary-content" style="display:none">
-        <div class="video-summary-title" id="video-summary-title"></div>
-        <div id="video-live-link" style="margin-bottom:10px"></div>
-        <div class="video-summary-actions">
-          <button class="video-resumir-btn" id="video-resumir-btn">
-            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-              <circle cx="9" cy="9" r="7"/>
-              <path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
-            </svg>
-            Resumir esta sesión
-          </button>
-        </div>
-        <div class="video-summary-result" id="video-summary-result"></div>
-
-        <!-- Fallback: pegar transcripción manualmente -->
-        <div id="video-paste-panel" style="display:none;margin-top:12px;border:1.5px dashed #d1d5db;border-radius:10px;padding:14px 16px;background:#fafafa">
-          <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#374151">No hay subtítulos automáticos. Obtén la transcripción manualmente:</p>
-          <ol style="margin:0 0 10px;padding-left:18px;font-size:12px;color:#6b7280;line-height:1.8">
-            <li>Haz clic en <strong style="color:#374151">"Abrir en YouTube →"</strong> abajo</li>
-            <li>En el video, haz clic en <strong style="color:#374151">⋮ → Mostrar transcripción</strong></li>
-            <li>Selecciona todo el texto de la transcripción y cópialo</li>
-            <li>Pégalo en el área de abajo y haz clic en <strong style="color:#374151">Resumir</strong></li>
-          </ol>
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <a id="video-yt-open-btn" href="#" target="_blank"
-               style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#ff0000;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">
-              <svg viewBox="0 0 18 18" width="14" height="14" fill="currentColor"><path d="M9 1.5C4.86 1.5 1.5 4.86 1.5 9S4.86 16.5 9 16.5 16.5 13.14 16.5 9 13.14 1.5 9 1.5zm-1.5 11V5.5l5.5 3.5-5.5 3.5z"/></svg>
-              Abrir en YouTube →
-            </a>
-          </div>
-          <textarea id="video-paste-area" placeholder="Pega aquí la transcripción de YouTube..." rows="6"
-            style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;resize:vertical;font-family:inherit;line-height:1.5"></textarea>
-          <button id="video-paste-resumir-btn"
-            style="margin-top:8px;padding:7px 16px;background:#111;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">
-            Resumir transcripción pegada
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-    </div>
   </main>
 </div>
 
