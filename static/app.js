@@ -142,20 +142,60 @@
     }, 160);
   }
 
-  function deleteConv(id, e) {
-    e.stopPropagation();
+  function deleteConv(id) {
     convs = convs.filter(c => c.id !== id);
-    if (activeId === id) {
-      activeId = convs[0]?.id || null;
-    }
+    if (activeId === id) activeId = convs[0]?.id || null;
     saveConvs();
     renderSidebar();
     if (activeId) renderMessages(); else showWelcome();
   }
 
+  function renameConvInline(id, span) {
+    const conv = convs.find(c => c.id === id);
+    if (!conv) return;
+
+    const input = document.createElement('input');
+    input.className = 'chat-item-rename';
+    input.value     = conv.title;
+    span.replaceWith(input);
+    input.focus();
+    input.select();
+
+    function commit() {
+      const val = input.value.trim();
+      if (val) conv.title = val;
+      saveConvs();
+      renderSidebar();
+    }
+    input.addEventListener('blur',   commit);
+    input.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter')  { ev.preventDefault(); input.blur(); }
+      if (ev.key === 'Escape') { input.value = conv.title; input.blur(); }
+    });
+    input.addEventListener('click', ev => ev.stopPropagation());
+  }
+
   function autoTitle(text) {
     return text.slice(0, 38) + (text.length > 38 ? '…' : '');
   }
+
+  // Delegación de eventos en el sidebar — un solo listener para delete y rename
+  chatList.addEventListener('click', e => {
+    const delBtn = e.target.closest('.chat-item-del');
+    if (delBtn) {
+      e.stopPropagation();
+      const id = delBtn.closest('.chat-item')?.dataset.id;
+      if (id) deleteConv(id);
+      return;
+    }
+  });
+  chatList.addEventListener('dblclick', e => {
+    const title = e.target.closest('.chat-item-title');
+    if (title) {
+      const id = title.closest('.chat-item')?.dataset.id;
+      if (id) renameConvInline(id, title);
+    }
+  });
 
   // ── Sidebar render ────────────────────────────────
   function renderSidebar() {
@@ -185,14 +225,17 @@
               <path d="M3 4h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7l-4 2V5a1 1 0 0 1 1-1z"/>
             </svg>
           </span>
-          <span class="chat-item-title">${escHtml(c.title)}</span>
-          <button class="chat-item-del" title="Eliminar">✕</button>`;
+          <span class="chat-item-title" title="Doble clic para renombrar">${escHtml(c.title)}</span>
+          <button class="chat-item-del" title="Eliminar conversación">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M2 2l10 10M12 2L2 12"/>
+            </svg>
+          </button>`;
         el.addEventListener('click', () => {
           el.classList.add('clicking');
           el.addEventListener('animationend', () => el.classList.remove('clicking'), { once: true });
           switchConv(c.id);
         });
-        el.querySelector('.chat-item-del').addEventListener('click', ev => deleteConv(c.id, ev));
         chatList.appendChild(el);
       }
     }
@@ -239,10 +282,12 @@
   }
 
   // ── Chat send ─────────────────────────────────────
-  async function send(textOverride) {
+  async function send(textOverride, sectorOverride) {
     let text = (textOverride || msgInput.value).trim();
     if (!text || streaming) return;
 
+    const isResumen = text === '__RESUMEN_SEMANAL__';
+    const sector    = sectorOverride || null;
 
     // Create conversation if none active
     if (!activeId || !getActive()) newChat();
@@ -257,16 +302,20 @@
     chatArea.querySelector('.welcome')?.remove();
     cmdChips.style.display = 'none';
 
-    conv.messages.push({ role: 'user', content: text });
+    const userContent = isResumen
+      ? `__RESUMEN_SEMANAL__${sector ? ':' + sector : ''}`
+      : text;
+    conv.messages.push({ role: 'user', content: userContent });
     saveConvs();
     renderSidebar();
-    appendUserBubble(text);
+    appendUserBubble(isResumen
+      ? `📄 Resumen ejecutivo${sector && sector !== 'general' ? ' — ' + sector : ''}`
+      : text);
 
     msgInput.value = '';
     msgInput.style.height = 'auto';
     sendBtn.disabled = true;
     streaming = true;
-
     const assistantEl = appendAssistantTyping();
     let fullText = '';
 
@@ -312,6 +361,7 @@
       conv.messages.push({ role: 'assistant', content: fullText });
       saveConvs();
       addCopyBtns(assistantEl);
+      addExportBtns(assistantEl.closest('.message'), fullText);
     }
 
     streaming = false;
@@ -354,11 +404,132 @@
     const el = d.querySelector('.msg-content');
     renderContent(el, md);
     addCopyBtns(el);
+    addExportBtns(d, md);
     return el;
   }
 
   function renderContent(el, md) {
     el.innerHTML = parseMarkdown(md);
+  }
+
+  // ── Modal de resumen ─────────────────────────────
+  const resumenModal = document.getElementById('resumen-modal');
+
+  function openResumenModal() {
+    resumenModal.style.display = 'flex';
+  }
+  function closeResumenModal() {
+    resumenModal.style.display = 'none';
+  }
+
+  document.getElementById('resumen-cancel').addEventListener('click', closeResumenModal);
+  resumenModal.addEventListener('click', e => {
+    if (e.target === resumenModal) closeResumenModal();
+  });
+
+  // Cada botón de sector dispara la generación del resumen con ese contexto
+  resumenModal.querySelectorAll('.sector-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sector = btn.dataset.sector;
+      closeResumenModal();
+      send('__RESUMEN_SEMANAL__', sector);
+    });
+  });
+
+  // Botones de descarga que aparecen DESPUÉS de que termina el resumen
+  function addExportBtns(msgDiv, md) {
+    const wrap = document.createElement('div');
+    wrap.className = 'export-btns';
+    wrap.innerHTML = `
+      <button class="export-btn" data-type="pdf">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M4 2h7l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
+          <path d="M11 2v4h4M6 9h6M6 12h4"/>
+        </svg>
+        Descargar PDF
+      </button>
+      <button class="export-btn" data-type="word">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M4 2h7l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
+          <path d="M11 2v4h4M5 9h3M5 12h4M5 15h6"/>
+        </svg>
+        Descargar Word
+      </button>`;
+    const pdfBtn  = wrap.querySelector('[data-type="pdf"]');
+    const wordBtn = wrap.querySelector('[data-type="word"]');
+    pdfBtn._orig  = pdfBtn.innerHTML;
+    wordBtn._orig = wordBtn.innerHTML;
+    pdfBtn.addEventListener('click',  () => exportPdf(md,  pdfBtn));
+    wordBtn.addEventListener('click', () => exportWord(md, wordBtn));
+    msgDiv.appendChild(wrap);
+  }
+
+  function _buildPrintHtml(md) {
+    const html = parseMarkdown(md);
+    const date = new Date().toLocaleDateString('es-PE', { day:'numeric', month:'long', year:'numeric' });
+    return `<!DOCTYPE html><html lang="es"><head>
+<meta charset="UTF-8"><title>Resumen Ejecutivo — Congreso del Perú</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Georgia',serif;font-size:12pt;color:#111;padding:40px 60px;line-height:1.7;max-width:900px;margin:0 auto}
+  h1{font-size:18pt;font-weight:bold;margin-bottom:4px}
+  h2{font-size:13pt;font-weight:bold;margin:24px 0 8px;border-bottom:1.5px solid #111;padding-bottom:4px}
+  h3{font-size:12pt;font-weight:bold;margin:16px 0 6px}
+  p{margin-bottom:10px} ul,ol{padding-left:20px;margin-bottom:10px} li{margin-bottom:4px}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:10pt}
+  th{background:#111;color:#fff;padding:6px 10px;text-align:left;font-weight:bold}
+  td{border:1px solid #ccc;padding:6px 10px}
+  tr:nth-child(even) td{background:#f7f7f7}
+  a{color:#111} hr{border:none;border-top:1px solid #ccc;margin:20px 0}
+  .hdr{border-bottom:3px solid #111;padding-bottom:12px;margin-bottom:24px;font-size:9pt;color:#666}
+  .ftr{margin-top:40px;border-top:1px solid #ccc;padding-top:12px;font-size:9pt;color:#666}
+  strong{font-weight:bold} em{font-style:italic}
+  @media print{body{padding:20px 30px} a{text-decoration:none}}
+</style></head><body>
+<div class="hdr">DOCUMENTO CONFIDENCIAL — GESTIÓN DE ASUNTOS PÚBLICOS</div>
+${html}
+<div class="ftr">Generado por Lex — Sistema de Monitoreo Parlamentario · ${date}</div>
+</body></html>`;
+  }
+
+  function exportPdf(md, btn) {
+    const html = _buildPrintHtml(md);
+    if (window.electronAPI) {
+      if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
+      window.electronAPI.exportPDF(html)
+        .then(r => { if (btn) { btn.disabled = false; btn.innerHTML = btn._orig; } })
+        .catch(e => { alert('Error al generar PDF: ' + e.message); if (btn) { btn.disabled = false; btn.innerHTML = btn._orig; } });
+    } else {
+      const w = window.open('', '_blank');
+      w.document.write(html);
+      w.document.close();
+      setTimeout(() => w.print(), 400);
+    }
+  }
+
+  function exportWord(md, btn) {
+    if (window.electronAPI) {
+      if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
+      window.electronAPI.exportWord(md)
+        .then(r => { if (btn) { btn.disabled = false; btn.innerHTML = btn._orig; } })
+        .catch(e => { alert('Error al generar Word: ' + e.message); if (btn) { btn.disabled = false; btn.innerHTML = btn._orig; } });
+    } else {
+      fetch('/export/docx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: md }),
+      })
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement('a');
+        a.href     = url;
+        a.download = `Resumen-Congreso-${new Date().toISOString().slice(0,10)}.docx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(() => alert('Error generando el Word.'));
+    }
   }
 
   function scrollBottom() {
@@ -458,9 +629,14 @@
   });
 
   document.querySelectorAll('.chip').forEach(btn => {
-    if (btn.id === 'factcheck-btn') return;
+    if (btn.id === 'resumen-btn') return;
     btn.addEventListener('click', () => { if (!streaming) send(btn.dataset.cmd); });
   });
+
+  document.getElementById('resumen-btn').addEventListener('click', () => {
+    if (!streaming) openResumenModal();
+  });
+
 
 
   // ── Markdown parser ───────────────────────────────
@@ -534,11 +710,5 @@
   // ── Init ──────────────────────────────────────────
   loadConvs();
   renderSidebar();
-  if (convs.length) {
-    activeId = convs[0].id;
-    renderSidebar();
-    renderMessages();
-  } else {
-    showWelcome();
-  }
+  showWelcome();
 })();

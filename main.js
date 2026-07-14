@@ -1,7 +1,9 @@
-const { app, BrowserWindow, shell, Menu } = require('electron');
+const { app, BrowserWindow, shell, Menu, globalShortcut, ipcMain, dialog } = require('electron');
 const { spawn }  = require('child_process');
 const http       = require('http');
 const path       = require('path');
+const fs         = require('fs');
+const os         = require('os');
 
 const PORT = 8732;   // puerto único para no chocar con adam
 let   win  = null;
@@ -37,10 +39,13 @@ function createWindow() {
     minWidth:  900,
     minHeight: 600,
     title: 'Asistente Congreso Perú',
+    icon: path.join(__dirname, 'static', 'app-icon.png'),
     backgroundColor: '#ffffff',
     webPreferences: {
       nodeIntegration:  false,
       contextIsolation: true,
+      partition: 'nopersist',
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
 
@@ -77,18 +82,69 @@ function createWindow() {
     }
   });
 
-  // Links externos se abren en el navegador
+  // Links externos se abren en el navegador del sistema
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (!url.startsWith('http://localhost')) shell.openExternal(url);
     return { action: 'deny' };
   });
+  win.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('http://localhost')) {
+      e.preventDefault();
+      shell.openExternal(url);
+    }
+  });
 }
+
+// ── IPC: exportar PDF ────────────────────────────────────────
+ipcMain.handle('export-pdf', async (event, html) => {
+  const date = new Date().toISOString().slice(0, 10);
+  const { filePath } = await dialog.showSaveDialog(win, {
+    title: 'Guardar PDF',
+    defaultPath: path.join(os.homedir(), `Resumen-Congreso-${date}.pdf`),
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  });
+  if (!filePath) return { ok: false };
+
+  const tmp = path.join(os.tmpdir(), `congreso-export-${Date.now()}.html`);
+  fs.writeFileSync(tmp, html, 'utf8');
+
+  const pdfWin = new BrowserWindow({ show: false });
+  await pdfWin.loadFile(tmp);
+  const data = await pdfWin.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
+  pdfWin.destroy();
+  try { fs.unlinkSync(tmp); } catch {}
+  fs.writeFileSync(filePath, data);
+  return { ok: true };
+});
+
+// ── IPC: exportar Word ───────────────────────────────────────
+ipcMain.handle('export-word', async (event, content) => {
+  const date = new Date().toISOString().slice(0, 10);
+  const { filePath } = await dialog.showSaveDialog(win, {
+    title: 'Guardar Word',
+    defaultPath: path.join(os.homedir(), `Resumen-Congreso-${date}.docx`),
+    filters: [{ name: 'Word Document', extensions: ['docx'] }],
+  });
+  if (!filePath) return { ok: false };
+
+  const res = await fetch(`http://localhost:${PORT}/export/docx`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  const buf = Buffer.from(await res.arrayBuffer());
+  fs.writeFileSync(filePath, buf);
+  return { ok: true };
+});
 
 // ── Ciclo de vida ────────────────────────────────────────────
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   startServer();
   createWindow();
+  globalShortcut.register('CmdOrCtrl+Shift+R', () => {
+    win?.webContents.reloadIgnoringCache();
+  });
 });
 
 app.on('window-all-closed', () => {
