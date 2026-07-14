@@ -1,4 +1,5 @@
-const { app, BrowserWindow, shell, Menu, globalShortcut, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, shell, Menu, globalShortcut, ipcMain, dialog, nativeImage } = require('electron');
+app.setName('congreso-ai');
 const { spawn }  = require('child_process');
 const http       = require('http');
 const path       = require('path');
@@ -168,7 +169,6 @@ ipcMain.handle('export-word', async (event, content) => {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   if (process.platform === 'linux') {
-    const { nativeImage } = require('electron');
     app.setIcon(nativeImage.createFromPath(path.join(__dirname, 'static', 'app-icon.png')));
   }
   startServer();
