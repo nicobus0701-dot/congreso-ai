@@ -786,15 +786,23 @@ ${table.outerHTML}
         return;
       }
 
-      data.videos.forEach(v => {
+      // Lives activos primero, luego el resto
+      const sorted = [...data.videos].sort((a, b) => (b.en_vivo ? 1 : 0) - (a.en_vivo ? 1 : 0));
+
+      sorted.forEach(v => {
         const el = document.createElement('div');
-        el.className = 'video-item';
+        el.className = 'video-item' + (v.en_vivo ? ' video-item--live' : '');
+        const badge = v.en_vivo
+          ? '<span class="badge-live">🔴 EN VIVO</span>'
+          : v.fue_live
+            ? '<span class="badge-was-live">📡 LIVE</span>'
+            : '';
         el.innerHTML = `
           <img class="video-thumb" src="${escHtml(v.thumb)}" alt="" loading="lazy" onerror="this.style.background='#ddd'">
           <div class="video-info">
             <div class="video-titulo">${escHtml(v.titulo)}</div>
             <div class="video-meta">
-              ${v.en_vivo ? '<span class="badge-live">EN VIVO</span>' : ''}
+              ${badge}
               ${v.fecha ? `<span>${escHtml(v.fecha)}</span>` : ''}
               ${v.duracion ? `<span>${escHtml(v.duracion)}</span>` : ''}
             </div>
@@ -815,14 +823,32 @@ ${table.outerHTML}
 
     videoSummaryEmpty.style.display   = 'none';
     videoSummaryContent.style.display = 'block';
-    videoSummaryTitle.textContent = v.titulo;
-    videoSummaryResult.innerHTML  = '';
-    videoResumirBtn.disabled      = false;
-    videoResumirBtn.innerHTML     = `
+    videoSummaryResult.innerHTML      = '';
+    videoResumirBtn.disabled          = false;
+
+    // Título con badge de tipo
+    const badge = v.en_vivo
+      ? '<span class="badge-live" style="font-size:11px;margin-right:8px">🔴 EN VIVO</span>'
+      : v.fue_live
+        ? '<span class="badge-was-live" style="font-size:11px;margin-right:8px">📡 LIVE</span>'
+        : '';
+    videoSummaryTitle.innerHTML = badge + escHtml(v.titulo);
+
+    // Si es live activo: mostrar link para ver + botón parcial
+    const liveLink = v.en_vivo
+      ? `<a href="${escHtml(v.url)}" target="_blank" class="video-yt-link">▶ Ver en YouTube</a>`
+      : '';
+    document.getElementById('video-live-link').innerHTML = liveLink;
+
+    // Texto del botón según tipo
+    const btnLabel = v.en_vivo
+      ? 'Resumir lo que va hasta ahora'
+      : 'Resumir esta sesión';
+    videoResumirBtn.innerHTML = `
       <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
         <circle cx="9" cy="9" r="7"/><path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
       </svg>
-      Resumir esta sesión`;
+      ${btnLabel}`;
   }
 
   videoResumirBtn.addEventListener('click', async () => {
@@ -892,11 +918,12 @@ ${table.outerHTML}
     }
 
     videoResumirBtn.disabled = false;
+    const afterLabel = selectedVideo?.en_vivo ? 'Actualizar resumen' : 'Resumir de nuevo';
     videoResumirBtn.innerHTML = `
       <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
         <circle cx="9" cy="9" r="7"/><path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
       </svg>
-      Resumir de nuevo`;
+      ${afterLabel}`;
   });
 
   // ── Init ──────────────────────────────────────────

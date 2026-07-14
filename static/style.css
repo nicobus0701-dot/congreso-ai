@@ -125,7 +125,8 @@ html, body {
 }
 .sidebar.collapsed #new-chat-btn,
 .sidebar.collapsed .chat-list,
-.sidebar.collapsed .sidebar-footer {
+.sidebar.collapsed .sidebar-footer,
+.sidebar.collapsed .sidebar-nav {
   display: none;
 }
 
@@ -964,3 +965,29 @@ textarea::placeholder { color: var(--dim); font-weight: 600; }
 .video-resumir-btn:disabled { opacity: 0.45; cursor: default; }
 .video-resumir-btn svg      { width: 16px; height: 16px; }
 .video-summary-result { flex: 1; }
+
+.badge-was-live {
+  background: #4a3f8f;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.video-item--live {
+  background: #fff8f8;
+  border-left: 3px solid #e53e3e !important;
+}
+.video-yt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #ff0000;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.video-yt-link:hover { opacity: 0.85; }

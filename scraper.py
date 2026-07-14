@@ -325,11 +325,13 @@ async def fetch_videos_youtube(limit=15):
             entries = info.get("entries") or []
             videos = []
             for e in entries:
-                vid_id    = e.get("id") or ""
-                title     = e.get("title") or ""
-                duration  = e.get("duration")
-                timestamp = e.get("timestamp") or e.get("release_timestamp")
-                is_live   = e.get("live_status") in ("is_live", "is_upcoming")
+                vid_id      = e.get("id") or ""
+                title       = e.get("title") or ""
+                duration    = e.get("duration")
+                timestamp   = e.get("timestamp") or e.get("release_timestamp")
+                live_status = e.get("live_status") or "not_live"
+                is_live     = live_status in ("is_live", "is_upcoming")
+                was_live    = live_status == "was_live"
                 fecha = ""
                 if timestamp:
                     fecha = datetime.utcfromtimestamp(timestamp).strftime("%d/%m/%Y")
@@ -339,13 +341,14 @@ async def fetch_videos_youtube(limit=15):
                     s    = int(duration) % 60
                     dur_str = f"{h}h {m:02d}m" if h else f"{m}m {s:02d}s"
                 videos.append({
-                    "id":       vid_id,
-                    "titulo":   title,
-                    "fecha":    fecha,
-                    "duracion": dur_str,
-                    "en_vivo":  is_live,
-                    "url":      f"https://www.youtube.com/watch?v={vid_id}" if vid_id else "",
-                    "thumb":    f"https://img.youtube.com/vi/{vid_id}/mqdefault.jpg" if vid_id else "",
+                    "id":        vid_id,
+                    "titulo":    title,
+                    "fecha":     fecha,
+                    "duracion":  dur_str,
+                    "en_vivo":   is_live,
+                    "fue_live":  was_live,
+                    "url":       f"https://www.youtube.com/watch?v={vid_id}" if vid_id else "",
+                    "thumb":     f"https://img.youtube.com/vi/{vid_id}/mqdefault.jpg" if vid_id else "",
                 })
             return videos
 
