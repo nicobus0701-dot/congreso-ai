@@ -260,6 +260,11 @@ async def service_worker():
                         headers={"Service-Worker-Allowed": "/"})
 
 
+@app.get("/sessions", response_class=HTMLResponse)
+async def sessions_page():
+    return (Path("static") / "sessions.html").read_text()
+
+
 @app.post("/chat")
 async def chat(request: Request):
     body     = await request.json()

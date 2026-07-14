@@ -749,24 +749,18 @@ ${table.outerHTML}
   let selectedVideo = null;
   let videosFetched = false;
 
-  function switchToChat() {
+  navChat.addEventListener('click', () => {
     navChat.classList.add('active');
     navVideos.classList.remove('active');
-    viewVideos.style.display = 'none';
-    chatList.style.display   = '';
-  }
+  });
 
-  function switchToVideos() {
-    navVideos.classList.add('active');
-    navChat.classList.remove('active');
-    viewVideos.style.display = 'flex';
-    chatList.style.display   = 'none';
-    if (!videosFetched) loadVideos();
-  }
-
-  navChat.addEventListener('click',   switchToChat);
-  navVideos.addEventListener('click', switchToVideos);
-  videoRefresh.addEventListener('click', () => { videosFetched = false; loadVideos(); });
+  navVideos.addEventListener('click', () => {
+    if (window.electronAPI?.openSessions) {
+      window.electronAPI.openSessions();
+    } else {
+      window.open('/sessions', '_blank');
+    }
+  });
 
   async function loadVideos() {
     videosFetched = true;

@@ -95,6 +95,33 @@ function createWindow() {
   });
 }
 
+// ── IPC: ventana de Sesiones ─────────────────────────────────
+let sessionsWin = null;
+ipcMain.handle('open-sessions', () => {
+  if (sessionsWin && !sessionsWin.isDestroyed()) {
+    sessionsWin.focus();
+    return;
+  }
+  sessionsWin = new BrowserWindow({
+    width: 1100, height: 750,
+    minWidth: 800, minHeight: 550,
+    title: 'Sesiones del Congreso',
+    icon: path.join(__dirname, 'static', 'app-icon.png'),
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      nodeIntegration:  false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+  });
+  sessionsWin.loadURL(`http://localhost:${PORT}/sessions`);
+  sessionsWin.webContents.setWindowOpenHandler(({ url }) => {
+    if (!url.startsWith('http://localhost')) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  sessionsWin.on('closed', () => { sessionsWin = null; });
+});
+
 // ── IPC: exportar PDF ────────────────────────────────────────
 ipcMain.handle('export-pdf', async (event, html) => {
   const date = new Date().toISOString().slice(0, 10);

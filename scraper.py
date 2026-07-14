@@ -363,28 +363,26 @@ async def fetch_videos_youtube(limit=20):
 async def fetch_transcript_youtube(video_id: str):
     """Obtiene el transcript automático de YouTube para un video dado."""
     import asyncio
-    from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+    from youtube_transcript_api import YouTubeTranscriptApi
 
     def _get():
-        try:
-            transcript = YouTubeTranscriptApi.get_transcript(
-                video_id, languages=["es", "es-419", "es-PE", "a.es"]
-            )
-        except NoTranscriptFound:
-            # intentar con cualquier idioma disponible
+        api = YouTubeTranscriptApi()
+        # Intentar en español primero, luego cualquier idioma disponible
+        for langs in (["es"], ["es-419"], None):
             try:
-                tl = YouTubeTranscriptApi.list_transcripts(video_id)
-                transcript = next(iter(tl)).fetch()
-            except Exception as e:
-                return {"ok": False, "error": f"No hay subtítulos disponibles para este video: {e}"}
-        except TranscriptsDisabled:
-            return {"ok": False, "error": "Este video tiene los subtítulos desactivados."}
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-        text = " ".join(t["text"] for t in transcript)
-        # limitar a ~40 000 chars para no saturar el contexto del LLM
-        return {"ok": True, "text": text[:40000], "entries": len(transcript)}
+                if langs:
+                    tr = api.fetch(video_id, languages=langs)
+                else:
+                    # listar y tomar el primero disponible
+                    tl   = api.list(video_id)
+                    first = next(iter(tl))
+                    tr   = api.fetch(video_id, languages=[first.language_code])
+                text = " ".join(s.text for s in tr.snippets)
+                if text.strip():
+                    return {"ok": True, "text": text[:40000], "entries": len(tr.snippets)}
+            except Exception:
+                continue
+        return {"ok": False, "error": "No hay subtítulos disponibles para este video todavía. Intenta más tarde."}
 
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _get)
