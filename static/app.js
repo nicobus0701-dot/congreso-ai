@@ -317,7 +317,8 @@
     sendBtn.disabled = true;
     streaming = true;
     const assistantEl = appendAssistantTyping();
-    let fullText = '';
+    let fullText   = '';
+    let toolCalled = false;  // true si el modelo consultó una herramienta
 
     try {
       const resp = await fetch('/chat', {
@@ -344,7 +345,11 @@
           try {
             const obj = JSON.parse(raw);
             if (obj.error)  { renderContent(assistantEl, `**Error:** ${obj.error}`); break; }
-            if (obj.status) { assistantEl.innerHTML = `<span class="fetch-status">${escHtml(obj.status)}</span>`; scrollBottom(); }
+            if (obj.status) {
+              toolCalled = true;
+              assistantEl.innerHTML = `<span class="fetch-status">${escHtml(obj.status)}</span>`;
+              scrollBottom();
+            }
             if (obj.text)   {
               fullText += obj.text;
               renderContent(assistantEl, fullText);
@@ -361,7 +366,10 @@
       conv.messages.push({ role: 'assistant', content: fullText });
       saveConvs();
       addCopyBtns(assistantEl);
-      addExportBtns(assistantEl.closest('.message'), fullText);
+      // Mostrar export solo si el modelo buscó datos y la respuesta tiene tablas
+      if (toolCalled && hasExportableContent(fullText)) {
+        addExportBtns(assistantEl.closest('.message'), fullText);
+      }
     }
 
     streaming = false;
@@ -435,6 +443,11 @@
       send('__RESUMEN_SEMANAL__', sector);
     });
   });
+
+  // Devuelve true si el texto tiene contenido exportable (tablas, listas de datos)
+  function hasExportableContent(md) {
+    return md.includes('|') && md.includes('---');  // markdown table
+  }
 
   // Botones de descarga que aparecen DESPUÉS de que termina el resumen
   function addExportBtns(msgDiv, md) {
