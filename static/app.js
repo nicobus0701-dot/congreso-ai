@@ -745,6 +745,10 @@ ${table.outerHTML}
   const videoSummaryTitle   = document.getElementById('video-summary-title');
   const videoResumirBtn     = document.getElementById('video-resumir-btn');
   const videoSummaryResult  = document.getElementById('video-summary-result');
+  const videoPastePanel     = document.getElementById('video-paste-panel');
+  const videoPasteArea      = document.getElementById('video-paste-area');
+  const videoPasteBtn       = document.getElementById('video-paste-resumir-btn');
+  const videoYtOpenBtn      = document.getElementById('video-yt-open-btn');
 
   let selectedVideo = null;
   let videosFetched = false;
@@ -836,7 +840,10 @@ ${table.outerHTML}
     videoSummaryEmpty.style.display   = 'none';
     videoSummaryContent.style.display = 'block';
     videoSummaryResult.innerHTML      = '';
+    videoPastePanel.style.display     = 'none';
+    videoPasteArea.value              = '';
     videoResumirBtn.disabled          = false;
+    if (videoYtOpenBtn) videoYtOpenBtn.href = v.url || '#';
 
     // Título con badge de tipo
     const badge = v.en_vivo
@@ -896,7 +903,8 @@ ${table.outerHTML}
           try {
             const obj = JSON.parse(raw);
             if (obj.error)  {
-              videoSummaryResult.innerHTML = `<p style="color:#c00;font-size:13px">${escHtml(obj.error)}</p>`;
+              videoSummaryResult.innerHTML = '';
+              videoPastePanel.style.display = 'block';
               break;
             }
             if (obj.status) {
@@ -915,7 +923,8 @@ ${table.outerHTML}
         }
       }
     } catch (e) {
-      videoSummaryResult.innerHTML = `<p style="color:#c00;font-size:13px">Error: ${escHtml(e.message)}</p>`;
+      videoSummaryResult.innerHTML = '';
+      videoPastePanel.style.display = 'block';
     }
 
     // Agregar botones de exportar si hay resumen
@@ -936,6 +945,53 @@ ${table.outerHTML}
         <circle cx="9" cy="9" r="7"/><path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
       </svg>
       ${afterLabel}`;
+  });
+
+  // ── Paste transcript y resumir ────────────────────
+  async function streamSummary(url, body) {
+    const resp   = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const reader  = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '', fullText = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') continue;
+        try {
+          const obj = JSON.parse(raw);
+          if (obj.status) videoSummaryResult.innerHTML = `<p style="color:var(--text-dim);font-size:13px">${escHtml(obj.status)}</p>`;
+          if (obj.error)  { videoPastePanel.style.display = 'block'; return ''; }
+          if (obj.text) {
+            fullText += obj.text;
+            videoSummaryResult.innerHTML = '';
+            const w = document.createElement('div'); w.className = 'msg-content';
+            renderContent(w, fullText); videoSummaryResult.appendChild(w); addCopyBtns(w);
+          }
+        } catch {}
+      }
+    }
+    return fullText;
+  }
+
+  videoPasteBtn.addEventListener('click', async () => {
+    const texto = videoPasteArea.value.trim();
+    if (!texto) { videoPasteArea.focus(); return; }
+    videoPastePanel.style.display = 'none';
+    videoSummaryResult.innerHTML = '<div style="padding:12px 0;color:var(--text-dim);font-size:13px"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+    videoPasteBtn.disabled = true;
+    const fullText = await streamSummary('/sesiones/resumir-texto', { texto, titulo: selectedVideo?.titulo || '' });
+    if (fullText) {
+      const w = videoSummaryResult.querySelector('.msg-content');
+      if (w) { const d = document.createElement('div'); d.style.marginTop = '12px'; videoSummaryResult.appendChild(d); addExportBtns(d, fullText); }
+    } else {
+      videoPastePanel.style.display = 'block';
+    }
+    videoPasteBtn.disabled = false;
   });
 
   // ── Init ──────────────────────────────────────────

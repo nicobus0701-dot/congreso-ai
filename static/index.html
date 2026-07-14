@@ -145,14 +145,6 @@
     </button>
   </div>
 
-  <div id="cookie-setup-banner" style="display:none;background:#fffbeb;border-bottom:1px solid #f59e0b;padding:10px 16px;font-size:12px;color:#78350f;line-height:1.5">
-    <strong>⚠️ Configura las cookies de YouTube para activar los resúmenes.</strong>
-    Instala la extensión <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" style="color:#92400e;font-weight:600">Get cookies.txt LOCALLY</a> en Chrome →
-    ve a <strong>youtube.com</strong> → haz clic en la extensión → Export → guarda el archivo como
-    <code style="background:#fde68a;padding:1px 4px;border-radius:3px">/home/nicobus0701/youtube.cookies</code>
-    y recarga la app.
-  </div>
-
   <div class="video-layout">
     <div class="video-list-panel" id="video-list-panel">
       <div class="video-loading" id="video-loading">
@@ -183,6 +175,30 @@
           </button>
         </div>
         <div class="video-summary-result" id="video-summary-result"></div>
+
+        <!-- Fallback: pegar transcripción manualmente -->
+        <div id="video-paste-panel" style="display:none;margin-top:12px;border:1.5px dashed #d1d5db;border-radius:10px;padding:14px 16px;background:#fafafa">
+          <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#374151">No hay subtítulos automáticos. Obtén la transcripción manualmente:</p>
+          <ol style="margin:0 0 10px;padding-left:18px;font-size:12px;color:#6b7280;line-height:1.8">
+            <li>Haz clic en <strong style="color:#374151">"Abrir en YouTube →"</strong> abajo</li>
+            <li>En el video, haz clic en <strong style="color:#374151">⋮ → Mostrar transcripción</strong></li>
+            <li>Selecciona todo el texto de la transcripción y cópialo</li>
+            <li>Pégalo en el área de abajo y haz clic en <strong style="color:#374151">Resumir</strong></li>
+          </ol>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <a id="video-yt-open-btn" href="#" target="_blank"
+               style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#ff0000;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">
+              <svg viewBox="0 0 18 18" width="14" height="14" fill="currentColor"><path d="M9 1.5C4.86 1.5 1.5 4.86 1.5 9S4.86 16.5 9 16.5 16.5 13.14 16.5 9 13.14 1.5 9 1.5zm-1.5 11V5.5l5.5 3.5-5.5 3.5z"/></svg>
+              Abrir en YouTube →
+            </a>
+          </div>
+          <textarea id="video-paste-area" placeholder="Pega aquí la transcripción de YouTube..." rows="6"
+            style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;resize:vertical;font-family:inherit;line-height:1.5"></textarea>
+          <button id="video-paste-resumir-btn"
+            style="margin-top:8px;padding:7px 16px;background:#111;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">
+            Resumir transcripción pegada
+          </button>
+        </div>
       </div>
     </div>
   </div>

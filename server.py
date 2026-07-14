@@ -617,6 +617,69 @@ Transcript de la sesión:
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 
+@app.post("/sesiones/resumir-texto")
+async def sesiones_resumir_texto(request: Request):
+    """Resume un transcript que el usuario pegó manualmente."""
+    body    = await request.json()
+    texto   = body.get("texto", "").strip()
+    titulo  = body.get("titulo", "esta sesión")
+    api_key = os.getenv("GROQ_API_KEY", "")
+
+    async def generate():
+        if not texto:
+            yield f"data: {json.dumps({'error': 'No hay texto para resumir.'})}\n\n"
+            return
+        if not api_key:
+            yield f"data: {json.dumps({'error': 'Falta la API key de Groq.'})}\n\n"
+            return
+
+        yield f"data: {json.dumps({'status': 'Analizando transcripción...'})}\n\n"
+
+        prompt = f"""Analiza este transcript de la sesión del Congreso del Perú titulada: "{titulo}".
+
+Genera un resumen estructurado con este formato EXACTO:
+
+## Resumen — {titulo}
+
+### Temas tratados
+[Tabla: Tema | Descripción | Resultado/Estado]
+
+### Proyectos o normas mencionados
+[Tabla: Número/Nombre | Tema | Posición mayoritaria]
+
+### Votaciones o acuerdos
+[Tabla: Asunto | A favor | En contra | Resultado]
+
+### Puntos destacados
+[Lista de los 3-5 momentos más relevantes de la sesión]
+
+---
+Transcript de la sesión:
+{texto[:40000]}"""
+
+        client = Groq(api_key=api_key)
+        try:
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "Eres Lex, experto en análisis parlamentario del Congreso del Perú."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=3000,
+                temperature=0.3,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield f"data: {json.dumps({'text': delta})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8732))
