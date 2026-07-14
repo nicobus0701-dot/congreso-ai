@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live — Congreso IA</title>
+  <link rel="stylesheet" href="/static/live.css">
+</head>
+<body>
+
+<!-- ── Top bar ───────────────────────────────────────── -->
+<header class="lv-header">
+  <a href="/" class="lv-back" title="Volver">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M13 4l-6 6 6 6"/>
+    </svg>
+  </a>
+  <div class="lv-logo">
+    <svg viewBox="0 0 32 32" fill="none" width="20" height="20">
+      <rect x="4" y="26" width="24" height="3" rx="1" fill="currentColor"/>
+      <rect x="7" y="12" width="3" height="14" rx="1" fill="currentColor"/>
+      <rect x="14.5" y="12" width="3" height="14" rx="1" fill="currentColor"/>
+      <rect x="22" y="12" width="3" height="14" rx="1" fill="currentColor"/>
+      <path d="M2 12h28M16 3L2 12h28L16 3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <span>Live — Transcripción en vivo</span>
+  </div>
+
+  <div class="lv-url-bar">
+    <input id="lv-url-input" type="text"
+      placeholder="Pega la URL o ID del YouTube live..."
+      autocomplete="off" spellcheck="false">
+    <button id="lv-start-btn">
+      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="9" r="7"/>
+        <path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
+      </svg>
+      Conectar
+    </button>
+    <button id="lv-stop-btn" style="display:none">
+      <svg viewBox="0 0 18 18" fill="currentColor">
+        <rect x="4" y="4" width="10" height="10" rx="2"/>
+      </svg>
+      Detener
+    </button>
+  </div>
+
+  <div id="lv-status" class="lv-status"></div>
+</header>
+
+<!-- ── 3-column layout ──────────────────────────────── -->
+<div class="lv-body">
+
+  <!-- Columna 1: Video -->
+  <section class="lv-col lv-col-video">
+    <div class="lv-col-head">
+      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="9" r="7"/><path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
+      </svg>
+      Video
+    </div>
+    <div class="lv-video-wrap" id="lv-video-wrap">
+      <div class="lv-video-placeholder" id="lv-video-placeholder">
+        <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <circle cx="32" cy="32" r="28"/>
+          <path d="M24 22l20 10-20 10V22z" stroke-linejoin="round"/>
+        </svg>
+        <p>Ingresa una URL de YouTube<br>y haz clic en <strong>Conectar</strong></p>
+      </div>
+      <iframe id="lv-iframe" style="display:none"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen></iframe>
+    </div>
+    <div class="lv-video-indicator" id="lv-video-indicator">
+      <span class="lv-dot" id="lv-dot"></span>
+      <span id="lv-indicator-label">—</span>
+    </div>
+  </section>
+
+  <!-- Columna 2: IA Lex -->
+  <section class="lv-col lv-col-ia">
+    <div class="lv-col-head">
+      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <rect x="2" y="2" width="14" height="14" rx="2"/>
+        <path d="M5 6h8M5 9h8M5 12h5"/>
+      </svg>
+      Lex — Análisis en vivo
+      <span class="lv-ia-spinner" id="lv-ia-spinner" style="display:none"></span>
+    </div>
+    <div class="lv-ia-body" id="lv-ia-body">
+      <div class="lv-ia-empty" id="lv-ia-empty">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <rect x="6" y="6" width="36" height="36" rx="6"/>
+          <path d="M13 16h22M13 23h22M13 30h14"/>
+        </svg>
+        <p>Lex analizará el debate<br>a medida que llegue la transcripción</p>
+      </div>
+      <div class="lv-ia-content" id="lv-ia-content" style="display:none"></div>
+    </div>
+    <div class="lv-ia-footer" id="lv-ia-footer" style="display:none">
+      <span id="lv-ia-next">Próximo análisis en <strong id="lv-ia-countdown">60</strong>s</span>
+      <button id="lv-ia-now-btn">Analizar ahora</button>
+    </div>
+  </section>
+
+  <!-- Columna 3: Transcripción en vivo -->
+  <section class="lv-col lv-col-transcript">
+    <div class="lv-col-head">
+      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M3 4h12M3 8h12M3 12h8"/>
+        <circle cx="15" cy="12" r="2.5" fill="none"/>
+        <path d="M17 14.5l2 2"/>
+      </svg>
+      Transcripción en vivo
+      <button id="lv-copy-btn" class="lv-copy-btn" title="Copiar todo" style="display:none">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <rect x="5" y="5" width="9" height="9" rx="1.5"/>
+          <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>
+        </svg>
+        Copiar
+      </button>
+    </div>
+    <div class="lv-transcript-body" id="lv-transcript-body">
+      <div class="lv-transcript-empty" id="lv-transcript-empty">
+        <p>El texto irá apareciendo aquí<br>a medida que se transcribe el audio</p>
+      </div>
+      <div class="lv-lines" id="lv-lines"></div>
+    </div>
+    <button class="lv-scroll-btn" id="lv-scroll-btn" style="display:none">
+      ↓ Volver al en vivo
+    </button>
+  </section>
+
+</div>
+
+<!-- Mobile tabs (solo en pantalla chica) -->
+<div class="lv-tabs" id="lv-tabs">
+  <button class="lv-tab active" data-tab="ia">
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <rect x="2" y="2" width="14" height="14" rx="2"/>
+      <path d="M5 6h8M5 9h8M5 12h5"/>
+    </svg>
+    IA
+  </button>
+  <button class="lv-tab" data-tab="transcript">
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <path d="M3 4h12M3 8h12M3 12h8"/>
+    </svg>
+    Transcripción
+  </button>
+</div>
+
+<script src="/static/live.js"></script>
+</body>
+</html>

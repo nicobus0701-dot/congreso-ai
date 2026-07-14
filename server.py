@@ -1,9 +1,10 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Query
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
 from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, fetch_transcript_youtube, get_yt_captions, transcribe_with_whisper
+from live_transcriber import stream_transcription
 import json
 import os
 import re
@@ -678,6 +679,88 @@ Transcript de la sesión:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+LIVE_ANALYSIS_PROMPT = """Estás monitoreando un debate parlamentario en el Congreso del Perú EN VIVO.
+Recibirás fragmentos de la transcripción en tiempo real.
+
+Basándote en la transcripción acumulada hasta ahora, genera un análisis breve y actualizado:
+
+**Estado del debate:** [1 línea sobre qué se está debatiendo]
+**Posiciones clave:** [qué están diciendo los congresistas, si hay tensiones]
+**Puntos de atención:** [algo relevante para un consultor de asuntos públicos]
+
+Sé conciso (máximo 150 palabras). Tono analítico, no descriptivo."""
+
+
+@app.get("/live/transcribe")
+async def live_transcribe(video_id: str = Query(..., description="ID del video de YouTube")):
+    """SSE stream que emite líneas de transcripción en tiempo real."""
+    api_key = os.getenv("GROQ_API_KEY", "")
+
+    async def generate():
+        if not api_key:
+            yield f"data: {json.dumps({'error': 'Falta la GROQ_API_KEY'})}\n\n"
+            return
+        if not video_id:
+            yield f"data: {json.dumps({'error': 'Falta el parámetro video_id'})}\n\n"
+            return
+        try:
+            async for item in stream_transcription(video_id, api_key):
+                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/live/analyze")
+async def live_analyze(request: Request):
+    """Analiza el transcript acumulado con Lex. Llamar cada ~60s desde el frontend."""
+    body       = await request.json()
+    transcript = body.get("transcript", "").strip()
+    titulo     = body.get("titulo", "sesión en vivo")
+    api_key    = os.getenv("GROQ_API_KEY", "")
+
+    async def generate():
+        if not transcript:
+            yield f"data: {json.dumps({'error': 'Sin transcripción aún.'})}\n\n"
+            return
+        # Send only the last 3000 chars to keep tokens low
+        excerpt = transcript[-3000:]
+        prompt  = f'Sesión: "{titulo}"\n\nTranscripción reciente:\n{excerpt}'
+        client  = Groq(api_key=api_key)
+        try:
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": LIVE_ANALYSIS_PROMPT},
+                    {"role": "user",   "content": prompt},
+                ],
+                max_tokens=400,
+                temperature=0.3,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield f"data: {json.dumps({'text': delta})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/live", response_class=HTMLResponse)
+async def live_page():
+    return (Path("static") / "live.html").read_text()
 
 
 if __name__ == "__main__":
