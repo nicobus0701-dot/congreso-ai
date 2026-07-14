@@ -307,9 +307,9 @@ async def fetch_estado_proyecto(numero: str):
 
 # ── Videos YouTube del Congreso ────────────────────────────────
 
-YT_CHANNEL = "https://www.youtube.com/@congresodelarepublicaperu/videos"
+YT_CHANNEL = "https://www.youtube.com/@congresodelarepublicaperu/streams"
 
-async def fetch_videos_youtube(limit=15):
+async def fetch_videos_youtube(limit=20):
     """Lista los videos más recientes del canal oficial del Congreso."""
     import asyncio, yt_dlp
 
@@ -331,7 +331,7 @@ async def fetch_videos_youtube(limit=15):
                 timestamp   = e.get("timestamp") or e.get("release_timestamp")
                 live_status = e.get("live_status") or "not_live"
                 is_live     = live_status in ("is_live", "is_upcoming")
-                was_live    = live_status == "was_live"
+                was_live    = live_status in ("was_live", "post_live")
                 fecha = ""
                 if timestamp:
                     fecha = datetime.utcfromtimestamp(timestamp).strftime("%d/%m/%Y")
