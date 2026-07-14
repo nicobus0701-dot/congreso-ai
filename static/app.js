@@ -869,7 +869,7 @@ ${table.outerHTML}
       const resp   = await fetch('/sesiones/resumir', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_id: selectedVideo.id, titulo: selectedVideo.titulo }),
+        body: JSON.stringify({ video_id: selectedVideo.id, titulo: selectedVideo.titulo, en_vivo: selectedVideo.en_vivo }),
       });
       const reader  = resp.body.getReader();
       const decoder = new TextDecoder();

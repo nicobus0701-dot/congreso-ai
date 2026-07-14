@@ -360,79 +360,85 @@ async def fetch_videos_youtube(limit=20):
         return {"ok": False, "error": str(e)}
 
 
+def get_yt_captions(video_id: str):
+    """
+    Intenta obtener subtítulos de YouTube (auto-generados o manuales).
+    Retorna dict con ok/text/source, o None si no hay nada disponible.
+    """
+    from youtube_transcript_api import YouTubeTranscriptApi
+    api = YouTubeTranscriptApi()
+    for langs in (["es"], ["es-419"], None):
+        try:
+            if langs:
+                tr = api.fetch(video_id, languages=langs)
+            else:
+                tl    = api.list(video_id)
+                first = next(iter(tl))
+                tr    = api.fetch(video_id, languages=[first.language_code])
+            text = " ".join(s.text for s in tr.snippets)
+            if text.strip():
+                return {"ok": True, "text": text[:40000], "source": "subtitulos"}
+        except Exception:
+            continue
+    return None
+
+
+def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
+    """
+    Descarga hasta `minutes` minutos de audio y transcribe con Groq Whisper.
+    Usa el bitrate más bajo posible para minimizar el tiempo de descarga.
+    """
+    import tempfile, os
+    import yt_dlp
+    from groq import Groq
+
+    url     = f"https://www.youtube.com/watch?v={video_id}"
+    seconds = minutes * 60
+
+    with tempfile.TemporaryDirectory() as tmp:
+        opts = {
+            "quiet":       True,
+            "no_warnings": True,
+            # Worst audio = smallest file = fastest download
+            "format": "worstaudio/bestaudio/best",
+            "outtmpl": os.path.join(tmp, "audio.%(ext)s"),
+            "postprocessors": [{"key": "FFmpegExtractAudio",
+                                "preferredcodec": "mp3",
+                                "preferredquality": "32"}],
+            "download_ranges":        yt_dlp.utils.download_range_func(None, [(0, seconds)]),
+            "force_keyframes_at_cuts": True,
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([url])
+
+        mp3 = next((os.path.join(tmp, f) for f in os.listdir(tmp) if f.endswith(".mp3")), None)
+        if not mp3:
+            return {"ok": False, "error": "No se pudo descargar el audio del video."}
+
+        size_mb = os.path.getsize(mp3) / 1_000_000
+        client  = Groq(api_key=api_key)
+        with open(mp3, "rb") as f:
+            result = client.audio.transcriptions.create(
+                file=(os.path.basename(mp3), f.read()),
+                model="whisper-large-v3-turbo",
+                language="es",
+                response_format="text",
+            )
+        text = result if isinstance(result, str) else result.text
+        return {
+            "ok":    True,
+            "text":  text[:40000],
+            "source": "whisper",
+            "nota":  f"Transcripción de los primeros {minutes} min ({size_mb:.1f} MB de audio)",
+        }
+
+
 async def fetch_transcript_youtube(video_id: str, api_key: str = ""):
     """
-    Intenta obtener el transcript de YouTube.
-    Si no hay subtítulos, descarga el audio y transcribe con Groq Whisper.
+    Fase 1: intenta subtítulos de YouTube (rápido).
+    Retorna el resultado o None si no hay subtítulos.
+    Usa get_yt_captions() directamente para dos fases en el endpoint SSE.
     """
     import asyncio
-    from youtube_transcript_api import YouTubeTranscriptApi
-
-    def _yt_captions():
-        api = YouTubeTranscriptApi()
-        for langs in (["es"], ["es-419"], None):
-            try:
-                if langs:
-                    tr = api.fetch(video_id, languages=langs)
-                else:
-                    tl    = api.list(video_id)
-                    first = next(iter(tl))
-                    tr    = api.fetch(video_id, languages=[first.language_code])
-                text = " ".join(s.text for s in tr.snippets)
-                if text.strip():
-                    return {"ok": True, "text": text[:40000], "source": "subtitulos"}
-            except Exception:
-                continue
-        return None
-
-    def _whisper(key):
-        import tempfile, os, yt_dlp
-        from groq import Groq
-
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        with tempfile.TemporaryDirectory() as tmp:
-            outpath = os.path.join(tmp, "audio.mp3")
-            opts = {
-                "quiet": True,
-                "no_warnings": True,
-                "format": "bestaudio/best",
-                "outtmpl": os.path.join(tmp, "audio.%(ext)s"),
-                "postprocessors": [{"key": "FFmpegExtractAudio",
-                                    "preferredcodec": "mp3",
-                                    "preferredquality": "64"}],
-                # Solo los primeros 30 minutos
-                "download_ranges": yt_dlp.utils.download_range_func(None, [(0, 1800)]),
-                "force_keyframes_at_cuts": True,
-            }
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([url])
-
-            # Buscar el archivo descargado
-            mp3 = next((os.path.join(tmp, f) for f in os.listdir(tmp) if f.endswith(".mp3")), None)
-            if not mp3:
-                return {"ok": False, "error": "No se pudo descargar el audio del video."}
-
-            size_mb = os.path.getsize(mp3) / 1_000_000
-            client  = Groq(api_key=key)
-            with open(mp3, "rb") as f:
-                result = client.audio.transcriptions.create(
-                    file=(os.path.basename(mp3), f.read()),
-                    model="whisper-large-v3-turbo",
-                    language="es",
-                    response_format="text",
-                )
-            text = result if isinstance(result, str) else result.text
-            return {"ok": True, "text": text[:40000], "source": "whisper",
-                    "nota": f"Transcripción de los primeros 30 min ({size_mb:.1f} MB de audio)"}
-
     loop = asyncio.get_event_loop()
-
-    # 1. Intentar subtítulos de YouTube (rápido)
-    captions = await loop.run_in_executor(None, _yt_captions)
-    if captions:
-        return captions
-
-    # 2. Fallback: Groq Whisper (descarga audio)
-    if not api_key:
-        return {"ok": False, "error": "No hay subtítulos y falta la API key para transcribir el audio."}
-    return await loop.run_in_executor(None, _whisper, api_key)
+    return await loop.run_in_executor(None, get_yt_captions, video_id)

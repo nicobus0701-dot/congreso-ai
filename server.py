@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, Res
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
-from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, fetch_transcript_youtube
+from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, fetch_transcript_youtube, get_yt_captions, transcribe_with_whisper
 import json
 import os
 import re
@@ -530,6 +530,7 @@ async def sesiones_resumir(request: Request):
     body     = await request.json()
     video_id = body.get("video_id", "")
     titulo   = body.get("titulo", "este video")
+    en_vivo  = body.get("en_vivo", False)
     api_key  = os.getenv("GROQ_API_KEY", "")
 
     async def generate():
@@ -537,16 +538,30 @@ async def sesiones_resumir(request: Request):
             yield f"data: {json.dumps({'error': 'Falta el ID del video'})}\n\n"
             return
 
+        # ── Fase 1: subtítulos de YouTube ─────────────────────
         yield f"data: {json.dumps({'status': 'Buscando subtítulos en YouTube...'})}\n\n"
-        tr = await fetch_transcript_youtube(video_id, api_key)
-        if not tr.get("ok"):
-            yield f"data: {json.dumps({'error': tr.get('error', 'Sin transcript')})}\n\n"
-            return
+        loop = __import__('asyncio').get_event_loop()
+        captions = await loop.run_in_executor(None, get_yt_captions, video_id)
 
-        source = tr.get("source", "")
-        if source == "whisper":
+        tr = captions  # can be None
+
+        # ── Fase 2: Whisper si no hay subtítulos ──────────────
+        if not tr:
+            if not api_key:
+                yield f"data: {json.dumps({'error': 'No hay subtítulos disponibles para este video.'})}\n\n"
+                return
+
+            minutes = 5 if en_vivo else 10
+            label   = f"los últimos {minutes} min del stream en vivo" if en_vivo else f"los primeros {minutes} min"
+            yield f"data: {json.dumps({'status': f'No hay subtítulos. Descargando audio ({label})... esto toma ~2 minutos.'})}\n\n"
+
+            tr = await loop.run_in_executor(None, transcribe_with_whisper, video_id, api_key, minutes)
+            if not tr.get("ok"):
+                yield f"data: {json.dumps({'error': tr.get('error', 'No se pudo transcribir el audio.')})}\n\n"
+                return
+
             nota = tr.get("nota", "")
-            yield f"data: {json.dumps({'status': f'Audio transcrito con Whisper. {nota}'})}\n\n"
+            yield f"data: {json.dumps({'status': f'Audio transcrito. Analizando ({nota})...'})}\n\n"
         else:
             yield f"data: {json.dumps({'status': 'Subtítulos obtenidos. Analizando sesión...'})}\n\n"
 
