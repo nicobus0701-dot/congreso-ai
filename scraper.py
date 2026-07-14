@@ -3,6 +3,7 @@ Scrapers for Congreso de la República del Perú.
 - Proyectos de ley: SPLEY API (api.congreso.gob.pe/spley-portal-service)
 - Sesiones / Agenda / Destacados: DuckDuckGo news + fallback HTML
 """
+import os
 import httpx
 import re
 import urllib.parse
@@ -360,13 +361,42 @@ async def fetch_videos_youtube(limit=20):
         return {"ok": False, "error": str(e)}
 
 
+COOKIE_PATHS = [
+    os.path.expanduser("~/youtube.cookies"),
+    os.path.expanduser("~/youtube_cookies.txt"),
+    os.path.expanduser("~/Downloads/youtube.cookies"),
+]
+
+def _get_cookie_path():
+    for p in COOKIE_PATHS:
+        if os.path.exists(p):
+            return p
+    return None
+
+
 def get_yt_captions(video_id: str):
     """
     Intenta obtener subtítulos de YouTube (auto-generados o manuales).
+    Usa cookies si están disponibles para evitar bloqueos de IP.
     Retorna dict con ok/text/source, o None si no hay nada disponible.
     """
+    import requests
     from youtube_transcript_api import YouTubeTranscriptApi
-    api = YouTubeTranscriptApi()
+
+    cookie_path = _get_cookie_path()
+    if cookie_path:
+        from http.cookiejar import MozillaCookieJar
+        session = requests.Session()
+        jar = MozillaCookieJar(cookie_path)
+        try:
+            jar.load(ignore_discard=True, ignore_expires=True)
+            session.cookies = jar
+        except Exception:
+            session = None
+        api = YouTubeTranscriptApi(http_client=session) if session else YouTubeTranscriptApi()
+    else:
+        api = YouTubeTranscriptApi()
+
     for langs in (["es"], ["es-419"], None):
         try:
             if langs:
@@ -408,6 +438,9 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
             "download_ranges":        yt_dlp.utils.download_range_func(None, [(0, seconds)]),
             "force_keyframes_at_cuts": True,
         }
+        cookie_path = _get_cookie_path()
+        if cookie_path:
+            opts["cookiefile"] = cookie_path
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url])

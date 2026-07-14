@@ -781,6 +781,13 @@ ${table.outerHTML}
     videoSummaryEmpty.style.display   = 'flex';
     videoSummaryContent.style.display = 'none';
 
+    // Check if YouTube cookies are configured
+    try {
+      const ck = await fetch('/sesiones/cookies-status').then(r => r.json());
+      const cookieBanner = document.getElementById('cookie-setup-banner');
+      if (cookieBanner) cookieBanner.style.display = ck.ok ? 'none' : 'block';
+    } catch {}
+
     try {
       const r    = await fetch('/sesiones/videos');
       const data = await r.json();

@@ -519,6 +519,13 @@ async def export_docx(request: Request):
     )
 
 
+@app.get("/sesiones/cookies-status")
+async def sesiones_cookies_status():
+    from scraper import _get_cookie_path, COOKIE_PATHS
+    path = _get_cookie_path()
+    return {"ok": bool(path), "path": path, "search_paths": COOKIE_PATHS}
+
+
 @app.get("/sesiones/videos")
 async def sesiones_videos():
     result = await fetch_videos_youtube(limit=15)
