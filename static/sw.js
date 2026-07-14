@@ -1,4 +1,4 @@
-const CACHE = 'congreso-ai-v2';
+const CACHE = 'congreso-ai-v3';
 const ASSETS = ['/', '/static/style.css', '/static/app.js'];
 
 self.addEventListener('install', e => {
