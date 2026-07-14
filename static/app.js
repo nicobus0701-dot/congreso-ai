@@ -777,6 +777,14 @@ ${table.outerHTML}
   navVideos.addEventListener('click', switchToVideos);
   videoRefresh.addEventListener('click', () => { videosFetched = false; loadVideos(); });
 
+  const navLive = document.getElementById('nav-live');
+  if (navLive) {
+    navLive.addEventListener('click', () => {
+      if (window.electronAPI?.openLive) window.electronAPI.openLive();
+      else window.open('/live', '_blank');
+    });
+  }
+
   async function loadVideos() {
     videosFetched = true;
     videoLoading.style.display = 'flex';

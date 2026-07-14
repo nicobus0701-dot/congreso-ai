@@ -95,6 +95,33 @@ function createWindow() {
   });
 }
 
+// ── IPC: ventana de Live ─────────────────────────────────────
+let liveWin = null;
+ipcMain.handle('open-live', () => {
+  if (liveWin && !liveWin.isDestroyed()) {
+    liveWin.focus();
+    return;
+  }
+  liveWin = new BrowserWindow({
+    width: 1400, height: 860,
+    minWidth: 900, minHeight: 600,
+    title: 'Live — Transcripción en vivo',
+    icon: path.join(__dirname, 'static', 'app-icon.png'),
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      nodeIntegration:  false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+  });
+  liveWin.loadURL(`http://localhost:${PORT}/live`);
+  liveWin.webContents.setWindowOpenHandler(({ url }) => {
+    if (!url.startsWith('http://localhost')) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  liveWin.on('closed', () => { liveWin = null; });
+});
+
 // ── IPC: ventana de Sesiones ─────────────────────────────────
 let sessionsWin = null;
 ipcMain.handle('open-sessions', () => {
