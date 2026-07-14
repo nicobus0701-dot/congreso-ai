@@ -10,11 +10,11 @@
 
 <!-- ── Top bar ───────────────────────────────────────── -->
 <header class="lv-header">
-  <a href="/" class="lv-back" title="Volver">
+  <button class="lv-back" title="Volver" onclick="window.parent.postMessage('close-live','*')">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
       <path d="M13 4l-6 6 6 6"/>
     </svg>
-  </a>
+  </button>
   <div class="lv-logo">
     <svg viewBox="0 0 32 32" fill="none" width="20" height="20">
       <rect x="4" y="26" width="24" height="3" rx="1" fill="currentColor"/>

@@ -756,10 +756,16 @@ ${table.outerHTML}
   const chatArea2  = document.getElementById('chat-area');
   const inputArea  = document.querySelector('.input-area');
 
+  const navLive    = document.getElementById('nav-live');
+  const viewLive   = document.getElementById('view-live');
+  const liveIframe = document.getElementById('live-iframe');
+
   function switchToChat() {
     navChat.classList.add('active');
     navVideos.classList.remove('active');
+    if (navLive) navLive.classList.remove('active');
     viewVideos.style.display = 'none';
+    if (viewLive) viewLive.style.display = 'none';
     chatArea2.style.display  = '';
     inputArea.style.display  = '';
   }
@@ -767,23 +773,41 @@ ${table.outerHTML}
   function switchToVideos() {
     navVideos.classList.add('active');
     navChat.classList.remove('active');
+    if (navLive) navLive.classList.remove('active');
     chatArea2.style.display  = 'none';
     inputArea.style.display  = 'none';
+    if (viewLive) viewLive.style.display = 'none';
     viewVideos.style.display = 'flex';
     if (!videosFetched) loadVideos();
   }
 
+  function switchToLive() {
+    if (navLive) navLive.classList.add('active');
+    navChat.classList.remove('active');
+    navVideos.classList.remove('active');
+    chatArea2.style.display  = 'none';
+    inputArea.style.display  = 'none';
+    viewVideos.style.display = 'none';
+    viewLive.style.display   = '';
+    if (!liveIframe.src || liveIframe.src === window.location.href) {
+      liveIframe.src = '/live';
+    }
+  }
+
   navChat.addEventListener('click',   switchToChat);
   navVideos.addEventListener('click', switchToVideos);
+  if (navLive) navLive.addEventListener('click', switchToLive);
   videoRefresh.addEventListener('click', () => { videosFetched = false; loadVideos(); });
 
-  const navLive = document.getElementById('nav-live');
-  if (navLive) {
-    navLive.addEventListener('click', () => {
-      if (window.electronAPI?.openLive) window.electronAPI.openLive();
-      else window.open('/live', '_blank');
-    });
-  }
+  // Volver al chat desde el iframe de live
+  window.addEventListener('message', (e) => {
+    if (e.data === 'close-live') switchToChat();
+  });
+
+  // Mensaje desde el iframe de live para volver al chat
+  window.addEventListener('message', (e) => {
+    if (e.data === 'close-live') switchToChat();
+  });
 
   async function loadVideos() {
     videosFetched = true;
