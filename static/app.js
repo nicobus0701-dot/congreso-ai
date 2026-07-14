@@ -732,6 +732,173 @@ ${table.outerHTML}
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  // ── Vista de Videos ───────────────────────────────
+  const navChat      = document.getElementById('nav-chat');
+  const navVideos    = document.getElementById('nav-videos');
+  const viewVideos   = document.getElementById('view-videos');
+  const mainContent  = document.querySelector('.main');
+  const videoList    = document.getElementById('video-list');
+  const videoLoading = document.getElementById('video-loading');
+  const videoRefresh = document.getElementById('video-refresh-btn');
+  const videoSummaryEmpty   = document.getElementById('video-summary-empty');
+  const videoSummaryContent = document.getElementById('video-summary-content');
+  const videoSummaryTitle   = document.getElementById('video-summary-title');
+  const videoResumirBtn     = document.getElementById('video-resumir-btn');
+  const videoSummaryResult  = document.getElementById('video-summary-result');
+
+  let selectedVideo = null;
+  let videosFetched = false;
+
+  function switchToChat() {
+    navChat.classList.add('active');
+    navVideos.classList.remove('active');
+    viewVideos.style.display = 'none';
+    chatList.style.display   = '';
+  }
+
+  function switchToVideos() {
+    navVideos.classList.add('active');
+    navChat.classList.remove('active');
+    viewVideos.style.display = 'flex';
+    chatList.style.display   = 'none';
+    if (!videosFetched) loadVideos();
+  }
+
+  navChat.addEventListener('click',   switchToChat);
+  navVideos.addEventListener('click', switchToVideos);
+  videoRefresh.addEventListener('click', () => { videosFetched = false; loadVideos(); });
+
+  async function loadVideos() {
+    videosFetched = true;
+    videoLoading.style.display = 'flex';
+    videoList.innerHTML = '';
+    selectedVideo = null;
+    videoSummaryEmpty.style.display   = 'flex';
+    videoSummaryContent.style.display = 'none';
+
+    try {
+      const r    = await fetch('/sesiones/videos');
+      const data = await r.json();
+      videoLoading.style.display = 'none';
+
+      if (!data.ok || !data.videos?.length) {
+        videoList.innerHTML = '<div style="padding:20px 16px;font-size:13px;color:var(--text-dim)">No se pudieron cargar los videos. Verifica tu conexión.</div>';
+        return;
+      }
+
+      data.videos.forEach(v => {
+        const el = document.createElement('div');
+        el.className = 'video-item';
+        el.innerHTML = `
+          <img class="video-thumb" src="${escHtml(v.thumb)}" alt="" loading="lazy" onerror="this.style.background='#ddd'">
+          <div class="video-info">
+            <div class="video-titulo">${escHtml(v.titulo)}</div>
+            <div class="video-meta">
+              ${v.en_vivo ? '<span class="badge-live">EN VIVO</span>' : ''}
+              ${v.fecha ? `<span>${escHtml(v.fecha)}</span>` : ''}
+              ${v.duracion ? `<span>${escHtml(v.duracion)}</span>` : ''}
+            </div>
+          </div>`;
+        el.addEventListener('click', () => selectVideo(v, el));
+        videoList.appendChild(el);
+      });
+    } catch (e) {
+      videoLoading.style.display = 'none';
+      videoList.innerHTML = '<div style="padding:20px 16px;font-size:13px;color:var(--text-dim)">Error al cargar videos.</div>';
+    }
+  }
+
+  function selectVideo(v, el) {
+    document.querySelectorAll('.video-item').forEach(x => x.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedVideo = v;
+
+    videoSummaryEmpty.style.display   = 'none';
+    videoSummaryContent.style.display = 'block';
+    videoSummaryTitle.textContent = v.titulo;
+    videoSummaryResult.innerHTML  = '';
+    videoResumirBtn.disabled      = false;
+    videoResumirBtn.innerHTML     = `
+      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="9" cy="9" r="7"/><path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
+      </svg>
+      Resumir esta sesión`;
+  }
+
+  videoResumirBtn.addEventListener('click', async () => {
+    if (!selectedVideo) return;
+
+    videoResumirBtn.disabled     = true;
+    videoResumirBtn.textContent  = 'Analizando...';
+    videoSummaryResult.innerHTML = '<div style="padding:12px 0;color:var(--text-dim);font-size:13px"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+
+    let fullText = '';
+
+    try {
+      const resp   = await fetch('/sesiones/resumir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_id: selectedVideo.id, titulo: selectedVideo.titulo }),
+      });
+      const reader  = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') continue;
+          try {
+            const obj = JSON.parse(raw);
+            if (obj.error)  {
+              videoSummaryResult.innerHTML = `<p style="color:#c00;font-size:13px">${escHtml(obj.error)}</p>`;
+              break;
+            }
+            if (obj.status) {
+              videoSummaryResult.innerHTML = `<p style="color:var(--text-dim);font-size:13px">${escHtml(obj.status)}</p>`;
+            }
+            if (obj.text) {
+              fullText += obj.text;
+              videoSummaryResult.innerHTML = '';
+              const wrapper = document.createElement('div');
+              wrapper.className = 'msg-content';
+              renderContent(wrapper, fullText);
+              videoSummaryResult.appendChild(wrapper);
+              addCopyBtns(wrapper);
+            }
+          } catch { /* ignore */ }
+        }
+      }
+    } catch (e) {
+      videoSummaryResult.innerHTML = `<p style="color:#c00;font-size:13px">Error: ${escHtml(e.message)}</p>`;
+    }
+
+    // Agregar botones de exportar si hay resumen
+    if (fullText) {
+      const wrapper = videoSummaryResult.querySelector('.msg-content');
+      if (wrapper) {
+        const exportDiv = document.createElement('div');
+        exportDiv.style.marginTop = '12px';
+        videoSummaryResult.appendChild(exportDiv);
+        addExportBtns(exportDiv, fullText);
+      }
+    }
+
+    videoResumirBtn.disabled = false;
+    videoResumirBtn.innerHTML = `
+      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="9" cy="9" r="7"/><path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
+      </svg>
+      Resumir de nuevo`;
+  });
+
   // ── Init ──────────────────────────────────────────
   loadConvs();
   renderSidebar();

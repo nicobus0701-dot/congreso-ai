@@ -44,6 +44,22 @@
       </button>
     </div>
 
+    <div class="sidebar-nav">
+      <button class="sidenav-btn active" id="nav-chat" title="Conversaciones">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 4h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7l-4 2V5a1 1 0 0 1 1-1z"/>
+        </svg>
+        Chats
+      </button>
+      <button class="sidenav-btn" id="nav-videos" title="Sesiones de video">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="10" cy="10" r="8"/>
+          <path d="M8 7l6 3-6 3V7z" stroke-linejoin="round"/>
+        </svg>
+        Sesiones
+      </button>
+    </div>
+
     <nav class="chat-list" id="chat-list"></nav>
 
     <div class="sidebar-footer">
@@ -90,6 +106,14 @@
           </svg>
           Destacados
         </button>
+        <button class="chip chip-resumen" id="resumen-btn">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <rect x="2" y="2" width="14" height="14" rx="2"/>
+            <path d="M5 6h8M5 9h8M5 12h5"/>
+            <path d="M12 11l2 2 3-3" stroke-width="1.6"/>
+          </svg>
+          Resumen
+        </button>
       </div>
 
       <div class="input-wrap">
@@ -104,6 +128,99 @@
     </div>
   </main>
 
+</div>
+
+<!-- Vista Sesiones de Video -->
+<div id="view-videos" class="video-view" style="display:none">
+  <div class="video-view-header">
+    <div class="video-view-title">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="10" cy="10" r="8"/>
+        <path d="M8 7l6 3-6 3V7z" stroke-linejoin="round"/>
+      </svg>
+      Sesiones del Congreso — YouTube
+    </div>
+    <button class="video-refresh-btn" id="video-refresh-btn" title="Actualizar lista">
+      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M1 9a8 8 0 1 0 1.6-4.8"/><path d="M1 4v4h4"/>
+      </svg>
+      Actualizar
+    </button>
+  </div>
+
+  <div class="video-layout">
+    <div class="video-list-panel" id="video-list-panel">
+      <div class="video-loading" id="video-loading">
+        <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+        <span style="margin-left:8px;font-size:13px;color:var(--text-dim)">Cargando videos del Congreso...</span>
+      </div>
+      <div id="video-list"></div>
+    </div>
+
+    <div class="video-summary-panel" id="video-summary-panel">
+      <div class="video-summary-empty" id="video-summary-empty">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="24" cy="24" r="20"/>
+          <path d="M19 17l14 7-14 7V17z" stroke-linejoin="round"/>
+        </svg>
+        <p>Selecciona un video de la lista<br>y haz clic en <strong>Resumir</strong></p>
+      </div>
+      <div id="video-summary-content" style="display:none">
+        <div class="video-summary-title" id="video-summary-title"></div>
+        <div class="video-summary-actions">
+          <button class="video-resumir-btn" id="video-resumir-btn">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="9" cy="9" r="7"/>
+              <path d="M7 6l5 3-5 3V6z" stroke-linejoin="round"/>
+            </svg>
+            Resumir esta sesión
+          </button>
+        </div>
+        <div class="video-summary-result" id="video-summary-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal resumen -->
+<div id="resumen-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box modal-box--wide">
+    <div class="modal-title">¿En qué enfocamos el resumen?</div>
+    <div class="modal-subtitle">Lex ajustará el análisis según el sector de tu cliente</div>
+    <div class="modal-sectors">
+      <button class="sector-btn" data-sector="general">
+        <span class="sector-icon">🏛️</span>
+        <span class="sector-label">General</span>
+        <span class="sector-desc">Toda la actividad del Congreso</span>
+      </button>
+      <button class="sector-btn" data-sector="minería y energía">
+        <span class="sector-icon">⛏️</span>
+        <span class="sector-label">Minería / Energía</span>
+        <span class="sector-desc">Concesiones, canon, regulación</span>
+      </button>
+      <button class="sector-btn" data-sector="salud y farmacéutico">
+        <span class="sector-icon">🏥</span>
+        <span class="sector-label">Salud / Farma</span>
+        <span class="sector-desc">Medicamentos, ESSALUD, SIS</span>
+      </button>
+      <button class="sector-btn" data-sector="infraestructura y construcción">
+        <span class="sector-icon">🏗️</span>
+        <span class="sector-label">Infraestructura</span>
+        <span class="sector-desc">Obras, APP, contrataciones</span>
+      </button>
+      <button class="sector-btn" data-sector="sector financiero y tributario">
+        <span class="sector-icon">💼</span>
+        <span class="sector-label">Financiero / Tributos</span>
+        <span class="sector-desc">Banca, impuestos, MEF</span>
+      </button>
+      <button class="sector-btn" data-sector="agroindustria y comercio exterior">
+        <span class="sector-icon">🌾</span>
+        <span class="sector-label">Agro / Exportaciones</span>
+        <span class="sector-desc">Agroexportación, aduanas, TLC</span>
+      </button>
+    </div>
+    <button class="modal-cancel" id="resumen-cancel">Cancelar</button>
+  </div>
 </div>
 
 <!-- SVG sprites (reused across JS-generated content) -->

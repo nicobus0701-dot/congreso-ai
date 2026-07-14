@@ -4,6 +4,8 @@ Scrapers for Congreso de la República del Perú.
 - Sesiones / Agenda / Destacados: DuckDuckGo news + fallback HTML
 """
 import httpx
+import re
+import urllib.parse
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -38,37 +40,44 @@ def _fmt_date(s):
     return str(s)[:10] if s else ""
 
 
-def _ddgs_news_sync(query: str, max_results: int = 15):
-    """Synchronous DuckDuckGo news search."""
+async def _google_news(query: str, max_results: int = 15):
+    """Fetch news from Google News RSS — results from Google's index."""
+    import xml.etree.ElementTree as ET
+
+    q = urllib.parse.quote(query)
+    url = (
+        f"https://news.google.com/rss/search"
+        f"?q={q}&hl=es-419&gl=PE&ceid=PE:es"
+    )
     try:
-        from ddgs import DDGS
-    except ImportError:
-        try:
-            from duckduckgo_search import DDGS
-        except ImportError:
-            return []
-    try:
-        results = DDGS().news(query, max_results=max_results)
-        return [
-            {
-                "titulo":  r.get("title", ""),
-                "fecha":   r.get("date", "")[:10],
-                "fuente":  r.get("source", ""),
-                "resumen": r.get("body", "")[:300],
-                "enlace":  r.get("url", ""),
-            }
-            for r in (results or [])
-            if r.get("title")
-        ]
+        async with _client() as c:
+            r = await c.get(url, headers={
+                "User-Agent": "Mozilla/5.0 (compatible; RSS reader)",
+                "Accept": "application/rss+xml, application/xml",
+            })
+            if r.status_code != 200:
+                return []
+            root = ET.fromstring(r.text)
+            items = root.findall(".//item")[:max_results]
+            results = []
+            for item in items:
+                title  = item.findtext("title", "").strip()
+                link   = item.findtext("link",  "").strip()
+                source = item.findtext("source", "").strip()
+                pubdate = item.findtext("pubDate", "")[:16]
+                desc   = item.findtext("description", "")
+                desc = re.sub(r'<[^>]+>', '', desc).strip()[:300]
+                if title:
+                    results.append({
+                        "titulo":  title,
+                        "fecha":   pubdate,
+                        "fuente":  source,
+                        "resumen": desc,
+                        "enlace":  link,
+                    })
+            return results
     except Exception:
         return []
-
-
-async def _ddgs_news(query: str, max_results: int = 15):
-    """Run DuckDuckGo news in a thread so it doesn't conflict with the event loop."""
-    import asyncio
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _ddgs_news_sync, query, max_results)
 
 
 # ── Proyectos de ley ───────────────────────────────────────────
@@ -147,7 +156,7 @@ async def fetch_sesiones(comision=None, fecha=None, limit=20):
     if fecha:
         query += f" {fecha}"
 
-    noticias = await _ddgs_news(query, max_results=limit)
+    noticias = await _google_news(query, max_results=limit)
 
     if noticias:
         return {
@@ -183,7 +192,7 @@ async def fetch_sesiones(comision=None, fecha=None, limit=20):
 
 async def fetch_agenda():
     query = "agenda parlamentaria congreso perú sesiones pleno 2026"
-    noticias = await _ddgs_news(query, max_results=15)
+    noticias = await _google_news(query, max_results=15)
 
     if noticias:
         return {
@@ -218,7 +227,7 @@ async def fetch_agenda():
 
 async def fetch_destacados():
     query = "congreso perú noticias destacados sesión pleno ley 2026"
-    noticias = await _ddgs_news(query, max_results=15)
+    noticias = await _google_news(query, max_results=15)
 
     if noticias:
         return {
@@ -230,3 +239,149 @@ async def fetch_destacados():
     return {
         "error": "No se pudo obtener las noticias del Congreso."
     }
+
+
+# ── Congresista ────────────────────────────────────────────────
+
+async def fetch_congresista(nombre: str):
+    """Proyectos presentados + noticias recientes de un congresista."""
+    import asyncio
+
+    # Proyectos en SPLEY
+    proyectos_task = fetch_proyectos(autor=nombre, limit=30)
+    # Noticias en Google News
+    noticias_task  = _google_news(f"{nombre} congresista peru", max_results=10)
+
+    proyectos, noticias = await asyncio.gather(proyectos_task, noticias_task)
+
+    # Agrupar proyectos por estado
+    resumen_estados: dict = {}
+    if "items" in proyectos:
+        for p in proyectos["items"]:
+            estado = p.get("estado") or "Sin estado"
+            resumen_estados[estado] = resumen_estados.get(estado, 0) + 1
+
+    return {
+        "congresista": nombre,
+        "proyectos": proyectos,
+        "resumen_estados": resumen_estados,
+        "noticias_recientes": noticias,
+        "perfil_url": f"https://wb2server.congreso.gob.pe/spley-portal/#/busqueda?autor={urllib.parse.quote(nombre)}",
+    }
+
+
+# ── Rastrear proyecto específico ───────────────────────────────
+
+async def fetch_estado_proyecto(numero: str):
+    """Estado detallado de un proyecto de ley por número."""
+    async with _client() as c:
+        payload = {
+            "perParId":    PER_PAR_ID,
+            "strBusqueda": numero,
+            "page":        0,
+            "size":        5,
+        }
+        try:
+            r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro", json=payload)
+            if r.status_code == 200:
+                items = r.json().get("data", {}).get("proyectos", [])
+                if items:
+                    p   = items[0]
+                    num = p.get("pleyNum") or ""
+                    return {
+                        "numero":       p.get("proyectoLey") or num,
+                        "titulo":       p.get("titulo") or "",
+                        "estado":       p.get("desEstado") or "",
+                        "fecha_ingreso": _fmt_date(p.get("fecPresentacion") or ""),
+                        "autor":        p.get("autores") or p.get("desProponente") or "",
+                        "comision":     p.get("desComision") or "",
+                        "sumilla":      p.get("sumilla") or p.get("titulo") or "",
+                        "enlace":       f"{SPLEY_PORTAL}/{num}" if num else "",
+                        "fuente":       "SPLEY — api.congreso.gob.pe",
+                    }
+        except Exception:
+            pass
+
+    return {"error": f"No se encontró el proyecto '{numero}'. Verifica el número e intenta de nuevo."}
+
+
+# ── Videos YouTube del Congreso ────────────────────────────────
+
+YT_CHANNEL = "https://www.youtube.com/@congresodelarepublicaperu/videos"
+
+async def fetch_videos_youtube(limit=15):
+    """Lista los videos más recientes del canal oficial del Congreso."""
+    import asyncio, yt_dlp
+
+    def _extract():
+        opts = {
+            "quiet":        True,
+            "no_warnings":  True,
+            "extract_flat": True,
+            "playlist_items": f"1-{limit}",
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(YT_CHANNEL, download=False)
+            entries = info.get("entries") or []
+            videos = []
+            for e in entries:
+                vid_id    = e.get("id") or ""
+                title     = e.get("title") or ""
+                duration  = e.get("duration")
+                timestamp = e.get("timestamp") or e.get("release_timestamp")
+                is_live   = e.get("live_status") in ("is_live", "is_upcoming")
+                fecha = ""
+                if timestamp:
+                    fecha = datetime.utcfromtimestamp(timestamp).strftime("%d/%m/%Y")
+                dur_str = ""
+                if duration:
+                    h, m = divmod(int(duration) // 60, 60)
+                    s    = int(duration) % 60
+                    dur_str = f"{h}h {m:02d}m" if h else f"{m}m {s:02d}s"
+                videos.append({
+                    "id":       vid_id,
+                    "titulo":   title,
+                    "fecha":    fecha,
+                    "duracion": dur_str,
+                    "en_vivo":  is_live,
+                    "url":      f"https://www.youtube.com/watch?v={vid_id}" if vid_id else "",
+                    "thumb":    f"https://img.youtube.com/vi/{vid_id}/mqdefault.jpg" if vid_id else "",
+                })
+            return videos
+
+    loop = asyncio.get_event_loop()
+    try:
+        videos = await loop.run_in_executor(None, _extract)
+        return {"ok": True, "videos": videos}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+async def fetch_transcript_youtube(video_id: str):
+    """Obtiene el transcript automático de YouTube para un video dado."""
+    import asyncio
+    from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+
+    def _get():
+        try:
+            transcript = YouTubeTranscriptApi.get_transcript(
+                video_id, languages=["es", "es-419", "es-PE", "a.es"]
+            )
+        except NoTranscriptFound:
+            # intentar con cualquier idioma disponible
+            try:
+                tl = YouTubeTranscriptApi.list_transcripts(video_id)
+                transcript = next(iter(tl)).fetch()
+            except Exception as e:
+                return {"ok": False, "error": f"No hay subtítulos disponibles para este video: {e}"}
+        except TranscriptsDisabled:
+            return {"ok": False, "error": "Este video tiene los subtítulos desactivados."}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+        text = " ".join(t["text"] for t in transcript)
+        # limitar a ~40 000 chars para no saturar el contexto del LLM
+        return {"ok": True, "text": text[:40000], "entries": len(transcript)}
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _get)
