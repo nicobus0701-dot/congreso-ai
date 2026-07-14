@@ -408,8 +408,14 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
             "download_ranges":        yt_dlp.utils.download_range_func(None, [(0, seconds)]),
             "force_keyframes_at_cuts": True,
         }
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+        except Exception as e:
+            err = str(e)
+            if "Sign in" in err or "bot" in err.lower():
+                return {"ok": False, "error": "YouTube bloquea la descarga de este stream en vivo. El resumen estará disponible cuando termine la transmisión y se generen los subtítulos automáticos."}
+            return {"ok": False, "error": f"No se pudo descargar el audio: {err[:200]}"}
 
         mp3 = next((os.path.join(tmp, f) for f in os.listdir(tmp) if f.endswith(".mp3")), None)
         if not mp3:
