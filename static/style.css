@@ -290,6 +290,7 @@ html, body {
   overflow: hidden;
   background: transparent;
   transition: background 0.25s ease;
+  position: relative;
 }
 .main.chat-mode {
   background: rgba(255,255,255,0.97);
@@ -814,7 +815,6 @@ textarea::placeholder { color: var(--dim); font-weight: 600; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  z-index: 10;
 }
 .video-view-header {
   display: flex;
