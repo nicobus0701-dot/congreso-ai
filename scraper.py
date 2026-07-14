@@ -320,6 +320,7 @@ async def fetch_videos_youtube(limit=20):
             "no_warnings":  True,
             "extract_flat": True,
             "playlist_items": f"1-{limit}",
+            **_ydl_cookie_opts(),
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(YT_CHANNEL, download=False)
@@ -361,11 +362,18 @@ async def fetch_videos_youtube(limit=20):
         return {"ok": False, "error": str(e)}
 
 
+import sys
+
 COOKIE_PATHS = [
     os.path.expanduser("~/youtube.cookies"),
     os.path.expanduser("~/youtube_cookies.txt"),
     os.path.expanduser("~/Downloads/youtube.cookies"),
 ]
+
+# On macOS, yt-dlp can read browser cookies directly from the OS keychain
+_MAC_BROWSERS = ["chrome", "safari", "firefox", "chromium"]
+_cookie_opts_cache = None
+
 
 def _get_cookie_path():
     for p in COOKIE_PATHS:
@@ -374,42 +382,93 @@ def _get_cookie_path():
     return None
 
 
+def _ydl_cookie_opts():
+    """Returns cookie options for yt-dlp. Cached after first call."""
+    global _cookie_opts_cache
+    if _cookie_opts_cache is not None:
+        return _cookie_opts_cache
+
+    # Cookie file always wins
+    path = _get_cookie_path()
+    if path:
+        _cookie_opts_cache = {"cookiefile": path}
+        return _cookie_opts_cache
+
+    # On macOS, probe which browser is available and cache it
+    if sys.platform == "darwin":
+        import yt_dlp
+        for browser in _MAC_BROWSERS:
+            try:
+                from yt_dlp.cookies import extract_cookies_from_browser
+
+                class _SilentLogger:
+                    def debug(self, *a): pass
+                    def warning(self, *a): pass
+                    def error(self, *a): pass
+
+                jar = extract_cookies_from_browser(browser, None, _SilentLogger())
+                if jar is not None:
+                    _cookie_opts_cache = {"cookiesfrombrowser": (browser,)}
+                    return _cookie_opts_cache
+            except Exception:
+                continue
+
+    _cookie_opts_cache = {}
+    return _cookie_opts_cache
+
+
+def _parse_vtt(content: str) -> str:
+    """Extract plain text from a VTT subtitle file."""
+    lines, seen = [], set()
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("WEBVTT") or "-->" in line:
+            continue
+        # Remove HTML tags and timestamps
+        clean = re.sub(r"<[^>]+>", "", line).strip()
+        if clean and clean not in seen:
+            seen.add(clean)
+            lines.append(clean)
+    return " ".join(lines)
+
+
 def get_yt_captions(video_id: str):
     """
-    Intenta obtener subtítulos de YouTube (auto-generados o manuales).
-    Usa cookies si están disponibles para evitar bloqueos de IP.
-    Retorna dict con ok/text/source, o None si no hay nada disponible.
+    Obtiene subtítulos de YouTube usando yt-dlp.
+    En macOS usa las cookies del browser instalado automáticamente.
+    Retorna dict con ok/text/source, o None si no hay subtítulos disponibles.
     """
-    import requests
-    from youtube_transcript_api import YouTubeTranscriptApi
+    import tempfile
+    import yt_dlp
 
-    cookie_path = _get_cookie_path()
-    if cookie_path:
-        from http.cookiejar import MozillaCookieJar
-        session = requests.Session()
-        jar = MozillaCookieJar(cookie_path)
-        try:
-            jar.load(ignore_discard=True, ignore_expires=True)
-            session.cookies = jar
-        except Exception:
-            session = None
-        api = YouTubeTranscriptApi(http_client=session) if session else YouTubeTranscriptApi()
-    else:
-        api = YouTubeTranscriptApi()
+    url = f"https://www.youtube.com/watch?v={video_id}"
 
-    for langs in (["es"], ["es-419"], None):
+    with tempfile.TemporaryDirectory() as tmp:
+        opts = {
+            "quiet":           True,
+            "no_warnings":     True,
+            "skip_download":   True,
+            "writeautomaticsub": True,
+            "writesubtitles":  True,
+            "subtitleslangs":  ["es", "es-419"],
+            "subtitlesformat": "vtt",
+            "outtmpl":         os.path.join(tmp, "subs"),
+            **_ydl_cookie_opts(),
+        }
         try:
-            if langs:
-                tr = api.fetch(video_id, languages=langs)
-            else:
-                tl    = api.list(video_id)
-                first = next(iter(tl))
-                tr    = api.fetch(video_id, languages=[first.language_code])
-            text = " ".join(s.text for s in tr.snippets)
-            if text.strip():
-                return {"ok": True, "text": text[:40000], "source": "subtitulos"}
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
         except Exception:
-            continue
+            return None
+
+        vtt_files = [f for f in os.listdir(tmp) if f.endswith(".vtt")]
+        if not vtt_files:
+            return None
+
+        content = open(os.path.join(tmp, vtt_files[0]), encoding="utf-8").read()
+        text = _parse_vtt(content)
+        if text.strip():
+            return {"ok": True, "text": text[:40000], "source": "subtitulos"}
     return None
 
 
@@ -418,7 +477,7 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
     Descarga hasta `minutes` minutos de audio y transcribe con Groq Whisper.
     Usa el bitrate más bajo posible para minimizar el tiempo de descarga.
     """
-    import tempfile, os
+    import tempfile
     import yt_dlp
     from groq import Groq
 
@@ -429,7 +488,6 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
         opts = {
             "quiet":       True,
             "no_warnings": True,
-            # Worst audio = smallest file = fastest download
             "format": "worstaudio/bestaudio/best",
             "outtmpl": os.path.join(tmp, "audio.%(ext)s"),
             "postprocessors": [{"key": "FFmpegExtractAudio",
@@ -437,10 +495,8 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
                                 "preferredquality": "32"}],
             "download_ranges":        yt_dlp.utils.download_range_func(None, [(0, seconds)]),
             "force_keyframes_at_cuts": True,
+            **_ydl_cookie_opts(),
         }
-        cookie_path = _get_cookie_path()
-        if cookie_path:
-            opts["cookiefile"] = cookie_path
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url])
