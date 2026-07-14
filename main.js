@@ -1,5 +1,6 @@
 const { app, BrowserWindow, shell, Menu, globalShortcut, ipcMain, dialog, nativeImage } = require('electron');
-app.setName('congreso-ai');
+app.setName('Congreso IA');
+if (process.platform === 'linux') app.setDesktopName('congreso-ai.desktop');
 const { spawn }  = require('child_process');
 const http       = require('http');
 const path       = require('path');
