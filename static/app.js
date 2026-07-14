@@ -749,18 +749,29 @@ ${table.outerHTML}
   let selectedVideo = null;
   let videosFetched = false;
 
-  navChat.addEventListener('click', () => {
+  const chatArea2  = document.getElementById('chat-area');
+  const inputArea  = document.querySelector('.input-area');
+
+  function switchToChat() {
     navChat.classList.add('active');
     navVideos.classList.remove('active');
-  });
+    viewVideos.style.display = 'none';
+    chatArea2.style.display  = '';
+    inputArea.style.display  = '';
+  }
 
-  navVideos.addEventListener('click', () => {
-    if (window.electronAPI?.openSessions) {
-      window.electronAPI.openSessions();
-    } else {
-      window.open('/sessions', '_blank');
-    }
-  });
+  function switchToVideos() {
+    navVideos.classList.add('active');
+    navChat.classList.remove('active');
+    chatArea2.style.display  = 'none';
+    inputArea.style.display  = 'none';
+    viewVideos.style.display = 'flex';
+    if (!videosFetched) loadVideos();
+  }
+
+  navChat.addEventListener('click',   switchToChat);
+  navVideos.addEventListener('click', switchToVideos);
+  videoRefresh.addEventListener('click', () => { videosFetched = false; loadVideos(); });
 
   async function loadVideos() {
     videosFetched = true;

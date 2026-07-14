@@ -537,13 +537,18 @@ async def sesiones_resumir(request: Request):
             yield f"data: {json.dumps({'error': 'Falta el ID del video'})}\n\n"
             return
 
-        yield f"data: {json.dumps({'status': 'Obteniendo transcript de YouTube...'})}\n\n"
-        tr = await fetch_transcript_youtube(video_id)
+        yield f"data: {json.dumps({'status': 'Buscando subtítulos en YouTube...'})}\n\n"
+        tr = await fetch_transcript_youtube(video_id, api_key)
         if not tr.get("ok"):
             yield f"data: {json.dumps({'error': tr.get('error', 'Sin transcript')})}\n\n"
             return
 
-        yield f"data: {json.dumps({'status': 'Analizando y resumiendo la sesión...'})}\n\n"
+        source = tr.get("source", "")
+        if source == "whisper":
+            nota = tr.get("nota", "")
+            yield f"data: {json.dumps({'status': f'Audio transcrito con Whisper. {nota}'})}\n\n"
+        else:
+            yield f"data: {json.dumps({'status': 'Subtítulos obtenidos. Analizando sesión...'})}\n\n"
 
         prompt = f"""Analiza este transcript de la sesión del Congreso del Perú titulada: "{titulo}".
 

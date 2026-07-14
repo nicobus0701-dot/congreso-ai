@@ -810,12 +810,11 @@ textarea::placeholder { color: var(--dim); font-weight: 600; }
 
 /* ── Vista de videos ─────────────────────────────── */
 .video-view {
-  position: absolute;
-  inset: 0;
-  background: var(--bg);
-  display: flex;
+  flex: 1;
+  display: none;
   flex-direction: column;
   overflow: hidden;
+  background: #fff;
 }
 .video-view-header {
   display: flex;
