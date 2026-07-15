@@ -169,9 +169,6 @@ ipcMain.handle('export-word', async (event, content) => {
 // ── Ciclo de vida ────────────────────────────────────────────
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  if (process.platform === 'linux') {
-    app.setIcon(nativeImage.createFromPath(path.join(__dirname, 'static', 'app-icon.png')));
-  }
   startServer();
   createWindow();
   globalShortcut.register('CmdOrCtrl+Shift+R', () => {

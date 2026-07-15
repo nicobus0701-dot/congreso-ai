@@ -59,6 +59,14 @@
         </svg>
         Live
       </button>
+      <button class="sidenav-btn" id="nav-pdfs" title="PDFs del Congreso">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 4a2 2 0 0 1 2-2h5l5 5v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4z"/>
+          <path d="M12 2v5h5"/>
+          <path d="M8 11h4M8 14h3"/>
+        </svg>
+        PDFs
+      </button>
     </div>
 
     <nav class="chat-list" id="chat-list"></nav>
@@ -68,7 +76,7 @@
         <div class="user-avatar">JB</div>
         <div class="user-info">
           <span class="user-name">Julio Cesar Bustamante Velasco</span>
-          <span class="user-role">Monitor Parlamentario</span>
+          <span class="user-role">Gestor de Asuntos Públicos</span>
         </div>
       </div>
     </div>
@@ -117,7 +125,32 @@
         </button>
       </div>
 
+      <!-- Panel PDFs del Congreso -->
+      <div id="congreso-pdf-panel" style="display:none">
+        <div class="cpdf-header">
+          <span>PDFs del Congreso</span>
+          <button id="cpdf-close">✕</button>
+        </div>
+        <div id="cpdf-list"><div class="cpdf-loading">Cargando...</div></div>
+      </div>
+
       <div class="input-wrap">
+        <label id="pdf-btn" title="Subir PDF desde tu computadora">
+          <input type="file" id="pdf-input" accept=".pdf" style="display:none">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4a2 2 0 0 1 2-2h5l5 5v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z"/>
+            <path d="M11 2v5h5M8 13v-4M8 9l2 2 2-2"/>
+          </svg>
+        </label>
+        <button id="congreso-pdf-btn" title="PDFs del Congreso">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="20" width="14" height="2" rx=".5"/>
+            <rect x="5" y="9" width="2" height="11" rx=".5"/>
+            <rect x="9" y="9" width="2" height="11" rx=".5"/>
+            <rect x="13" y="9" width="2" height="11" rx=".5"/>
+            <path d="M1 9h18M10 2L1 9h18L10 2z"/>
+          </svg>
+        </button>
         <textarea id="msg-input" placeholder="Escribe un mensaje…" rows="1"></textarea>
         <button id="send-btn" disabled>
           <svg viewBox="0 0 20 20" fill="currentColor">
@@ -131,6 +164,11 @@
     <!-- Vista Live — transcripción en vivo -->
     <div id="view-live" style="display:none;position:absolute;inset:0;z-index:10;background:#fff;">
       <iframe id="live-iframe" src="" style="width:100%;height:100%;border:none;"></iframe>
+    </div>
+
+    <!-- Vista PDFs del Congreso -->
+    <div id="view-pdfs" style="display:none;position:absolute;inset:0;z-index:10;background:#f7f8fa;">
+      <iframe id="pdfs-iframe" src="" style="width:100%;height:100%;border:none;"></iframe>
     </div>
 
   </main>

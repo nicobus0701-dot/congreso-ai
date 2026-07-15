@@ -193,7 +193,17 @@
     const title = e.target.closest('.chat-item-title');
     if (title) {
       const id = title.closest('.chat-item')?.dataset.id;
-      if (id) renameConvInline(id, title);
+      if (!id) return;
+      // Si no es la activa, activarla primero y luego renombrar después del re-render
+      if (id !== activeId) {
+        activeId = id;
+        renderSidebar();
+        renderMessages();
+        const newTitle = chatList.querySelector(`.chat-item[data-id="${id}"] .chat-item-title`);
+        if (newTitle) renameConvInline(id, newTitle);
+      } else {
+        renameConvInline(id, title);
+      }
     }
   });
 
@@ -231,7 +241,8 @@
               <path d="M2 2l10 10M12 2L2 12"/>
             </svg>
           </button>`;
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+          if (e.target.closest('.chat-item-del')) return;
           el.classList.add('clicking');
           el.addEventListener('animationend', () => el.classList.remove('clicking'), { once: true });
           switchConv(c.id);
@@ -366,7 +377,7 @@
       conv.messages.push({ role: 'assistant', content: fullText });
       saveConvs();
       addCopyBtns(assistantEl);
-      // Mostrar export solo si el modelo buscó datos y la respuesta tiene tablas
+      addMessageCopyBtns(assistantEl.closest('.message'), fullText);
       if (toolCalled && hasExportableContent(fullText)) {
         addExportBtns(assistantEl.closest('.message'), fullText);
       }
@@ -412,6 +423,7 @@
     const el = d.querySelector('.msg-content');
     renderContent(el, md);
     addCopyBtns(el);
+    addMessageCopyBtns(d, md);
     addExportBtns(d, md);
     return el;
   }
@@ -594,6 +606,42 @@ ${table.outerHTML}
     });
   }
 
+  function addMessageCopyBtns(msgDiv, fullText) {
+    // Separar contenido principal de fuentes
+    const sepIdx = fullText.search(/\n---\n\*\*Fuentes:/);
+    const mainText    = sepIdx >= 0 ? fullText.slice(0, sepIdx).trim() : fullText.trim();
+    const sourcesText = sepIdx >= 0 ? fullText.slice(sepIdx).trim() : null;
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'msg-toolbar';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'msg-action-btn';
+    copyBtn.textContent = 'Copiar mensaje';
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(mainText).catch(() => fallbackCopy(mainText));
+      copyBtn.textContent = '✓ Copiado';
+      setTimeout(() => { copyBtn.textContent = 'Copiar mensaje'; }, 2000);
+    });
+    toolbar.appendChild(copyBtn);
+
+    if (sourcesText) {
+      const srcBtn = document.createElement('button');
+      srcBtn.className = 'msg-action-btn';
+      srcBtn.textContent = 'Copiar fuentes';
+      srcBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(sourcesText).catch(() => fallbackCopy(sourcesText));
+        srcBtn.textContent = '✓ Copiado';
+        setTimeout(() => { srcBtn.textContent = 'Copiar fuentes'; }, 2000);
+      });
+      toolbar.appendChild(srcBtn);
+    }
+
+    // Insertar el toolbar dentro del msg-content, al final
+    const content = msgDiv.querySelector('.msg-content');
+    if (content) content.appendChild(toolbar);
+  }
+
   function fallbackCopy(text) {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -652,6 +700,128 @@ ${table.outerHTML}
   }
 
   // ── Events ────────────────────────────────────────
+  // ── Drag & drop PDF ───────────────────────────────
+  const dropZone = document.querySelector('.main');
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', e => {
+    if (!dropZone.contains(e.relatedTarget)) dropZone.classList.remove('drag-over');
+  });
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = Array.from(e.dataTransfer.files).find(f => f.name.endsWith('.pdf'));
+    if (file) uploadPdfFile(file);
+  });
+
+  // ── Panel PDFs del Congreso ───────────────────────
+  const congresoPanel  = document.getElementById('congreso-pdf-panel');
+  const cpdfList       = document.getElementById('cpdf-list');
+  let cpdfLoaded = false;
+
+  document.getElementById('congreso-pdf-btn').addEventListener('click', async () => {
+    const visible = congresoPanel.style.display !== 'none';
+    congresoPanel.style.display = visible ? 'none' : 'block';
+    if (!visible && !cpdfLoaded) {
+      cpdfLoaded = true;
+      cpdfList.innerHTML = '<div class="cpdf-loading">Cargando PDFs del Congreso...</div>';
+      try {
+        const res  = await fetch('/congreso-pdfs');
+        const data = await res.json();
+        if (!data.pdfs.length) {
+          cpdfList.innerHTML = '<div class="cpdf-loading">No hay PDFs disponibles ahora.</div>';
+          return;
+        }
+        cpdfList.innerHTML = '';
+        for (const pdf of data.pdfs) {
+          const el = document.createElement('div');
+          el.className = 'cpdf-item';
+          el.innerHTML = `<span class="cpdf-tipo">${pdf.tipo}</span><span class="cpdf-title">${escHtml(pdf.titulo)}</span>`;
+          el.addEventListener('click', async () => {
+            congresoPanel.style.display = 'none';
+            await loadPdfFromUrl(pdf.enlace, pdf.titulo);
+          });
+          cpdfList.appendChild(el);
+        }
+      } catch {
+        cpdfList.innerHTML = '<div class="cpdf-loading">Error al cargar los PDFs.</div>';
+      }
+    }
+  });
+
+  document.getElementById('cpdf-close').addEventListener('click', () => {
+    congresoPanel.style.display = 'none';
+  });
+
+  async function loadPdfFromUrl(url, titulo) {
+    if (!activeId || !getActive()) newChat();
+    const conv = getActive();
+    if (!conv.messages.length) conv.title = '📄 ' + titulo.slice(0, 40);
+
+    mainEl.classList.add('chat-mode');
+    chatArea.querySelector('.welcome')?.remove();
+    cmdChips.style.display = 'none';
+    appendUserBubble(`📄 ${titulo}`);
+    const assistantEl = appendAssistantTyping();
+    streaming = true; sendBtn.disabled = true;
+
+    try {
+      const res  = await fetch('/load-pdf-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      const ctx = `He cargado el documento "${titulo}" (${data.pages} páginas).\n\nContenido:\n${data.text}\n\n¿Qué quieres analizar?`;
+      conv.messages.push({ role: 'user', content: ctx });
+      saveConvs(); renderSidebar();
+      const msg = `PDF cargado — **${titulo.slice(0, 60)}** (${data.pages} págs.). ¿Qué quieres analizar?`;
+      renderContent(assistantEl, msg);
+      addMessageCopyBtns(assistantEl.closest('.message'), msg);
+    } catch (err) {
+      renderContent(assistantEl, `**Error al cargar el PDF:** ${err.message}`);
+    }
+    streaming = false; sendBtn.disabled = !msgInput.value.trim(); scrollBottom();
+  }
+
+  // ── PDF upload (archivo local) ────────────────────
+  async function uploadPdfFile(file) {
+    if (!activeId || !getActive()) newChat();
+    const conv = getActive();
+    if (!conv.messages.length) conv.title = '📄 ' + file.name;
+    mainEl.classList.add('chat-mode');
+    chatArea.querySelector('.welcome')?.remove();
+    cmdChips.style.display = 'none';
+    appendUserBubble(`📄 ${file.name}`);
+    const assistantEl = appendAssistantTyping();
+    streaming = true; sendBtn.disabled = true;
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res  = await fetch('/upload-pdf', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Error al leer el PDF');
+      const ctx = `He cargado el documento "${file.name}" (${data.pages} páginas).\n\nContenido:\n${data.text}\n\n¿Qué quieres analizar?`;
+      conv.messages.push({ role: 'user', content: ctx });
+      saveConvs(); renderSidebar();
+      const msg = `PDF cargado — **${file.name}** (${data.pages} págs.). ¿Qué quieres analizar?`;
+      renderContent(assistantEl, msg);
+      addMessageCopyBtns(assistantEl.closest('.message'), msg);
+    } catch (err) {
+      renderContent(assistantEl, `**Error al cargar el PDF:** ${err.message}`);
+    }
+    streaming = false; sendBtn.disabled = !msgInput.value.trim(); scrollBottom();
+  }
+
+  document.getElementById('pdf-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (file) uploadPdfFile(file);
+  });
+
   newChatBtn.addEventListener('click', newChat);
 
   sendBtn.addEventListener('click', () => send());
@@ -745,38 +915,67 @@ ${table.outerHTML}
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // ── Navegación Chat / Live ────────────────────────
+  // ── Navegación Chat / Live / PDFs ────────────────
   const navChat    = document.getElementById('nav-chat');
   const navLive    = document.getElementById('nav-live');
+  const navPdfs    = document.getElementById('nav-pdfs');
   const viewLive   = document.getElementById('view-live');
+  const viewPdfs   = document.getElementById('view-pdfs');
   const liveIframe = document.getElementById('live-iframe');
+  const pdfsIframe = document.getElementById('pdfs-iframe');
   const chatArea2  = document.getElementById('chat-area');
   const inputArea  = document.querySelector('.input-area');
 
+  function setNavActive(btn) {
+    [navChat, navLive, navPdfs].forEach(b => b && b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+
   function switchToChat() {
-    navChat.classList.add('active');
-    if (navLive) navLive.classList.remove('active');
+    setNavActive(navChat);
     if (viewLive) viewLive.style.display = 'none';
+    if (viewPdfs) viewPdfs.style.display = 'none';
     chatArea2.style.display = '';
     inputArea.style.display = '';
   }
 
   function switchToLive() {
-    if (navLive) navLive.classList.add('active');
-    navChat.classList.remove('active');
+    setNavActive(navLive);
     chatArea2.style.display = 'none';
     inputArea.style.display = 'none';
-    viewLive.style.display  = '';
+    if (viewPdfs) viewPdfs.style.display = 'none';
+    viewLive.style.display = '';
     if (!liveIframe.src || liveIframe.src === window.location.href) {
       liveIframe.src = '/live';
     }
   }
 
+  function switchToPdfs() {
+    setNavActive(navPdfs);
+    chatArea2.style.display = 'none';
+    inputArea.style.display = 'none';
+    if (viewLive) viewLive.style.display = 'none';
+    viewPdfs.style.display = '';
+    if (!pdfsIframe.src || pdfsIframe.src === window.location.href) {
+      pdfsIframe.src = '/pdfs';
+    }
+  }
+
   navChat.addEventListener('click', switchToChat);
   if (navLive) navLive.addEventListener('click', switchToLive);
+  if (navPdfs) navPdfs.addEventListener('click', switchToPdfs);
 
   window.addEventListener('message', (e) => {
-    if (e.data === 'close-live') switchToChat();
+    if (e.data === 'close-live') { switchToChat(); return; }
+    if (e.data && e.data.type === 'load-pdf') {
+      switchToChat();
+      loadPdfFromUrl(e.data.url, e.data.titulo);
+    }
+    if (e.data && e.data.type === 'query-proyecto') {
+      switchToChat();
+      const query = `Dame información sobre el proyecto de ley ${e.data.numero}: estado actual, autores, y de qué trata.`;
+      send(query);
+    }
   });
 
   // ── Init ──────────────────────────────────────────

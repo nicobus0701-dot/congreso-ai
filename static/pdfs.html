@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDFs del Congreso</title>
+  <link rel="stylesheet" href="/static/pdfs.css">
+</head>
+<body>
+
+<div class="p-layout">
+
+  <!-- Sidebar: lista de PDFs -->
+  <aside class="p-sidebar">
+    <div class="p-sidebar-header">
+      <div class="p-title">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4a2 2 0 0 1 2-2h5l5 5v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z"/>
+          <path d="M11 2v5h5"/>
+        </svg>
+        PDFs del Congreso
+      </div>
+      <button id="refresh-btn" class="p-refresh-btn" title="Actualizar">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M1 9a8 8 0 1 0 1.6-4.8"/><path d="M1 4v4h4"/>
+        </svg>
+      </button>
+    </div>
+    <div class="p-list" id="p-list">
+      <div class="p-loading" id="p-loading">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span>Cargando documentos...</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Panel derecho -->
+  <main class="p-main">
+    <div class="p-empty" id="p-empty">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+        <path d="M16 8a4 4 0 0 1 4-4h18l14 14v34a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4V8z"/>
+        <path d="M38 4v14h14M24 30h16M24 38h12"/>
+      </svg>
+      <p>Selecciona un documento de la lista<br>para cargarlo al chat</p>
+    </div>
+
+    <div class="p-panel" id="p-panel" style="display:none">
+      <div class="p-panel-header">
+        <div class="p-badge" id="p-badge"></div>
+        <div class="p-doc-title" id="p-doc-title"></div>
+      </div>
+
+      <!-- Vista previa PDF -->
+      <div class="p-preview-wrap" id="p-preview-wrap">
+        <div class="p-preview-loading" id="p-preview-loading">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        </div>
+        <img id="p-preview-img" class="p-preview-img" style="display:none" alt="Vista previa">
+        <div class="p-preview-placeholder" id="p-preview-placeholder" style="display:none">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+            <path d="M12 6a4 4 0 0 1 4-4h13l13 13v27a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4V6z"/>
+            <path d="M29 2v13h13M18 24h12M18 30h8"/>
+          </svg>
+          <span>Sin vista previa</span>
+        </div>
+      </div>
+
+      <div class="p-actions">
+        <a id="p-pdf-link" href="#" target="_blank" class="p-view-btn">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M4 4a2 2 0 0 1 2-2h5l5 5v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z"/>
+            <path d="M11 2v5h5"/>
+          </svg>
+          Ver PDF
+        </a>
+        <button id="p-load-btn" class="p-load-btn">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <rect x="2" y="2" width="14" height="14" rx="2"/>
+            <path d="M5 6h8M5 9h8M5 12h5"/>
+          </svg>
+          Cargar al chat
+        </button>
+      </div>
+      <div class="p-hint">El documento se analizará en el chat principal.</div>
+    </div>
+  </main>
+
+</div>
+
+<script src="/static/pdfs.js"></script>
+</body>
+</html>

@@ -227,19 +227,49 @@ async def fetch_agenda():
 # ── Destacados ─────────────────────────────────────────────────
 
 async def fetch_destacados():
-    query = "congreso perú noticias destacados sesión pleno ley 2026"
-    noticias = await _google_news(query, max_results=15)
+    """Scrapea congreso.gob.pe/home — secciones DESTACADO y CITACIONES con links de descarga."""
+    try:
+        async with _client() as c:
+            r = await c.get(f"{CONGRESO}/home/", headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0",
+            })
+            if r.status_code != 200:
+                raise Exception(f"HTTP {r.status_code}")
 
-    if noticias:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        def _extract_items(widget_class):
+            items = []
+            widget = soup.find("div", class_=widget_class)
+            if not widget:
+                return items
+            for a in widget.find_all("a", href=True):
+                titulo = a.get_text(strip=True)
+                enlace = a["href"].strip()
+                if titulo and enlace:
+                    items.append({"titulo": titulo, "enlace": enlace})
+            return items
+
+        destacados = _extract_items("widget_wc_widget_feature_article")
+        citaciones  = _extract_items("widget_wc_widget_citation_article")
+
+        if not destacados and not citaciones:
+            raise Exception("sin items")
+
         return {
-            "fuente": "Noticias recientes (DuckDuckGo)",
-            "total": len(noticias),
-            "items": noticias,
+            "fuente": CONGRESO + "/home/",
+            "destacados": destacados,
+            "citaciones": citaciones,
         }
 
-    return {
-        "error": "No se pudo obtener las noticias del Congreso."
-    }
+    except Exception:
+        # Fallback: Google News RSS
+        query = "congreso perú noticias destacados sesión pleno ley 2026"
+        noticias = await _google_news(query, max_results=15)
+        if noticias:
+            return {"fuente": "Google News", "items": noticias}
+        return {"error": "No se pudo obtener las noticias del Congreso."}
 
 
 # ── Congresista ────────────────────────────────────────────────

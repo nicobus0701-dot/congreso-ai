@@ -1,14 +1,16 @@
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, UploadFile, File
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
 from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, fetch_transcript_youtube, get_yt_captions, transcribe_with_whisper
 from live_transcriber import stream_transcription
+from duckduckgo_search import DDGS
 import json
 import os
 import re
 import io
+import httpx
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
@@ -54,39 +56,37 @@ Preparado por: Lex — Sistema de Monitoreo Parlamentario
 
 Sé analítico, no solo descriptivo. Incluye tu criterio sobre qué es relevante y por qué."""
 
-SYSTEM_PROMPT = """Eres Lex, un asistente especializado en el Congreso del Perú. Trabajas con Julio Cesar, consultor de asuntos públicos.
+SYSTEM_PROMPT = """Eres Lex, un asistente especializado en el Congreso del Perú. Trabajas con Julio Cesar, gestor de asuntos públicos.
 
-CUÁNDO USAR LAS HERRAMIENTAS — solo cuando el usuario pida explícitamente:
-- Buscar proyectos de ley, sesiones, agenda parlamentaria, noticias del Congreso
-- Perfil o historial de un congresista específico
-- Estado actual de un proyecto puntual
-Palabras clave típicas: "busca", "revisa", "dame", "¿qué proyectos?", "¿quién presentó?", "mostrame", "buscá".
+CUÁNDO USAR LAS HERRAMIENTAS:
+Úsalas siempre que el tema pueda tener información reciente o actualizada, incluso si el usuario no dice "busca" explícitamente. Ejemplos:
+- Cualquier pregunta sobre proyectos de ley, sesiones, agenda, noticias o actividad del Congreso → usa las tools del Congreso
+- Preguntas sobre temas de coyuntura, política, economía, noticias del día → usa buscar_en_web
+- Perfil o actividad de un congresista → buscar_congresista
+- Estado de un proyecto específico → rastrear_proyecto
+Tu objetivo es siempre dar LA INFORMACIÓN MÁS RECIENTE disponible. Si hay tools relevantes, úsalas antes de responder.
 
-CUÁNDO NO USAR HERRAMIENTAS — responde directo sin consultar nada:
-- Saludos o cualquier apertura de conversación ("hola", "buenos días", "qué tal")
-- Preguntas sobre ti mismo o sobre cómo funcionas
-- Opiniones, análisis o explicaciones sobre algo que ya está en el contexto de la conversación
-- Seguimiento de una respuesta anterior: "¿y eso qué implica?", "explicame eso", "¿qué opinas?"
-- Conversación casual, contexto, estrategia — cualquier cosa que no requiera datos frescos
-- Si el usuario no pidió buscar nada, NO busques nada. Respondé nomás.
+CUÁNDO NO USAR HERRAMIENTAS — responde directo con tu conocimiento:
+- Saludos o apertura de conversación ("hola", "buenos días")
+- Preguntas sobre ti mismo o cómo funcionas
+- Seguimiento de respuesta anterior: "¿y eso qué implica?", "explicame eso", "¿qué opinas?"
+- Conceptos, definiciones, historia o conocimiento general que no requiere datos del momento
+- Conversación casual o estrategia sin necesidad de datos frescos
 
 CÓMO HABLAR:
 - Natural y directo, como colega. Sin intro larga. Nunca empieces con "A continuación", "Aquí te presento", "Por supuesto", "Claro que sí" ni frases de relleno.
 - Español peruano, sin ser formal.
-- Si el usuario saluda, saluda de vuelta y pregunta en qué le puedes ayudar hoy.
 - Arranca directo con el dato: "Mira, encontré que...", "Ojo que...", "Lo interesante acá es..."
 - Muestra criterio propio: si algo en los datos te parece importante, dilo.
+- Para conocimiento general (historia, definiciones, conceptos) puedes responder con lo que ya sabes, sin necesitar datos externos.
 
-CUANDO NO HAY DATOS:
-Si la consulta devuelve vacío, error o sin_datos=True, responde natural sin mencionar nada técnico. Ejemplos:
-- "No encontré nada disponible ahora para eso. ¿Buscamos algo más específico?"
-- "La agenda no está cargando justo ahora. ¿Probamos con proyectos o noticias?"
-Nunca digas: "error", "404", "autenticación", "herramienta", "API", "Lo siento".
-Si no hay datos, sé directo y propositivo, no te disculpes.
+CUANDO NO HAY DATOS FRESCOS:
+Si la consulta devuelve vacío, error o sin_datos=True, di lo que sabes de tu entrenamiento y aclara que no encontraste información actualizada al momento. Nunca digas: "error", "404", "herramienta", "API".
 
 NUNCA:
 - Menciones APIs, herramientas, errores técnicos ni limitaciones del sistema.
-- Inventes datos. Solo usa lo que devuelven las consultas.
+- Inventes proyectos, números de expediente, votos, fechas de sesión ni datos del Congreso que no estén textualmente en los resultados de las tools.
+- Construyas ni adivines URLs. Solo usa enlaces que aparezcan explícitamente en los datos devueltos.
 - Empieces respuestas con "Lo siento" ni con disculpas de ningún tipo.
 
 FORMATO (solo cuando traigas datos):
@@ -94,10 +94,10 @@ FORMATO (solo cuando traigas datos):
 - Noticias/sesiones: lista corta con contexto
 - Una cosa específica: prosa conversacional
 
-AL FINAL de respuestas con datos reales agrega:
+AL FINAL de respuestas con datos de tools, agrega SOLO los enlaces que aparezcan textualmente en los datos. NUNCA construyas URLs. Si no hay enlaces en los datos, no pongas sección de fuentes.
 ---
 **Fuentes:**
-- [descripción](enlace)"""
+- [descripción](enlace exacto del dato)"""
 
 TOOLS = [
     {
@@ -217,6 +217,31 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "buscar_en_web",
+            "description": (
+                "Busca cualquier tema general en internet usando DuckDuckGo. "
+                "Úsala para preguntas que NO son sobre proyectos de ley, sesiones, agenda o congresistas específicos: "
+                "historia, definiciones, noticias generales, conceptos legales, datos del mundo, etc."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Términos de búsqueda"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Número de resultados (default: 5)"
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "rastrear_proyecto",
             "description": (
                 "Obtiene el estado detallado y actual de un proyecto de ley específico "
@@ -237,6 +262,18 @@ TOOLS = [
     }
 ]
 
+async def buscar_en_web(query: str, limit: int = 5):
+    try:
+        loop = __import__('asyncio').get_event_loop()
+        def _search():
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=limit))
+            return results
+        results = await loop.run_in_executor(None, _search)
+        return [{"titulo": r.get("title"), "url": r.get("href"), "resumen": r.get("body")} for r in results]
+    except Exception as e:
+        return {"sin_datos": True, "mensaje": str(e)}
+
 TOOL_MAP = {
     "buscar_proyectos":  lambda args: fetch_proyectos(**args),
     "buscar_sesiones":   lambda args: fetch_sesiones(**args),
@@ -244,6 +281,7 @@ TOOL_MAP = {
     "buscar_destacados": lambda args: fetch_destacados(),
     "buscar_congresista": lambda args: fetch_congresista(**args),
     "rastrear_proyecto":  lambda args: fetch_estado_proyecto(**args),
+    "buscar_en_web":     lambda args: buscar_en_web(**args),
 }
 
 STATUS_LABELS = {
@@ -253,6 +291,7 @@ STATUS_LABELS = {
     "buscar_destacados":  "Cargando noticias del Congreso...",
     "buscar_congresista": "Consultando perfil del congresista...",
     "rastrear_proyecto":  "Rastreando estado del proyecto...",
+    "buscar_en_web":      "Buscando en internet...",
 }
 
 
@@ -276,6 +315,128 @@ async def service_worker():
 @app.get("/sessions", response_class=HTMLResponse)
 async def sessions_page():
     return (Path("static") / "sessions.html").read_text()
+
+
+@app.get("/pdfs", response_class=HTMLResponse)
+async def pdfs_page():
+    return (Path("static") / "pdfs.html").read_text()
+
+
+REFERENCIAS_PDF = [
+    {
+        "titulo": "Reglamento del Congreso de la República (setiembre 2025)",
+        "enlace": "https://www3.congreso.gob.pe/Docs/constitucion/reglamento/reglamento%20setiembre-2025.pdf",
+        "tipo": "Referencia",
+    },
+    {
+        "titulo": "Constitución Política del Perú (dic. 2024)",
+        "enlace": "https://www3.congreso.gob.pe/Docs/files/constitucion/constitucion-12-2024.pdf",
+        "tipo": "Referencia",
+    },
+    {
+        "titulo": "Manual de Técnica Legislativa — 3ra edición",
+        "enlace": "https://www3.congreso.gob.pe/Docs/dgp/files/manual-tecnica-legislativa-3raedicion.pdf",
+        "tipo": "Referencia",
+    },
+]
+
+@app.get("/congreso-pdfs")
+async def congreso_pdfs():
+    """PDFs rápidos: destacados del homepage + referencias fijas."""
+    pdfs = []
+    try:
+        data = await fetch_destacados()
+        for item in data.get("destacados", []):
+            url = item.get("enlace", "")
+            if url.lower().endswith(".pdf"):
+                pdfs.append({"titulo": item["titulo"], "enlace": url, "tipo": "Destacado"})
+        for item in data.get("citaciones", []):
+            url = item.get("enlace", "")
+            if url.lower().endswith(".pdf"):
+                pdfs.append({"titulo": item["titulo"], "enlace": url, "tipo": "Citación"})
+    except Exception:
+        pass
+    seen = {p["enlace"] for p in pdfs}
+    for ref in REFERENCIAS_PDF:
+        if ref["enlace"] not in seen:
+            seen.add(ref["enlace"])
+            pdfs.append(ref)
+    return {"pdfs": pdfs}
+
+@app.get("/congreso-proyectos")
+async def congreso_proyectos():
+    """Proyectos SPLEY recientes — se carga en segundo plano."""
+    try:
+        data = await fetch_proyectos(limit=15)
+        proyectos = []
+        for item in data.get("items", []):
+            numero = item.get("numero", "")
+            titulo = item.get("sumilla", numero)
+            enlace = item.get("enlace", "")
+            if enlace:
+                proyectos.append({
+                    "titulo": f"[{numero}] {titulo[:100]}" if numero else titulo[:110],
+                    "enlace": enlace,
+                    "tipo": "Proyecto de Ley",
+                })
+        return {"pdfs": proyectos}
+    except Exception:
+        return {"pdfs": []}
+
+
+@app.get("/pdf-thumbnail")
+async def pdf_thumbnail(url: str = Query(...)):
+    import fitz
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as c:
+            r = await c.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0"})
+        if r.status_code != 200 or "pdf" not in r.headers.get("content-type", "application/pdf").lower():
+            ct = r.headers.get("content-type", "")
+            if "html" in ct or r.status_code != 200:
+                return Response(status_code=404, content=b"not a pdf")
+        doc = fitz.open(stream=r.content, filetype="pdf")
+        page = doc[0]
+        mat = fitz.Matrix(1.8, 1.8)
+        pix = page.get_pixmap(matrix=mat, alpha=False)
+        png_bytes = pix.tobytes("png")
+        return Response(content=png_bytes, media_type="image/png")
+    except Exception as e:
+        return Response(status_code=400, content=str(e).encode())
+
+
+@app.post("/load-pdf-url")
+async def load_pdf_url(request: Request):
+    import fitz
+    body = await request.json()
+    url  = body.get("url", "")
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as c:
+            r = await c.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0"})
+        doc  = fitz.open(stream=r.content, filetype="pdf")
+        pages = len(doc)
+        text  = "\n\n".join(page.get_text() for page in doc).strip()
+        if len(text) > 40000:
+            text = text[:40000] + f"\n\n[Texto recortado — documento original: {pages} páginas]"
+        name = url.split("/")[-1]
+        return {"ok": True, "pages": pages, "text": text, "filename": name}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/upload-pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    import fitz
+    try:
+        data = await file.read()
+        doc  = fitz.open(stream=data, filetype="pdf")
+        pages = len(doc)
+        text  = "\n\n".join(page.get_text() for page in doc).strip()
+        # Cap en 40000 chars para no reventar el contexto
+        if len(text) > 40000:
+            text = text[:40000] + f"\n\n[Texto recortado — documento original: {pages} páginas]"
+        return {"ok": True, "pages": pages, "text": text, "filename": file.filename}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.post("/chat")
@@ -308,7 +469,14 @@ async def chat(request: Request):
                 base += f" Enfoca el análisis especialmente en el sector {sector} y los proyectos de ley, noticias y agenda que impacten a ese sector."
             msgs.append({"role": "user", "content": base})
         else:
-            msgs += messages
+            # Recortar historial: solo los últimos 10 mensajes para no quemar tokens
+            msgs += messages[-10:]
+
+        def _friendly_error(e):
+            s = str(e).lower()
+            if "rate limit" in s or "429" in s or "tokens per" in s or "quota" in s:
+                return "Llegamos al límite de tokens de Groq por ahora. Espera unos segundos y vuelve a intentarlo."
+            return "Hubo un problema al conectar. Intentá de nuevo."
 
         # ── Phase 1: let model decide if it needs tools ────────
         try:
@@ -322,7 +490,7 @@ async def chat(request: Request):
                 stream=False,
             )
         except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield f"data: {json.dumps({'error': _friendly_error(e)})}\n\n"
             return
 
         choice  = resp.choices[0]
@@ -350,6 +518,14 @@ async def chat(request: Request):
             for tc in choice.message.tool_calls:
                 name = tc.function.name
                 args = json.loads(tc.function.arguments or "{}")
+                # Coerce limit to int (model sometimes sends it as string)
+                if "limit" in args:
+                    try:
+                        args["limit"] = int(args["limit"])
+                    except (ValueError, TypeError):
+                        args["limit"] = 20
+                # Strip empty-string optional params so scrapers use their defaults
+                args = {k: v for k, v in args.items() if v != ""}
 
                 # Send status to frontend
                 status = STATUS_LABELS.get(name, "Consultando el Congreso...")
@@ -385,7 +561,7 @@ async def chat(request: Request):
                     yield f"data: {json.dumps({'text': delta})}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield f"data: {json.dumps({'error': _friendly_error(e)})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -418,18 +594,41 @@ async def export_docx(request: Request):
     doc.add_paragraph()  # spacer
 
     def strip_inline(text):
-        """Remove **bold** and *italic* markers for plain runs."""
         text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
         text = re.sub(r'\*(.+?)\*',     r'\1', text)
+        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
         return text
 
+    def _add_hyperlink(paragraph, text, url):
+        """Add a clickable hyperlink run to a paragraph."""
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+        part = paragraph.part
+        r_id = part.relate_to(url, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', is_external=True)
+        hyperlink = OxmlElement('w:hyperlink')
+        hyperlink.set(qn('r:id'), r_id)
+        r = OxmlElement('w:r')
+        rPr = OxmlElement('w:rPr')
+        rStyle = OxmlElement('w:rStyle')
+        rStyle.set(qn('w:val'), 'Hyperlink')
+        rPr.append(rStyle)
+        r.append(rPr)
+        t = OxmlElement('w:t')
+        t.text = text
+        r.append(t)
+        hyperlink.append(r)
+        paragraph._p.append(hyperlink)
+
     def add_md_para(para_text):
-        """Add a paragraph with basic inline bold/italic parsing."""
+        """Add a paragraph with bold, italic and hyperlink support."""
         p = doc.add_paragraph()
-        # Split on bold/italic markers
-        tokens = re.split(r'(\*\*[^*]+\*\*|\*[^*]+\*)', para_text)
+        # Split on links first, then bold/italic
+        tokens = re.split(r'(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*]+\*)', para_text)
         for tok in tokens:
-            if tok.startswith('**') and tok.endswith('**'):
+            link_m = re.match(r'\[([^\]]+)\]\(([^)]+)\)', tok)
+            if link_m:
+                _add_hyperlink(p, link_m.group(1), link_m.group(2))
+            elif tok.startswith('**') and tok.endswith('**'):
                 run = p.add_run(tok[2:-2])
                 run.bold = True
             elif tok.startswith('*') and tok.endswith('*'):
@@ -498,9 +697,12 @@ async def export_docx(request: Request):
         elif re.match(r'^[-*]\s+', stripped):
             text   = re.sub(r'^[-*]\s+', '', stripped)
             p      = doc.add_paragraph(style='List Bullet')
-            tokens = re.split(r'(\*\*[^*]+\*\*|\*[^*]+\*)', text)
+            tokens = re.split(r'(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*]+\*)', text)
             for tok in tokens:
-                if tok.startswith('**') and tok.endswith('**'):
+                link_m = re.match(r'\[([^\]]+)\]\(([^)]+)\)', tok)
+                if link_m:
+                    _add_hyperlink(p, link_m.group(1), link_m.group(2))
+                elif tok.startswith('**') and tok.endswith('**'):
                     run = p.add_run(tok[2:-2]); run.bold = True
                 elif tok.startswith('*') and tok.endswith('*'):
                     run = p.add_run(tok[1:-1]); run.italic = True
