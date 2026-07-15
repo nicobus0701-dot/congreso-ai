@@ -976,6 +976,9 @@ ${table.outerHTML}
       const query = `Dame información sobre el proyecto de ley ${e.data.numero}: estado actual, autores, y de qué trata.`;
       send(query);
     }
+    if (e.data && e.data.type === 'open-external') {
+      window.electronAPI?.openExternal(e.data.url);
+    }
   });
 
   // ── Init ──────────────────────────────────────────

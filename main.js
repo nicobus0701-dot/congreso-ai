@@ -97,6 +97,9 @@ function createWindow() {
   });
 }
 
+// ── IPC: abrir enlace externo ────────────────────────────────
+ipcMain.handle('open-external', (e, url) => shell.openExternal(url));
+
 // ── IPC: ventana de Sesiones ─────────────────────────────────
 let sessionsWin = null;
 ipcMain.handle('open-sessions', () => {

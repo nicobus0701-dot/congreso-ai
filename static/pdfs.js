@@ -134,11 +134,15 @@ function selectPdf(idx) {
   loadPreview(selected.url, isProyecto);
 
   if (selected.url) {
-    link.href = selected.url;
     link.textContent = isProyecto ? 'Ver en SPLEY' : 'Ver PDF';
     link.style.display = 'inline-flex';
+    link.onclick = (ev) => {
+      ev.preventDefault();
+      window.parent.postMessage({ type: 'open-external', url: selected.url }, '*');
+    };
   } else {
     link.style.display = 'none';
+    link.onclick = null;
   }
 
   loadBtn.disabled = false;
