@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, Res
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
-from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, fetch_transcript_youtube, get_yt_captions, transcribe_with_whisper
+from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, fetch_transcript_youtube, get_yt_captions, transcribe_with_whisper, fetch_expediente, fetch_agenda_comisiones, fetch_agenda_pleno, fetch_interpelaciones
 from live_transcriber import stream_transcription
 from duckduckgo_search import DDGS
 import json
@@ -24,7 +24,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 RESUMEN_PROMPT = """Genera un RESUMEN EJECUTIVO SEMANAL del Congreso del Perú usando las herramientas disponibles.
 
-Consulta en este orden: 1) proyectos de ley recientes, 2) noticias destacadas, 3) agenda parlamentaria.
+Consulta en este orden: 1) proyectos de ley recientes (buscar_proyectos), 2) noticias destacadas (buscar_destacados), 3) agenda de comisiones próximas (agenda_comisiones) y Agenda del Pleno (agenda_pleno).
 
 Estructura el resumen EXACTAMENTE así (usa estos encabezados):
 
@@ -56,51 +56,165 @@ Preparado por: Lex — Sistema de Monitoreo Parlamentario
 
 Sé analítico, no solo descriptivo. Incluye tu criterio sobre qué es relevante y por qué."""
 
-SYSTEM_PROMPT = """Eres Lex, un asistente especializado en el Congreso del Perú. Trabajas con Julio Cesar, gestor de asuntos públicos.
+ROUTER_PROMPT = """Eres el enrutador de Lex, asistente del Congreso del Perú. Tu única tarea: elegir la herramienta correcta para el último mensaje del usuario. NO respondas al usuario, SOLO llama herramientas.
 
-CUÁNDO USAR LAS HERRAMIENTAS:
-Úsalas siempre que el tema pueda tener información reciente o actualizada, incluso si el usuario no dice "busca" explícitamente. Ejemplos:
-- Cualquier pregunta sobre proyectos de ley, sesiones, agenda, noticias o actividad del Congreso → usa las tools del Congreso
-- Preguntas sobre temas de coyuntura, política, economía, noticias del día → usa buscar_en_web
-- Perfil o actividad de un congresista → buscar_congresista
-- Estado de un proyecto específico → rastrear_proyecto (pasa SOLO el número, ej: "14860")
-- "¿Cuáles son los proyectos sobre educación/salud/X?" → buscar_proyectos con materia="educacion"
-Tu objetivo es siempre dar LA INFORMACIÓN MÁS RECIENTE disponible. Si hay tools relevantes, úsalas antes de responder.
+| Pedido | Herramienta |
+|---|---|
+| Proyectos por tema, autor o comisión | buscar_proyectos |
+| Estado de un proyecto específico (tiene N°) | rastrear_proyecto |
+| Expediente: comisiones, actos de trámite, predictamen | consultar_expediente |
+| Sesiones/debates pasados | buscar_sesiones |
+| Sesiones de comisiones próximas (hoy, mañana, estos días) | agenda_comisiones |
+| Agenda del Pleno, dictámenes agendados | agenda_pleno |
+| Interpelaciones o censuras a ministros | buscar_interpelaciones Y TAMBIÉN buscar_en_web |
+| Perfil de un congresista | buscar_congresista |
+| Noticias del Congreso | buscar_destacados |
+| Agenda parlamentaria general | buscar_agenda |
+| Coyuntura, política, otros temas | buscar_en_web |
+| Saludos, seguimiento de conversación, conceptos, preguntas sobre ti | responder_directo |
 
-CUÁNDO NO USAR HERRAMIENTAS — responde directo con tu conocimiento:
-- Saludos o apertura de conversación ("hola", "buenos días")
-- Preguntas sobre ti mismo o cómo funcionas
-- Seguimiento de respuesta anterior: "¿y eso qué implica?", "explicame eso", "¿qué opinas?"
-- Conceptos, definiciones, historia o conocimiento general que no requiere datos del momento
-- Conversación casual o estrategia sin necesidad de datos frescos
+Si el pedido cruza fuentes (ej. proyecto + prensa), llama varias herramientas."""
 
-CÓMO HABLAR:
-- Natural y directo, como colega. Sin intro larga. Nunca empieces con "A continuación", "Aquí te presento", "Por supuesto", "Claro que sí" ni frases de relleno.
-- Español peruano, sin ser formal.
-- Arranca directo con el dato: "Mira, encontré que...", "Ojo que...", "Lo interesante acá es..."
-- Muestra criterio propio: si algo en los datos te parece importante, dilo.
-- Para conocimiento general (historia, definiciones, conceptos) puedes responder con lo que ya sabes, sin necesitar datos externos.
+SYSTEM_BASE = """Eres **Lex**, el Sistema de Monitoreo Parlamentario del Congreso del Perú. Trabajas para Julio César, gestor de asuntos públicos.
 
-CUANDO NO HAY DATOS FRESCOS:
-Si la consulta devuelve vacío, error o sin_datos=True, di lo que sabes de tu entrenamiento y aclara que no encontraste información actualizada al momento. Nunca digas: "error", "404", "herramienta", "API".
+## Tono
+- Colega directo, español peruano, sin relleno. Arrancas con el dato: "Mira, encontré que…", "Ojo que…".
+- Muestras criterio propio: si un proyecto tiene pinta de avanzar, dilo; si una interpelación es más mediática que real, dilo.
+- **Nunca** empiezas con "Lo siento", "Disculpa", "Claro que sí" ni cortesías vacías.
 
-NUNCA:
-- Menciones APIs, herramientas, errores técnicos ni limitaciones del sistema.
-- Inventes proyectos, números de expediente, votos, fechas de sesión ni datos del Congreso que no estén textualmente en los resultados de las tools.
-- Digas que un proyecto "no existe" o "no fue encontrado" si no consultaste la tool primero. SIEMPRE consulta rastrear_proyecto antes de concluir que algo no existe.
-- Sugieras números alternativos ni proyectos similares que no estén en los datos devueltos.
-- Construyas ni adivines URLs. Solo usa enlaces que aparezcan explícitamente en los datos devueltos.
-- Empieces respuestas con "Lo siento" ni con disculpas de ningún tipo.
+## Reglas de datos (críticas)
+- **Nunca** inventas proyectos, números, fechas, votos, resultados, nombres ni URLs. Si no viene de una herramienta o documento cargado, no existe.
+- Si una herramienta no trae nada relevante, dilo directo: "No encontré nada fresco sobre eso." Luego, si sabes algo de entrenamiento, acláralo como posiblemente desactualizado.
+- Si un dato es parcial (hay votación pero no el desglose), das lo que hay y marcas qué falta.
+- Nunca menciones APIs, herramientas, errores técnicos ni "404". Nunca digas que un proyecto "no existe" sin haberlo consultado.
+- Fechas en dd/mm/aaaa. Números de proyecto en formato oficial (ej. PL 05678/2024-CR).
+- Al citar noticias, incluye el medio y la URL que devolvió la herramienta. Si dos fuentes se contradicen, muestra ambas y di cuál te parece más confiable.
 
-FORMATO (solo cuando traigas datos):
-- Varios proyectos: tabla Número | Fecha | Estado | Sumilla | Autores
-- Noticias/sesiones: lista corta con contexto
-- Una cosa específica: prosa conversacional
+## Formato
+- Tablas markdown para todo lo comparable/listable. Prosa corta para contexto y criterio. Negritas solo para lo crítico.
+- Solo incluyes URLs que aparezcan textualmente en los datos — **jamás las construyas o adivines**. Si falta un campo, pon "—".
+- Preguntas simples = respuestas cortas. Al final, si hay enlaces en los datos, ponlos bajo **Fuentes:**."""
 
-AL FINAL de respuestas con datos de tools, agrega SOLO los enlaces que aparezcan textualmente en los datos. NUNCA construyas URLs. Si no hay enlaces en los datos, no pongas sección de fuentes.
----
-**Fuentes:**
-- [descripción](enlace exacto del dato)"""
+
+# Bloques de formato inyectados en Fase 3 según la herramienta usada.
+WORKFLOWS = {
+    "consultar_expediente": """
+## Formato para EXPEDIENTE
+## Expediente PL [número] — [título corto]
+
+### Comisiones a las que fue derivado
+- [Comisión] — derivado el [fecha]
+
+### Actos de trámite por comisión
+**[Comisión]:**
+| Fecha | Acto |
+|---|---|
+| dd/mm/aaaa | [Ej: Pedido de opinión al MEF] |
+
+### Predictamen
+[Si existe: "Hay predictamen de fecha dd/mm/aaaa en la Comisión de X" + sentido si consta. Si no: "Todavía no hay predictamen en ninguna comisión."]
+
+### Mi lectura
+[¿Avanzando o dormido? ¿Qué falta para el Pleno?]""",
+
+    "agenda_comisiones": """
+## Formato para AGENDA DE COMISIONES (siempre cuadro)
+| Fecha | Hora | Comisión | Lugar / Modalidad | Link a la agenda |
+|---|---|---|---|---|
+| dd/mm | HH:MM | [Comisión] | [Sala X / Virtual] | [URL exacta que devolvió la herramienta] |
+
+Extrae del texto de cada síntesis SOLO las sesiones de los días consultados, agrupadas por día. Ordena por fecha y hora. Si un campo no vino, pon "—". Cierra con una línea de criterio: qué sesión conviene seguir.""",
+
+    "agenda_pleno": """
+## Formato para AGENDA DEL PLENO
+## Agenda del Pleno — [fecha de la agenda]
+
+### Resumen en números
+| Tipo | Cantidad |
+|---|---|
+| Dictámenes | X |
+| Denuncias constitucionales | X |
+| Mociones | X |
+| Insistencias / observadas | X |
+
+Usa el índice del documento para las cantidades reales (no solo el conteo aproximado de menciones).
+
+### Lo más relevante
+- [3-5 puntos concretos con número de proyecto/dictamen]
+
+### Mi lectura
+[Qué tiene pinta de votarse primero, qué es lo políticamente caliente]""",
+
+    "buscar_interpelaciones": """
+## Formato para INTERPELACIONES
+## Interpelaciones — [fecha de hoy]
+
+### Mociones presentadas formalmente
+| Ministro | Cartera | Fecha de presentación | Estado | Motivo (resumen) |
+|---|---|---|---|---|
+[Si no hay: "No hay mociones de interpelación presentadas formalmente ahorita."]
+
+### En gestación (según prensa)
+- [Ministro X]: [medio] reporta que la bancada Y junta firmas por [motivo]. Fuente: [URL].
+[Si no hay: "Tampoco encontré noticias de firmas en curso."]
+
+### Mi lectura
+[¿Tiene los votos? ¿Presión política o va en serio?]
+
+Distingue SIEMPRE lo formal (sistema del Congreso) de lo periodístico (prensa). Nunca presentes un rumor como moción presentada.""",
+
+    "buscar_proyectos": """
+## Formato para PROYECTOS
+Tabla: Número | Fecha | Estado | Sumilla | Autores. Si buscaste por materia y los proyectos no corresponden al tema, dilo — no muestres una lista genérica como si fuera la respuesta.""",
+}
+
+# Flujos que dependen de PDF/transcript cargado (no de una herramienta).
+WORKFLOW_PDF_FORMULA = """
+## Formato para FÓRMULA LEGAL DESDE PDF
+Localiza la sección "Fórmula Legal" (o "Texto del Proyecto de Ley") del PDF. La exposición de motivos es solo contexto.
+
+## PL [número] — [título]
+
+### Qué propone (en cristiano)
+[2-4 líneas sin jerga]
+
+### Artículo por artículo
+- **Art. 1:** [qué establece]
+- **Disposiciones complementarias/finales/derogatorias:** [ojo, suelen esconder lo importante]
+
+### 🔴 Modifica leyes vigentes
+- Modifica el Art. X de la Ley N° XXXX: [qué cambia, antes vs. después]
+[Si no: "No modifica ninguna ley vigente, es norma nueva."]
+
+### 🟡 Cambia plazos o procedimientos
+- [Plazo/procedimiento actual → propuesto]
+[Si no: "No toca plazos ni procedimientos existentes."]
+
+### Mi lectura
+[A quién afecta, qué tan viable, qué sector debe estar atento]
+
+Las secciones 🔴 y 🟡 son OBLIGATORIAS siempre, aunque sea para decir que no aplican."""
+
+WORKFLOW_SESION = """
+## Formato para ANÁLISIS DE SESIÓN (solo sobre el transcript disponible)
+## Sesión: [comisión o Pleno] — [fecha si consta]
+
+### Temas debatidos
+- [Tema]: [quién lo sustentó, 1-2 líneas]
+
+### Lo que se votó
+| Tema / Proyecto | Resultado | Detalle |
+|---|---|---|
+| PL 1234 — [título] | Aprobado/Rechazado/Cuarto intermedio | [votos si constan, o "por unanimidad", o "no se detalló el conteo"] |
+
+### Acuerdos sin votación
+- [Consensos, pases a comisión, pedidos aceptados]
+
+### Lo que quedó pendiente
+- [Temas anunciados no tratados, votaciones postergadas]
+
+Si el transcript no menciona votaciones: "En esta sesión se debatió pero no se votó nada." Nunca deduzcas un resultado no dicho textualmente."""
+
 
 TOOLS = [
     {
@@ -268,6 +382,108 @@ TOOLS = [
                 "required": ["numero"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "consultar_expediente",
+            "description": (
+                "Obtiene el expediente completo de un proyecto de ley: comisiones a las que "
+                "fue derivado (con fechas), actos de trámite por comisión (pedidos de opinión, "
+                "opiniones recibidas, sesiones donde se trató), grupo parlamentario del autor, "
+                "y predictamen si existe (con fecha). Usar cuando el usuario pida el expediente, "
+                "el trámite en comisiones, los actos de trabajo o el predictamen de un proyecto específico."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "numero": {
+                        "type": "string",
+                        "description": "Número del proyecto de ley, ej. '5678/2024-CR' o solo '5678'. Si el usuario solo dio el tema, primero identificar el número con buscar_proyectos."
+                    }
+                },
+                "required": ["numero"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "agenda_comisiones",
+            "description": (
+                "Obtiene las sesiones de comisiones programadas para los próximos días desde "
+                "la web del Congreso. Devuelve por cada sesión: fecha, hora, comisión, lugar o "
+                "modalidad, y link a la agenda. Usar cuando el usuario pregunte qué sesiones de "
+                "comisiones hay hoy, mañana o en los próximos días."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "dias": {
+                        "type": "integer",
+                        "description": "Cantidad de días hacia adelante a consultar. Por defecto 2."
+                    },
+                    "comision": {
+                        "type": "string",
+                        "description": "Opcional. Filtrar por nombre (o parte del nombre) de una comisión específica, ej. 'Energía y Minas'."
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "agenda_pleno",
+            "description": (
+                "Obtiene la estructura de la Agenda del Pleno vigente desde la web del Congreso: "
+                "cuántos dictámenes, denuncias constitucionales, mociones e insistencias hay "
+                "agendados, con el detalle de cada ítem. Usar cuando el usuario pregunte por la "
+                "Agenda del Pleno, qué se va a debatir en el Pleno, o cuántos dictámenes/denuncias hay."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "responder_directo",
+            "description": (
+                "Usar cuando la pregunta NO requiere datos actualizados del Congreso ni "
+                "búsqueda web: saludos ('hola', 'buenos días'), preguntas sobre ti mismo, "
+                "seguimiento de una respuesta anterior ('¿y eso qué implica?', 'explícame eso'), "
+                "conceptos, definiciones o historia que puedes responder con tu conocimiento."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "buscar_interpelaciones",
+            "description": (
+                "Obtiene las mociones de interpelación a ministros presentadas ante el Congreso "
+                "y noticias sobre mociones en gestación. Usar cuando el usuario pregunte por "
+                "interpelaciones o mociones contra ministros. IMPORTANTE: complementar siempre "
+                "con buscar_en_web para detectar mociones en recolección de firmas que aún no "
+                "aparecen en el sistema."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ministro": {
+                        "type": "string",
+                        "description": "Opcional. Filtrar por nombre del ministro o de la cartera, ej. 'Interior' o 'Ministro de Salud'."
+                    }
+                }
+            }
+        }
     }
 ]
 
@@ -291,7 +507,15 @@ TOOL_MAP = {
     "buscar_congresista": lambda args: fetch_congresista(**args),
     "rastrear_proyecto":  lambda args: fetch_estado_proyecto(**args),
     "buscar_en_web":     lambda args: buscar_en_web(**args),
+    "consultar_expediente":   lambda args: fetch_expediente(**args),
+    "agenda_comisiones":      lambda args: fetch_agenda_comisiones(**args),
+    "agenda_pleno":           lambda args: fetch_agenda_pleno(),
+    "buscar_interpelaciones": lambda args: fetch_interpelaciones(**args),
+    "responder_directo":      lambda args: _responder_directo(),
 }
+
+async def _responder_directo():
+    return {"nota": "Responde directamente con tu conocimiento, sin datos externos."}
 
 STATUS_LABELS = {
     "buscar_proyectos":   "Buscando proyectos de ley en SPLEY...",
@@ -301,6 +525,11 @@ STATUS_LABELS = {
     "buscar_congresista": "Consultando perfil del congresista...",
     "rastrear_proyecto":  "Rastreando estado del proyecto...",
     "buscar_en_web":      "Buscando en internet...",
+    "consultar_expediente":   "Consultando el expediente del proyecto...",
+    "agenda_comisiones":      "Revisando agenda de comisiones...",
+    "agenda_pleno":           "Cargando la Agenda del Pleno...",
+    "buscar_interpelaciones": "Buscando mociones de interpelación...",
+    "responder_directo":      "Pensando...",
 }
 
 
@@ -469,91 +698,150 @@ async def chat(request: Request):
         if is_resumen and ":" in last_msg:
             sector = last_msg.strip().split(":", 1)[1].strip()
 
-        system = RESUMEN_PROMPT if is_resumen else SYSTEM_PROMPT
+        # Detectar si hay un PDF o transcript cargado en el último mensaje (para
+        # elegir el flujo de fórmula legal o análisis de sesión en la Fase 3).
+        low_last = last_msg.lower()
+        has_pdf      = "analiza este proyecto" in low_last or "fórmula legal" in low_last or "formula legal" in low_last or "[pdf" in low_last
+        has_sesion   = "youtube.com" in low_last or "youtu.be" in low_last or "transcript" in low_last or "[sesión" in low_last
 
-        msgs = [{"role": "system", "content": system}]
+        # msgs: conversación para la Fase 3. El system se arma dinámicamente
+        # (base compacta + solo los flujos relevantes) para no reventar el
+        # límite de 12k tokens/minuto de Groq.
         if is_resumen:
-            base = "Genera el resumen ejecutivo semanal completo del Congreso del Perú."
+            base_msg = "Genera el resumen ejecutivo semanal completo del Congreso del Perú."
             if sector and sector != "general":
-                base += f" Enfoca el análisis especialmente en el sector {sector} y los proyectos de ley, noticias y agenda que impacten a ese sector."
-            msgs.append({"role": "user", "content": base})
+                base_msg += f" Enfoca el análisis especialmente en el sector {sector} y los proyectos de ley, noticias y agenda que impacten a ese sector."
+            conversation = [{"role": "user", "content": base_msg}]
         else:
             # Recortar historial: solo los últimos 10 mensajes para no quemar tokens
-            msgs += messages[-10:]
+            conversation = messages[-10:]
+
+        # router_msgs: prompt compacto solo para elegir tools en la Fase 1.
+        router_msgs = [{"role": "system", "content": ROUTER_PROMPT}] + messages[-4:]
 
         def _friendly_error(e):
             s = str(e).lower()
+            if "per day" in s or "tpd" in s:
+                m = re.search(r"try again in ([0-9hms.]+)", s)
+                cuando = f" Se recupera en {m.group(1)}." if m else ""
+                return ("Llegamos al límite diario de consultas de Groq (tier gratuito, "
+                        f"100 mil tokens/día).{cuando} Mañana se resetea, o puedes subir de tier.")
             if "rate limit" in s or "429" in s or "tokens per" in s or "quota" in s:
-                return "Llegamos al límite de tokens de Groq por ahora. Espera unos segundos y vuelve a intentarlo."
+                return "Muchas consultas muy rápido. Espera unos segundos y vuelve a intentarlo."
             return "Hubo un problema al conectar. Intentá de nuevo."
 
         # ── Phase 1: let model decide if it needs tools ────────
+        def _is_tool_format_error(e):
+            s = str(e)
+            return "tool_use_failed" in s or "failed_generation" in s or "400" in s
+
         try:
             resp = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=msgs,
+                messages=router_msgs,
                 tools=TOOLS,
-                tool_choice="auto",
-                max_tokens=512,
+                tool_choice="required",
+                max_tokens=1024,
                 temperature=0.6,
                 stream=False,
             )
         except Exception as e:
-            yield f"data: {json.dumps({'error': _friendly_error(e)})}\n\n"
+            if _is_tool_format_error(e):
+                # Model generated malformed tool call — retry without tools
+                try:
+                    resp2 = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[{"role": "system", "content": SYSTEM_BASE}] + conversation,
+                        max_tokens=2048,
+                        temperature=0.4,
+                        stream=True,
+                    )
+                    for chunk in resp2:
+                        delta = chunk.choices[0].delta.content
+                        if delta:
+                            yield f"data: {json.dumps({'text': delta})}\n\n"
+                    yield "data: [DONE]\n\n"
+                except Exception as e2:
+                    yield f"data: {json.dumps({'error': _friendly_error(e2)})}\n\n"
+            else:
+                yield f"data: {json.dumps({'error': _friendly_error(e)})}\n\n"
             return
 
         choice  = resp.choices[0]
         finish  = choice.finish_reason
 
         # ── Phase 2: execute tools if requested ────────────────
+        tool_msgs   = []   # assistant tool_call + tool result messages
+        tools_usados = []  # nombres de tools ejecutadas (para armar el flujo de Fase 3)
+
         if finish == "tool_calls" and choice.message.tool_calls:
-            # Add assistant's tool_call message
-            msgs.append({
-                "role": "assistant",
-                "content": choice.message.content or "",
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
+            # Ignorar responder_directo: es solo señal de "responde sin datos"
+            real_calls = [tc for tc in choice.message.tool_calls
+                          if tc.function.name != "responder_directo"]
+
+            if real_calls:
+                tool_msgs.append({
+                    "role": "assistant",
+                    "content": choice.message.content or "",
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments,
+                            }
                         }
-                    }
-                    for tc in choice.message.tool_calls
-                ]
-            })
-
-            for tc in choice.message.tool_calls:
-                name = tc.function.name
-                args = json.loads(tc.function.arguments or "{}")
-                # Coerce limit to int (model sometimes sends it as string)
-                if "limit" in args:
-                    try:
-                        args["limit"] = int(args["limit"])
-                    except (ValueError, TypeError):
-                        args["limit"] = 20
-                # Strip empty-string optional params so scrapers use their defaults
-                args = {k: v for k, v in args.items() if v != ""}
-
-                # Send status to frontend
-                status = STATUS_LABELS.get(name, "Consultando el Congreso...")
-                yield f"data: {json.dumps({'status': status})}\n\n"
-
-                # Execute scraper
-                try:
-                    result = await TOOL_MAP[name](args)
-                    # If scraper returned an error dict, neutralize it
-                    if isinstance(result, dict) and "error" in result:
-                        result = {"sin_datos": True, "mensaje": "No hay información disponible en este momento."}
-                except Exception:
-                    result = {"sin_datos": True, "mensaje": "No hay información disponible en este momento."}
-
-                msgs.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": json.dumps(result, ensure_ascii=False),
+                        for tc in real_calls
+                    ]
                 })
+
+                for tc in real_calls:
+                    name = tc.function.name
+                    tools_usados.append(name)
+                    try:
+                        args = json.loads(tc.function.arguments or "{}")
+                    except (ValueError, TypeError):
+                        args = {}
+                    if not isinstance(args, dict):
+                        args = {}
+                    if "limit" in args:
+                        try:
+                            args["limit"] = int(args["limit"])
+                        except (ValueError, TypeError):
+                            args["limit"] = 20
+                    args = {k: v for k, v in args.items() if v != ""}
+
+                    status = STATUS_LABELS.get(name, "Consultando el Congreso...")
+                    yield f"data: {json.dumps({'status': status})}\n\n"
+
+                    try:
+                        result = await TOOL_MAP[name](args)
+                        if isinstance(result, dict) and "error" in result:
+                            result = {"sin_datos": True, "mensaje": "No hay información disponible en este momento."}
+                    except Exception:
+                        result = {"sin_datos": True, "mensaje": "No hay información disponible en este momento."}
+
+                    tool_msgs.append({
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": json.dumps(result, ensure_ascii=False),
+                    })
+
+        # ── Build Phase 3 system prompt: base + solo los flujos relevantes ──
+        if is_resumen:
+            system_p3 = RESUMEN_PROMPT
+        else:
+            system_p3 = SYSTEM_BASE
+            for t in tools_usados:
+                if t in WORKFLOWS:
+                    system_p3 += "\n" + WORKFLOWS[t]
+            if has_pdf:
+                system_p3 += "\n" + WORKFLOW_PDF_FORMULA
+            if has_sesion:
+                system_p3 += "\n" + WORKFLOW_SESION
+
+        msgs = [{"role": "system", "content": system_p3}] + conversation + tool_msgs
 
         # ── Phase 3: stream final answer ───────────────────────
         try:

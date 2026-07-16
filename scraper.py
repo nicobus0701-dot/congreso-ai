@@ -83,17 +83,54 @@ async def _google_news(query: str, max_results: int = 15):
 
 # ── Proyectos de ley ───────────────────────────────────────────
 
+async def _fetch_spley_por_materia(materia: str, limit: int = 20):
+    """
+    SPLEY's strBusqueda does NOT filter by topic — it ignores the keyword and
+    returns recent projects. For materia searches we fetch a large batch and
+    filter client-side by keyword in the title.
+    """
+    keywords = [w.strip().upper() for w in materia.split() if len(w.strip()) > 2]
+    if not keywords:
+        return None
+
+    # Fetch up to 300 recent projects and filter locally
+    payload = {"perParId": PER_PAR_ID, "page": 0, "size": 300}
+    try:
+        async with _client() as c:
+            r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro", json=payload)
+            if r.status_code != 200:
+                return None
+            all_items = r.json().get("data", {}).get("proyectos", [])
+    except Exception:
+        return None
+
+    matches = [
+        p for p in all_items
+        if any(kw in (p.get("titulo") or "").upper() for kw in keywords)
+    ]
+
+    if not matches:
+        return {"sin_datos": True,
+                "mensaje": f"No se encontraron proyectos sobre '{materia}' en el período actual."}
+
+    return _format_proyectos(matches[:limit])
+
+
 async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
                           legislatura="2021-2026", limit=20):
     async with _client() as c:
+
+        # Materia: SPLEY ignores strBusqueda for topic searches — use client-side filter
+        if materia:
+            result = await _fetch_spley_por_materia(materia, limit)
+            if result is not None:
+                return result
 
         # Build payload for SPLEY API
         payload: dict = {"perParId": PER_PAR_ID, "page": 0, "size": limit}
 
         if numero:
             payload["strBusqueda"] = numero.split("/")[0].strip()
-        elif materia:
-            payload["strBusqueda"] = materia
         elif autor:
             payload["strBusqueda"] = autor
         elif comision:
@@ -568,11 +605,298 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
 
 
 async def fetch_transcript_youtube(video_id: str, api_key: str = ""):
-    """
-    Fase 1: intenta subtítulos de YouTube (rápido).
-    Retorna el resultado o None si no hay subtítulos.
-    Usa get_yt_captions() directamente para dos fases en el endpoint SSE.
-    """
     import asyncio
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, get_yt_captions, video_id)
+
+
+# ── AES encryption for SPLEY expediente API ───────────────────
+
+_SPLEY_KEY = "ProdALg5ZrAsxBMD"
+
+def _spley_encrypt(value: str) -> str:
+    import base64
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import pad
+    key = _SPLEY_KEY.encode("utf-8")
+    cipher = AES.new(key, AES.MODE_ECB)
+    encrypted = cipher.encrypt(pad(value.encode("utf-8"), AES.block_size))
+    b64 = base64.b64encode(encrypted).decode("utf-8")
+    return b64.replace("+", "-").replace("/", "_").replace("=", "")
+
+
+# ── Expediente completo de un proyecto ────────────────────────
+
+async def fetch_expediente(numero: str):
+    """
+    Obtiene el expediente completo de un proyecto: comisiones asignadas,
+    seguimiento cronológico de actos, predictamen/dictamen y grupo parlamentario.
+    """
+    num_clean = numero.split("/")[0].strip()
+
+    # Resolve pleyNum from list if needed
+    async with _client() as c:
+        r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro",
+                         json={"perParId": PER_PAR_ID, "strBusqueda": num_clean,
+                               "page": 0, "size": 10})
+        if r.status_code != 200:
+            return {"error": f"No se pudo buscar el proyecto {numero}."}
+        items = r.json().get("data", {}).get("proyectos", [])
+        exact = next(
+            (p for p in items if num_clean in (p.get("proyectoLey") or p.get("pleyNum",""))),
+            items[0] if items else None,
+        )
+        if not exact:
+            return {"error": f"Proyecto {numero} no encontrado."}
+        pley_num = str(exact["pleyNum"])
+
+    enc_per = _spley_encrypt(str(PER_PAR_ID))
+    enc_ple = _spley_encrypt(pley_num)
+    url = f"{SPLEY_API}/expediente/{enc_per}/{enc_ple}"
+    async with _client() as c:
+        r = await c.get(url)
+        if r.status_code != 200:
+            return {"error": f"No se pudo obtener el expediente del proyecto {numero}."}
+        data = r.json().get("data", {})
+
+    general      = data.get("general", {})
+    comisiones   = data.get("comisiones", [])
+    seguimientos = data.get("seguimientos", [])
+
+    # Format seguimientos (chronological acts)
+    actos = []
+    for s in reversed(seguimientos):
+        actos.append({
+            "fecha":     s.get("fecha", "")[:10],
+            "estado":    s.get("desEstado", ""),
+            "comision":  s.get("desComisiones") or "",
+            "detalle":   (s.get("detalle") or "")[:200],
+            "archivos":  [a.get("nombreArchivo","") for a in s.get("archivos",[]) if a.get("activo")],
+        })
+
+    # Detect predictamen / dictamen
+    dictamen = next(
+        (a for s in seguimientos for a in s.get("archivos", [])
+         if "dictamen" in (a.get("descripcion") or "").lower()
+         or "dictamen" in (a.get("nombreArchivo") or "").lower()),
+        None,
+    )
+
+    return {
+        "numero":           general.get("proyectoLey", numero),
+        "titulo":           general.get("titulo", ""),
+        "estado":           general.get("desEstado", ""),
+        "grupo_parlamentario": general.get("desGpar", ""),
+        "proponente":       general.get("desProponente", ""),
+        "legislatura":      general.get("desLegis", ""),
+        "comisiones":       [c["nombre"] for c in comisiones],
+        "actos":            actos,
+        "predictamen":      {
+            "fecha":    dictamen.get("fecha", "")[:10] if dictamen else None,
+            "archivo":  dictamen.get("nombreArchivo") if dictamen else None,
+        } if dictamen else None,
+        "fases":            [f["fase"] for f in data.get("fases", []) if f.get("tipo") in (1, 2)],
+        "fuente":           f"SPLEY expediente — {SPLEY_API}",
+    }
+
+
+# ── Agenda de comisiones (próximos días) ──────────────────────
+
+SINTESIS_URL = (
+    "https://www2.congreso.gob.pe/Sicr/ApoyComisiones/comision2011.nsf/"
+    "new_04pa_sintagenNS?OpenForm&Start=1&Count=1000&ExpandView"
+)
+CONGRESO2 = "https://www2.congreso.gob.pe"
+
+
+async def fetch_agenda_comisiones(dias: int = 2, comision: str = None):
+    """
+    Obtiene la agenda de sesiones de comisiones para los próximos días desde
+    las Síntesis de Agendas del Departamento de Comisiones (sistema Lotus Notes,
+    la misma fuente que muestra el iframe de congreso.gob.pe/agendas-del-dia).
+    Cada síntesis detalla comisión, sesión, hora, lugar y plataforma.
+    `comision` filtra opcionalmente por nombre (o parte del nombre).
+    """
+    from datetime import timedelta
+
+    today = datetime.now().date()
+    limite = today + timedelta(days=max(dias, 1))
+
+    async with _client() as c:
+        r = await c.get(SINTESIS_URL)
+        if r.status_code != 200:
+            return {"error": "No se pudo obtener la lista de síntesis de agendas."}
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        # Entradas con formato "dd/mm/yyyy, Síntesis de Agendas"
+        entradas = []
+        for a in soup.select("a[href]"):
+            text = a.get_text(strip=True)
+            m = re.match(r"(\d{2}/\d{2}/\d{4})", text)
+            if m and "OpenDocument" in a.get("href", ""):
+                try:
+                    fecha = datetime.strptime(m.group(1), "%d/%m/%Y").date()
+                except ValueError:
+                    continue
+                href = a["href"]
+                enlace = href if href.startswith("http") else CONGRESO2 + href
+                entradas.append({"fecha": fecha, "enlace": enlace})
+
+        # Síntesis dentro del rango [hoy, hoy+dias]; si no hay, la más reciente
+        en_rango = [e for e in entradas if today <= e["fecha"] <= limite]
+        vigentes = en_rango or entradas[:1]
+        nota = None if en_rango else (
+            "No hay síntesis publicada para los próximos días; "
+            "se muestra la más reciente disponible."
+        )
+
+        sintesis = []
+        for e in vigentes[:3]:
+            try:
+                rd = await c.get(e["enlace"])
+                if rd.status_code != 200:
+                    continue
+                dsoup = BeautifulSoup(rd.text, "html.parser")
+                texto = dsoup.get_text(separator="\n", strip=True)
+                lineas = [l for l in texto.split("\n") if len(l.strip()) > 2]
+                contenido = "\n".join(lineas)[:4000]
+                if comision and comision.lower() not in contenido.lower():
+                    continue
+                sintesis.append({
+                    "fecha_sintesis": e["fecha"].strftime("%d/%m/%Y"),
+                    "enlace": e["enlace"],
+                    "contenido": contenido,
+                })
+            except Exception:
+                continue
+
+    if not sintesis:
+        return {"sin_datos": True,
+                "mensaje": "No se encontraron sesiones de comisiones programadas"
+                           + (f" para '{comision}'" if comision else "")
+                           + " en los próximos días."}
+
+    return {
+        "fuente": "Síntesis de Agendas — Departamento de Comisiones, congreso.gob.pe",
+        "dias_consultados": dias,
+        "nota": nota,
+        "sintesis": sintesis,
+        "instruccion": ("Cada síntesis lista las sesiones agrupadas por día: "
+                        "comisión, tipo de sesión, hora, edificio/sala y plataforma. "
+                        "Extrae SOLO las sesiones de los días consultados."),
+    }
+
+
+# ── Agenda del Pleno ──────────────────────────────────────────
+
+AGENDA_PLENO_URL = (
+    "https://www2.congreso.gob.pe/Sicr/RelatAgenda/PlenoComiPerm20112016.nsf/"
+    "new_agendapleno?OpenForm&Start=1&Count=1000&ExpandView"
+)
+
+
+async def fetch_agenda_pleno():
+    """
+    Obtiene la Agenda del Pleno más reciente desde el sistema de Relatoría
+    (la misma fuente del iframe de congreso.gob.pe/agenda-del-pleno).
+    El documento es un PDF: se extrae el texto con PyMuPDF y se cuentan
+    los tipos de asuntos agendados.
+    """
+    async with _client() as c:
+        r = await c.get(AGENDA_PLENO_URL)
+        if r.status_code != 200:
+            return {"error": "No se pudo obtener la lista de agendas del Pleno."}
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        docs = [(a.get_text(strip=True), a["href"]) for a in soup.select("a[href]")
+                if "/Apleno/" in a.get("href", "") and a.get_text(strip=True)]
+        if not docs:
+            return {"error": "No se encontraron agendas del Pleno publicadas."}
+
+        titulo, enlace = docs[0]  # la más reciente
+        rd = await c.get(enlace)
+        if rd.status_code != 200:
+            return {"error": "No se pudo descargar la agenda del Pleno."}
+
+    # El documento es un PDF servido directamente
+    try:
+        import fitz
+        doc = fitz.open(stream=rd.content, filetype="pdf")
+        texto = "\n".join(page.get_text() for page in doc).strip()
+    except Exception:
+        texto = BeautifulSoup(rd.text, "html.parser").get_text(separator="\n", strip=True)
+
+    low = texto.lower()
+    conteo = {
+        "dictámenes":                 low.count("dictamen"),
+        "denuncias_constitucionales": low.count("denuncia constitucional"),
+        "mociones":                   low.count("moción") + low.count("mocion"),
+        "insistencias":               low.count("insistencia"),
+        "interpelaciones":            low.count("interpelac"),
+        "proyectos_ley":              low.count("proyecto de ley"),
+    }
+
+    return {
+        "fuente": "Relatoría del Congreso — Agenda del Pleno",
+        "titulo": titulo,
+        "enlace": enlace,
+        "conteo_aproximado": conteo,
+        "nota": ("El conteo es aproximado (menciones en el texto). "
+                 "Usa el texto para el detalle de cada asunto agendado."),
+        "texto": texto[:8000],
+        "agendas_anteriores": [
+            {"titulo": t, "enlace": h} for t, h in docs[1:4]
+        ],
+    }
+
+
+# ── Mociones de interpelación ─────────────────────────────────
+
+async def fetch_interpelaciones(ministro: str = None):
+    """
+    Busca mociones de interpelación presentadas contra ministros,
+    incluyendo las que están juntando firmas.
+    `ministro` filtra opcionalmente por nombre del ministro o cartera.
+    """
+    import asyncio
+
+    base = f"interpelación {ministro} " if ministro else "interpelación ministro "
+    queries = [
+        f"moción {base}congreso peru 2026",
+        f"{base}congreso peru firmas",
+    ]
+    tasks = [_google_news(q, max_results=8) for q in queries]
+    resultados = await asyncio.gather(*tasks)
+
+    seen, items = set(), []
+    for lista in resultados:
+        for n in lista:
+            if n["enlace"] not in seen:
+                seen.add(n["enlace"])
+                items.append(n)
+
+    # Also scrape congreso destacados for interpelaciones
+    try:
+        async with _client() as c:
+            r = await c.get("https://www.congreso.gob.pe/home/")
+            soup = BeautifulSoup(r.text, "html.parser")
+            for a in soup.select("a[href]"):
+                text = a.get_text(strip=True).lower()
+                if "interpelac" in text or "moción" in text:
+                    enlace = a.get("href", "")
+                    titulo = a.get_text(strip=True)
+                    if enlace not in seen and titulo:
+                        seen.add(enlace)
+                        items.insert(0, {"titulo": titulo, "enlace": enlace, "fuente": "congreso.gob.pe"})
+    except Exception:
+        pass
+
+    if not items:
+        return {"sin_datos": True,
+                "mensaje": "No se encontraron mociones de interpelación activas en este momento."}
+
+    return {
+        "fuente": "Google News + congreso.gob.pe",
+        "total": len(items),
+        "interpelaciones": items,
+    }
