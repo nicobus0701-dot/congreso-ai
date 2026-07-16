@@ -691,34 +691,6 @@ async def chat(request: Request):
     client = Groq(api_key=api_key)
 
     async def generate():
-        # Detectar si es solicitud de resumen semanal
-        last_msg = messages[-1].get("content", "") if messages else ""
-        is_resumen = last_msg.strip().startswith("__RESUMEN_SEMANAL__")
-        sector = None
-        if is_resumen and ":" in last_msg:
-            sector = last_msg.strip().split(":", 1)[1].strip()
-
-        # Detectar si hay un PDF o transcript cargado en el último mensaje (para
-        # elegir el flujo de fórmula legal o análisis de sesión en la Fase 3).
-        low_last = last_msg.lower()
-        has_pdf      = "analiza este proyecto" in low_last or "fórmula legal" in low_last or "formula legal" in low_last or "[pdf" in low_last
-        has_sesion   = "youtube.com" in low_last or "youtu.be" in low_last or "transcript" in low_last or "[sesión" in low_last
-
-        # msgs: conversación para la Fase 3. El system se arma dinámicamente
-        # (base compacta + solo los flujos relevantes) para no reventar el
-        # límite de 12k tokens/minuto de Groq.
-        if is_resumen:
-            base_msg = "Genera el resumen ejecutivo semanal completo del Congreso del Perú."
-            if sector and sector != "general":
-                base_msg += f" Enfoca el análisis especialmente en el sector {sector} y los proyectos de ley, noticias y agenda que impacten a ese sector."
-            conversation = [{"role": "user", "content": base_msg}]
-        else:
-            # Recortar historial: solo los últimos 10 mensajes para no quemar tokens
-            conversation = messages[-10:]
-
-        # router_msgs: prompt compacto solo para elegir tools en la Fase 1.
-        router_msgs = [{"role": "system", "content": ROUTER_PROMPT}] + messages[-4:]
-
         def _friendly_error(e):
             s = str(e).lower()
             if "per day" in s or "tpd" in s:
@@ -729,6 +701,81 @@ async def chat(request: Request):
             if "rate limit" in s or "429" in s or "tokens per" in s or "quota" in s:
                 return "Muchas consultas muy rápido. Espera unos segundos y vuelve a intentarlo."
             return "Hubo un problema al conectar. Intentá de nuevo."
+
+        # Detectar si es solicitud de resumen semanal
+        last_msg = messages[-1].get("content", "") if messages else ""
+        is_resumen = last_msg.strip().startswith("__RESUMEN_SEMANAL__")
+        sector = None
+        if is_resumen and ":" in last_msg:
+            sector = last_msg.strip().split(":", 1)[1].strip()
+
+        # ¿Hay un PDF/documento cargado en el historial reciente? El frontend lo
+        # inyecta como un mensaje que empieza con "He cargado el documento".
+        recientes = messages[-6:]
+        doc_en_contexto = any(
+            "He cargado el documento" in (m.get("content", "") or "")
+            for m in recientes if m.get("role") == "user"
+        )
+        low_last = last_msg.lower()
+        pide_analisis = any(w in low_last for w in (
+            "analiza", "analizar", "resume", "resumir", "resumen", "fórmula legal",
+            "formula legal", "qué propone", "que propone", "qué modifica", "que modifica",
+            "artículo", "articulo", "deroga", "explica",
+        ))
+        # Análisis de un documento ya cargado: se trabaja sobre el texto en
+        # contexto, NO se necesita ninguna herramienta de scraping.
+        analizar_documento = doc_en_contexto and (pide_analisis or len(last_msg) < 60)
+
+        # Detectar link de sesión / transcript para el flujo de análisis de sesión.
+        has_sesion = ("youtube.com" in low_last or "youtu.be" in low_last
+                      or "transcript" in low_last or "[sesión" in low_last)
+        has_pdf    = analizar_documento
+
+        # conversation: historial para la Fase 3. El system se arma dinámicamente
+        # (base compacta + solo los flujos relevantes) para no reventar tokens.
+        if is_resumen:
+            base_msg = "Genera el resumen ejecutivo semanal completo del Congreso del Perú."
+            if sector and sector != "general":
+                base_msg += f" Enfoca el análisis especialmente en el sector {sector} y los proyectos de ley, noticias y agenda que impacten a ese sector."
+            conversation = [{"role": "user", "content": base_msg}]
+        else:
+            # Recortar historial: solo los últimos 10 mensajes para no quemar tokens
+            conversation = messages[-10:]
+
+        # Short-circuit: analizar un documento cargado o una sesión no requiere
+        # scraping. Vamos directo a la Fase 3 con el flujo correspondiente.
+        if analizar_documento or (has_sesion and not is_resumen):
+            system_p3 = SYSTEM_BASE
+            if analizar_documento:
+                system_p3 += "\n" + WORKFLOW_PDF_FORMULA
+            if has_sesion:
+                system_p3 += "\n" + WORKFLOW_SESION
+            msgs_directo = [{"role": "system", "content": system_p3}] + conversation
+            try:
+                stream = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=msgs_directo,
+                    max_tokens=2048,
+                    temperature=0.4,
+                    stream=True,
+                )
+                for chunk in stream:
+                    delta = chunk.choices[0].delta.content
+                    if delta:
+                        yield f"data: {json.dumps({'text': delta})}\n\n"
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': _friendly_error(e)})}\n\n"
+            return
+
+        # router_msgs: prompt compacto solo para elegir tools en la Fase 1.
+        # Si hay un doc gigante en contexto, no lo mandamos al router (gasta tokens
+        # y no aporta a la elección de herramienta): usamos solo el texto del pedido.
+        if doc_en_contexto:
+            router_msgs = [{"role": "system", "content": ROUTER_PROMPT},
+                           {"role": "user", "content": last_msg}]
+        else:
+            router_msgs = [{"role": "system", "content": ROUTER_PROMPT}] + messages[-4:]
 
         # ── Phase 1: let model decide if it needs tools ────────
         def _is_tool_format_error(e):
