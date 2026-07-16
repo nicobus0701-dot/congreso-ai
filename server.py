@@ -63,7 +63,8 @@ CUÁNDO USAR LAS HERRAMIENTAS:
 - Cualquier pregunta sobre proyectos de ley, sesiones, agenda, noticias o actividad del Congreso → usa las tools del Congreso
 - Preguntas sobre temas de coyuntura, política, economía, noticias del día → usa buscar_en_web
 - Perfil o actividad de un congresista → buscar_congresista
-- Estado de un proyecto específico → rastrear_proyecto
+- Estado de un proyecto específico → rastrear_proyecto (pasa SOLO el número, ej: "14860")
+- "¿Cuáles son los proyectos sobre educación/salud/X?" → buscar_proyectos con materia="educacion"
 Tu objetivo es siempre dar LA INFORMACIÓN MÁS RECIENTE disponible. Si hay tools relevantes, úsalas antes de responder.
 
 CUÁNDO NO USAR HERRAMIENTAS — responde directo con tu conocimiento:
@@ -86,6 +87,8 @@ Si la consulta devuelve vacío, error o sin_datos=True, di lo que sabes de tu en
 NUNCA:
 - Menciones APIs, herramientas, errores técnicos ni limitaciones del sistema.
 - Inventes proyectos, números de expediente, votos, fechas de sesión ni datos del Congreso que no estén textualmente en los resultados de las tools.
+- Digas que un proyecto "no existe" o "no fue encontrado" si no consultaste la tool primero. SIEMPRE consulta rastrear_proyecto antes de concluir que algo no existe.
+- Sugieras números alternativos ni proyectos similares que no estén en los datos devueltos.
 - Construyas ni adivines URLs. Solo usa enlaces que aparezcan explícitamente en los datos devueltos.
 - Empieces respuestas con "Lo siento" ni con disculpas de ningún tipo.
 
@@ -106,12 +109,18 @@ TOOLS = [
             "name": "buscar_proyectos",
             "description": (
                 "Obtiene proyectos de ley del Congreso del Perú desde el sistema SPLEY. "
-                "Usa esta herramienta cuando el usuario pida proyectos, leyes, expedientes, "
-                "o quiera buscar por autor/congresista, comisión o número de proyecto."
+                "Úsala cuando el usuario pida proyectos, leyes, expedientes o quiera buscar "
+                "por tema/materia, autor/congresista, comisión o número de proyecto. "
+                "Para búsquedas por TEMA usa el parámetro 'materia' (ej: 'educacion', 'salud', 'mineria'). "
+                "Para un número específico usa 'numero'. Para un autor usa 'autor'."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "materia": {
+                        "type": "string",
+                        "description": "Tema o materia a buscar (ej: 'educacion', 'salud', 'transporte', 'mineria'). Usar para preguntas del tipo '¿cuáles son los proyectos sobre X?'"
+                    },
                     "autor": {
                         "type": "string",
                         "description": "Apellido o nombre del congresista autor del proyecto"
@@ -122,7 +131,7 @@ TOOLS = [
                     },
                     "numero": {
                         "type": "string",
-                        "description": "Número del proyecto de ley (ej: '1234/2023-CR')"
+                        "description": "Número del proyecto de ley (ej: '14860/2025-CR' o solo '14860')"
                     },
                     "legislatura": {
                         "type": "string",

@@ -83,7 +83,7 @@ async def _google_news(query: str, max_results: int = 15):
 
 # ── Proyectos de ley ───────────────────────────────────────────
 
-async def fetch_proyectos(autor=None, comision=None, numero=None,
+async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
                           legislatura="2021-2026", limit=20):
     async with _client() as c:
 
@@ -91,7 +91,9 @@ async def fetch_proyectos(autor=None, comision=None, numero=None,
         payload: dict = {"perParId": PER_PAR_ID, "page": 0, "size": limit}
 
         if numero:
-            payload["strBusqueda"] = numero
+            payload["strBusqueda"] = numero.split("/")[0].strip()
+        elif materia:
+            payload["strBusqueda"] = materia
         elif autor:
             payload["strBusqueda"] = autor
         elif comision:
@@ -305,30 +307,37 @@ async def fetch_congresista(nombre: str):
 
 async def fetch_estado_proyecto(numero: str):
     """Estado detallado de un proyecto de ley por número."""
+    # Extract just the numeric part for search (e.g. "14860/2025-CR" → "14860")
+    num_clean = numero.split("/")[0].strip()
     async with _client() as c:
         payload = {
             "perParId":    PER_PAR_ID,
-            "strBusqueda": numero,
+            "strBusqueda": num_clean,
             "page":        0,
-            "size":        5,
+            "size":        10,
         }
         try:
             r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro", json=payload)
             if r.status_code == 200:
                 items = r.json().get("data", {}).get("proyectos", [])
-                if items:
-                    p   = items[0]
+                # Find exact match first, then fall back to first result
+                exact = next(
+                    (p for p in items if num_clean in (p.get("proyectoLey") or p.get("pleyNum") or "")),
+                    items[0] if items else None
+                )
+                if exact:
+                    p   = exact
                     num = p.get("pleyNum") or ""
                     return {
-                        "numero":       p.get("proyectoLey") or num,
-                        "titulo":       p.get("titulo") or "",
-                        "estado":       p.get("desEstado") or "",
+                        "numero":        p.get("proyectoLey") or num,
+                        "titulo":        p.get("titulo") or "",
+                        "estado":        p.get("desEstado") or "",
                         "fecha_ingreso": _fmt_date(p.get("fecPresentacion") or ""),
-                        "autor":        p.get("autores") or p.get("desProponente") or "",
-                        "comision":     p.get("desComision") or "",
-                        "sumilla":      p.get("sumilla") or p.get("titulo") or "",
-                        "enlace":       f"{SPLEY_PORTAL}/{num}" if num else "",
-                        "fuente":       "SPLEY — api.congreso.gob.pe",
+                        "autor":         p.get("autores") or p.get("desProponente") or "",
+                        "comision":      p.get("desComision") or "",
+                        "sumilla":       p.get("sumilla") or p.get("titulo") or "",
+                        "enlace":        f"{SPLEY_PORTAL}/{num}" if num else "",
+                        "fuente":        "SPLEY — api.congreso.gob.pe",
                     }
         except Exception:
             pass
