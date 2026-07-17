@@ -951,6 +951,10 @@ textarea::placeholder { color: var(--dim); font-weight: 600; }
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .export-btn:hover { border-color: #111; color: var(--black); background: rgba(0,0,0,0.04); }
+.export-btn[data-type="pdf"] { color: #e53e3e; border-color: #e53e3e; }
+.export-btn[data-type="pdf"]:hover { color: #c53030; border-color: #c53030; background: rgba(229,62,62,0.08); }
+.export-btn[data-type="word"] { color: #3182ce; border-color: #3182ce; }
+.export-btn[data-type="word"]:hover { color: #2b6cb0; border-color: #2b6cb0; background: rgba(49,130,206,0.08); }
 
 /* ── Dark mode overrides (hardcoded colors) ──────── */
 [data-theme="dark"] .sidebar               { background: rgba(17,17,17,0.92); }
