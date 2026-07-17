@@ -513,99 +513,114 @@ def _parse_vtt(content: str) -> str:
     return " ".join(lines)
 
 
+def _resolve_yt_info(video_id: str) -> dict:
+    """Extract video info (URL, subtitles) without downloading anything."""
+    import yt_dlp
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "format": "bestaudio[protocol=m3u8_native]/bestaudio[protocol=m3u8]/bestaudio/best",
+        **_ydl_cookie_opts(),
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        return ydl.extract_info(url, download=False)
+
+
 def get_yt_captions(video_id: str):
     """
-    Obtiene subtítulos de YouTube usando yt-dlp.
-    En macOS usa las cookies del browser instalado automáticamente.
-    Retorna dict con ok/text/source, o None si no hay subtítulos disponibles.
+    Obtiene subtítulos de YouTube via extract_info (no descarga archivos).
+    Retorna dict con ok/text/source, o None si no hay subtítulos.
     """
-    import tempfile
-    import yt_dlp
+    import httpx
 
-    url = f"https://www.youtube.com/watch?v={video_id}"
+    try:
+        info = _resolve_yt_info(video_id)
+    except Exception:
+        return None
 
-    with tempfile.TemporaryDirectory() as tmp:
-        opts = {
-            "quiet":           True,
-            "no_warnings":     True,
-            "skip_download":   True,
-            "writeautomaticsub": True,
-            "writesubtitles":  True,
-            "subtitleslangs":  ["es", "es-419"],
-            "subtitlesformat": "vtt",
-            "outtmpl":         os.path.join(tmp, "subs"),
-            **_ydl_cookie_opts(),
-        }
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([url])
-        except Exception:
-            return None
+    # Buscar en subtítulos manuales primero, luego automáticos
+    for sub_dict in [info.get("subtitles", {}), info.get("automatic_captions", {})]:
+        for lang in ["es", "es-419", "es-US", "es-MX"]:
+            tracks = sub_dict.get(lang, [])
+            # Preferir vtt, luego cualquier formato
+            vtt_url = next((t["url"] for t in tracks if t.get("ext") == "vtt"), None)
+            if not vtt_url and tracks:
+                vtt_url = tracks[0].get("url")
+            if not vtt_url:
+                continue
+            try:
+                resp = httpx.get(vtt_url, timeout=20, follow_redirects=True)
+                text = _parse_vtt(resp.text)
+                if text.strip():
+                    return {"ok": True, "text": text[:40000], "source": "subtitulos"}
+            except Exception:
+                continue
 
-        vtt_files = [f for f in os.listdir(tmp) if f.endswith(".vtt")]
-        if not vtt_files:
-            return None
-
-        content = open(os.path.join(tmp, vtt_files[0]), encoding="utf-8").read()
-        text = _parse_vtt(content)
-        if text.strip():
-            return {"ok": True, "text": text[:40000], "source": "subtitulos"}
     return None
 
 
 def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
     """
-    Descarga hasta `minutes` minutos de audio y transcribe con Groq Whisper.
-    Usa el bitrate más bajo posible para minimizar el tiempo de descarga.
+    Captura hasta `minutes` minutos de audio via ffmpeg+HLS y transcribe con Groq Whisper.
+    Usa el mismo enfoque que el live transcriber: resolve URL con yt-dlp, captura con ffmpeg.
     """
     import tempfile
-    import yt_dlp
+    import subprocess
     from groq import Groq
 
-    url     = f"https://www.youtube.com/watch?v={video_id}"
     seconds = minutes * 60
 
+    # Resolver URL de audio sin descargar
+    try:
+        info = _resolve_yt_info(video_id)
+    except Exception as e:
+        err = str(e)
+        return {"ok": False, "error": f"No se pudo obtener el video de YouTube: {err[:200]}"}
+
+    fmts = info.get("requested_formats") or [info]
+    stream_url = fmts[0].get("url") or info.get("url", "")
+    if not stream_url:
+        return {"ok": False, "error": "No se pudo resolver la URL del audio."}
+
     with tempfile.TemporaryDirectory() as tmp:
-        opts = {
-            "quiet":       True,
-            "no_warnings": True,
-            "format": "worstaudio/bestaudio/best",
-            "outtmpl": os.path.join(tmp, "audio.%(ext)s"),
-            "postprocessors": [{"key": "FFmpegExtractAudio",
-                                "preferredcodec": "mp3",
-                                "preferredquality": "32"}],
-            "download_ranges":        yt_dlp.utils.download_range_func(None, [(0, seconds)]),
-            "force_keyframes_at_cuts": True,
-            **_ydl_cookie_opts(),
-        }
+        out_path = os.path.join(tmp, "audio.wav")
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", stream_url,
+            "-vn",
+            "-ar", "16000",
+            "-ac", "1",
+            "-t", str(seconds),
+            out_path,
+        ]
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([url])
-        except Exception as e:
-            err = str(e)
-            if "Sign in" in err or "bot" in err.lower():
-                return {"ok": False, "error": "YouTube bloquea la descarga de este stream en vivo. El resumen estará disponible cuando termine la transmisión y se generen los subtítulos automáticos."}
-            return {"ok": False, "error": f"No se pudo descargar el audio: {err[:200]}"}
+            result = subprocess.run(cmd, capture_output=True, timeout=seconds + 60)
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "error": "Tiempo de espera agotado al capturar el audio."}
+        except FileNotFoundError:
+            return {"ok": False, "error": "ffmpeg no está instalado. Instálalo con: sudo apt install ffmpeg"}
 
-        mp3 = next((os.path.join(tmp, f) for f in os.listdir(tmp) if f.endswith(".mp3")), None)
-        if not mp3:
-            return {"ok": False, "error": "No se pudo descargar el audio del video."}
+        if not os.path.exists(out_path) or os.path.getsize(out_path) < 4096:
+            stderr = result.stderr.decode(errors="ignore")[-300:]
+            return {"ok": False, "error": f"No se pudo capturar el audio del video. {stderr}"}
 
-        size_mb = os.path.getsize(mp3) / 1_000_000
-        client  = Groq(api_key=api_key)
-        with open(mp3, "rb") as f:
-            result = client.audio.transcriptions.create(
-                file=(os.path.basename(mp3), f.read()),
+        size_mb = os.path.getsize(out_path) / 1_000_000
+        client = Groq(api_key=api_key)
+        with open(out_path, "rb") as f:
+            tr = client.audio.transcriptions.create(
+                file=(os.path.basename(out_path), f.read()),
                 model="whisper-large-v3-turbo",
                 language="es",
                 response_format="text",
             )
-        text = result if isinstance(result, str) else result.text
+        text = tr if isinstance(tr, str) else tr.text
         return {
-            "ok":    True,
-            "text":  text[:40000],
+            "ok": True,
+            "text": text[:40000],
             "source": "whisper",
-            "nota":  f"Transcripción de los primeros {minutes} min ({size_mb:.1f} MB de audio)",
+            "nota": f"Transcripción de los primeros {minutes} min ({size_mb:.1f} MB de audio)",
         }
 
 
