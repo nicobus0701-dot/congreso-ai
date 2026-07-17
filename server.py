@@ -825,11 +825,14 @@ async def chat(request: Request):
         # ── Phase 2: execute tools if requested ────────────────
         tool_msgs   = []   # assistant tool_call + tool result messages
         tools_usados = []  # nombres de tools ejecutadas (para armar el flujo de Fase 3)
+        solo_responder_directo = False  # señal para Phase 3 minimalista
 
         if finish == "tool_calls" and choice.message.tool_calls:
             # Ignorar responder_directo: es solo señal de "responde sin datos"
             real_calls = [tc for tc in choice.message.tool_calls
                           if tc.function.name != "responder_directo"]
+            if not real_calls:
+                solo_responder_directo = True
 
             if real_calls:
                 tool_msgs.append({
@@ -883,6 +886,11 @@ async def chat(request: Request):
         # ── Build Phase 3 system prompt: base + solo los flujos relevantes ──
         if is_resumen:
             system_p3 = RESUMEN_PROMPT
+        elif solo_responder_directo:
+            # Saludo, seguimiento o pregunta conceptual sin datos — prompt minimalista
+            system_p3 = ("Eres Lex, asistente parlamentario de Julio César. "
+                         "Responde de forma directa y natural en español peruano. "
+                         "Sin relleno, sin cortesías vacías. Si te saludan, saluda brevemente y ofrece ayuda concreta.")
         else:
             system_p3 = SYSTEM_BASE
             for t in tools_usados:
