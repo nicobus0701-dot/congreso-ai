@@ -175,12 +175,17 @@ def _format_proyectos(items):
     for p in items:
         num = p.get("pleyNum") or ""
         out.append({
-            "numero":   p.get("proyectoLey") or num or "",
-            "fecha":    _fmt_date(p.get("fecPresentacion") or ""),
-            "estado":   p.get("desEstado") or "",
-            "sumilla":  (p.get("titulo") or "")[:140],
-            "autor":    (p.get("autores") or p.get("desProponente") or "")[:120],
-            "enlace":   f"{SPLEY_PORTAL}/{num}" if num else f"{SPLEY_PORTAL}/search",
+            "numero":              p.get("proyectoLey") or num or "",
+            "fecha_presentacion":  _fmt_date(p.get("fecPresentacion") or ""),
+            "estado":              p.get("desEstado") or "",
+            "titulo":              p.get("titulo") or "",
+            "sumilla":             p.get("sumilla") or p.get("titulo") or "",
+            "proponente":          p.get("desProponente") or "",
+            "autor":               p.get("autores") or p.get("desProponente") or "",
+            "comision":            p.get("desComision") or "",
+            "grupo_parlamentario": p.get("desGpar") or "",
+            "legislatura":         p.get("desLegis") or "",
+            "enlace":              f"{SPLEY_PORTAL}/{num}" if num else f"{SPLEY_PORTAL}/search",
         })
     return {"fuente": "SPLEY — api.congreso.gob.pe",
             "total": len(out), "items": out}
@@ -663,15 +668,39 @@ async def fetch_expediente(numero: str):
     comisiones   = data.get("comisiones", [])
     seguimientos = data.get("seguimientos", [])
 
+    ARCHIVO_BASE = "https://api.congreso.gob.pe/spley-portal-service/expediente/archivo"
+
+    def _archivo_url(a):
+        ruta = a.get("rutaArchivo") or a.get("ruta") or ""
+        nombre = a.get("nombreArchivo") or ""
+        if ruta and ruta.startswith("http"):
+            return ruta
+        if ruta:
+            return f"{ARCHIVO_BASE}/{ruta}"
+        if nombre:
+            return f"{ARCHIVO_BASE}/{nombre}"
+        return ""
+
+    def _fmt_archivo(a):
+        return {
+            "nombre":      a.get("nombreArchivo") or "",
+            "descripcion": a.get("descripcion") or a.get("desArchivo") or a.get("nombreArchivo") or "",
+            "url":         _archivo_url(a),
+            "tipo":        a.get("tipoArchivo") or "pdf",
+        }
+
     # Format seguimientos (chronological acts)
     actos = []
+    todos_archivos = []
     for s in reversed(seguimientos):
+        archivos_acto = [_fmt_archivo(a) for a in s.get("archivos", []) if a.get("activo") or a.get("nombreArchivo")]
+        todos_archivos.extend(archivos_acto)
         actos.append({
             "fecha":     s.get("fecha", "")[:10],
             "estado":    s.get("desEstado", ""),
             "comision":  s.get("desComisiones") or "",
-            "detalle":   (s.get("detalle") or "")[:200],
-            "archivos":  [a.get("nombreArchivo","") for a in s.get("archivos",[]) if a.get("activo")],
+            "detalle":   (s.get("detalle") or "")[:300],
+            "adjuntos":  archivos_acto,
         })
 
     # Detect predictamen / dictamen
@@ -683,20 +712,29 @@ async def fetch_expediente(numero: str):
     )
 
     return {
-        "numero":           general.get("proyectoLey", numero),
-        "titulo":           general.get("titulo", ""),
-        "estado":           general.get("desEstado", ""),
+        "numero":              general.get("proyectoLey", numero),
+        "titulo":              general.get("titulo", ""),
+        "sumilla":             general.get("sumilla") or general.get("titulo", ""),
+        "estado":              general.get("desEstado", ""),
+        "fecha_presentacion":  _fmt_date(general.get("fecPresentacion") or ""),
+        "periodo_parlamentario": general.get("desPerPar") or "2021-2026",
+        "legislatura":         general.get("desLegis", ""),
+        "proponente":          general.get("desProponente", ""),
+        "autor_principal":     general.get("autores") or general.get("desProponente") or "",
+        "coautores":           general.get("coAutores") or general.get("coautores") or "",
+        "adherentes":          general.get("adherentes") or "",
         "grupo_parlamentario": general.get("desGpar", ""),
-        "proponente":       general.get("desProponente", ""),
-        "legislatura":      general.get("desLegis", ""),
-        "comisiones":       [c["nombre"] for c in comisiones],
-        "actos":            actos,
-        "predictamen":      {
-            "fecha":    dictamen.get("fecha", "")[:10] if dictamen else None,
-            "archivo":  dictamen.get("nombreArchivo") if dictamen else None,
+        "comisiones":          [c.get("nombre") or c.get("desComision","") for c in comisiones],
+        "fases":               [f["fase"] for f in data.get("fases", []) if f.get("tipo") in (1, 2)],
+        "actos":               actos,
+        "todos_los_adjuntos":  todos_archivos,
+        "predictamen":         {
+            "fecha":   dictamen.get("fecha", "")[:10] if dictamen else None,
+            "nombre":  dictamen.get("nombreArchivo") if dictamen else None,
+            "url":     _archivo_url(dictamen) if dictamen else None,
         } if dictamen else None,
-        "fases":            [f["fase"] for f in data.get("fases", []) if f.get("tipo") in (1, 2)],
-        "fuente":           f"SPLEY expediente — {SPLEY_API}",
+        "enlace_expediente":   f"{SPLEY_PORTAL}/{general.get('pleyNum', '')}",
+        "fuente":              f"SPLEY expediente — {SPLEY_API}",
     }
 
 

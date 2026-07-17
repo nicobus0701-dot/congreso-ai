@@ -102,23 +102,47 @@ SYSTEM_BASE = """Eres **Lex**, el Sistema de Monitoreo Parlamentario del Congres
 # Bloques de formato inyectados en Fase 3 según la herramienta usada.
 WORKFLOWS = {
     "consultar_expediente": """
-## Formato para EXPEDIENTE
-## Expediente PL [número] — [título corto]
+## Formato para EXPEDIENTE COMPLETO
 
-### Comisiones a las que fue derivado
-- [Comisión] — derivado el [fecha]
-
-### Actos de trámite por comisión
-**[Comisión]:**
-| Fecha | Acto |
+### Ficha del Proyecto
+| Campo | Detalle |
 |---|---|
-| dd/mm/aaaa | [Ej: Pedido de opinión al MEF] |
+| Número | [numero] |
+| Título | [titulo] |
+| Sumilla | [sumilla] |
+| Fecha de presentación | [fecha_presentacion] |
+| Período parlamentario | [periodo_parlamentario] |
+| Legislatura | [legislatura] |
+| Proponente | [proponente] |
+| Autor principal | [autor_principal] |
+| Coautores | [coautores o "—"] |
+| Adherentes | [adherentes o "—"] |
+| Grupo parlamentario | [grupo_parlamentario] |
+| Estado actual | [estado] |
+| Comisiones | [lista separada por comas] |
+
+### Estado procesal
+[Muestra las fases como una línea de progreso: Presentado → Enviado a Comisiones → En Comisiones → ... indicando en cuál está actualmente]
+
+### Historial de trámite
+| Fecha | Estado | Comisión | Detalle |
+|---|---|---|---|
+[una fila por acto, del más reciente al más antiguo]
+
+### Documentación Anexa
+[Si hay adjuntos en los actos, listar TODOS así:]
+| Descripción | Enlace |
+|---|---|
+| [descripcion del archivo] | [url como link markdown: [Ver PDF](url)] |
+[Si no hay adjuntos: "No hay documentos adjuntos registrados."]
 
 ### Predictamen
-[Si existe: "Hay predictamen de fecha dd/mm/aaaa en la Comisión de X" + sentido si consta. Si no: "Todavía no hay predictamen en ninguna comisión."]
+[Si existe: "Hay predictamen: [nombre] — [Ver documento](url)". Si no: "No hay predictamen registrado."]
 
 ### Mi lectura
-[¿Avanzando o dormido? ¿Qué falta para el Pleno?]""",
+[¿Avanzando o dormido? ¿Qué falta para llegar al Pleno? Análisis en 2-3 líneas.]
+
+[Al final siempre: "🔗 [Ver expediente completo en SPLEY](enlace_expediente)"]""",
 
     "agenda_comisiones": """
 ## Formato para AGENDA DE COMISIONES (siempre cuadro)
@@ -168,7 +192,10 @@ Distingue SIEMPRE lo formal (sistema del Congreso) de lo periodístico (prensa).
 
     "buscar_proyectos": """
 ## Formato para PROYECTOS
-Tabla: Número | Fecha | Estado | Sumilla | Autores. Si buscaste por materia y los proyectos no corresponden al tema, dilo — no muestres una lista genérica como si fuera la respuesta.""",
+| Número | Fecha | Estado | Proponente | Comisión | Sumilla |
+|---|---|---|---|---|---|
+[una fila por proyecto, máximo 15]
+Si buscaste por materia y los proyectos no corresponden al tema, dilo — no muestres una lista genérica. Si el usuario quiere el detalle completo de uno específico, usa consultar_expediente.""",
 }
 
 # Flujos que dependen de PDF/transcript cargado (no de una herramienta).
@@ -254,10 +281,6 @@ TOOLS = [
                         "type": "string",
                         "description": "Período legislativo (default: '2021-2026')"
                     },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Cantidad de resultados a devolver (default: 20)"
-                    }
                 }
             }
         }
@@ -282,10 +305,6 @@ TOOLS = [
                         "type": "string",
                         "description": "Fecha en formato YYYY-MM-DD"
                     },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Cantidad de resultados (default: 20)"
-                    }
                 }
             }
         }
