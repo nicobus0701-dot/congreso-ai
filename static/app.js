@@ -456,6 +456,12 @@
     });
   });
 
+  // Chip — Buscar congresista
+  document.getElementById('chip-congresista')?.addEventListener('click', () => {
+    const nombre = prompt('¿Qué congresista quieres buscar?');
+    if (nombre?.trim()) send(`Búscame información del congresista ${nombre.trim()}`);
+  });
+
   // Devuelve true si el texto tiene contenido exportable (tablas, listas de datos)
   function hasExportableContent(md) {
     return md.includes('|') && md.includes('---');  // markdown table

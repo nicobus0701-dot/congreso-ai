@@ -563,7 +563,38 @@ html, body {
 }
 
 /* Chips */
-.cmd-chips { display: flex; gap: 7px; flex-wrap: wrap; }
+.cmd-chips { display: flex; flex-direction: column; gap: 10px; }
+
+.chips-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.chips-label svg { width: 12px; height: 12px; }
+
+.chips-row { display: flex; gap: 7px; flex-wrap: wrap; }
+
+.chips-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+.chips-divider::before,
+.chips-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .chip {
   display: flex;
   align-items: center;
@@ -581,10 +612,12 @@ html, body {
   white-space: nowrap;
   animation: fadeUp 0.4s var(--smooth) both;
 }
-.chip:nth-child(1) { animation-delay: 0.04s; }
-.chip:nth-child(2) { animation-delay: 0.08s; }
-.chip:nth-child(3) { animation-delay: 0.12s; }
-.chip:nth-child(4) { animation-delay: 0.16s; }
+.chips-row .chip:nth-child(1) { animation-delay: 0.04s; }
+.chips-row .chip:nth-child(2) { animation-delay: 0.08s; }
+.chips-row .chip:nth-child(3) { animation-delay: 0.12s; }
+.chips-row .chip:nth-child(4) { animation-delay: 0.16s; }
+.chips-row .chip:nth-child(5) { animation-delay: 0.20s; }
+.chips-row .chip:nth-child(6) { animation-delay: 0.24s; }
 .chip svg { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.25s var(--spring); }
 .chip:hover {
   background: var(--black);
