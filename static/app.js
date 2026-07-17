@@ -524,7 +524,8 @@
     wordBtn._orig = wordBtn.innerHTML;
     pdfBtn.addEventListener('click',  () => exportPdf(md,  pdfBtn));
     wordBtn.addEventListener('click', () => exportWord(md, wordBtn));
-    msgDiv.appendChild(wrap);
+    const content = msgDiv.querySelector('.msg-content') || msgDiv;
+    content.appendChild(wrap);
   }
 
   function _buildPrintHtml(md) {
