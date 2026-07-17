@@ -6,6 +6,7 @@ const http       = require('http');
 const path       = require('path');
 const fs         = require('fs');
 const os         = require('os');
+const { autoUpdater } = require('electron-updater');
 
 const PORT = 8732;   // puerto único para no chocar con adam
 let   win  = null;
@@ -174,11 +175,30 @@ ipcMain.handle('export-word', async (event, content) => {
   return { ok: true };
 });
 
+// ── Auto-update ──────────────────────────────────────────────
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+
+  autoUpdater.checkForUpdates();
+
+  autoUpdater.on('update-downloaded', () => {
+    dialog.showMessageBox(win, {
+      type: 'info',
+      title: 'Actualización lista',
+      message: 'Hay una nueva versión de Congreso IA. ¿Instalar ahora?',
+      buttons: ['Instalar y reiniciar', 'Después'],
+    }).then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    });
+  });
+}
+
 // ── Ciclo de vida ────────────────────────────────────────────
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   startServer();
   createWindow();
+  setupAutoUpdater();
   globalShortcut.register('CmdOrCtrl+Shift+R', () => {
     win?.webContents.reloadIgnoringCache();
   });
