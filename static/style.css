@@ -645,8 +645,8 @@ html, body {
 .chip:active { transform: translateY(0); }
 
 /* Links en mensajes del asistente */
-.msg-content a { color: var(--black); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
-.msg-content a:hover { opacity: 0.65; }
+.msg-content a { color: #00b4d8; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.msg-content a:hover { color: #0096c7; opacity: 0.9; }
 
 /* Input wrap */
 .input-wrap {

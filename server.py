@@ -107,7 +107,7 @@ WORKFLOWS = {
 ### Ficha del Proyecto
 | Campo | Detalle |
 |---|---|
-| Número | [numero] |
+| Número | [[numero](enlace_expediente)] |
 | Título | [titulo] |
 | Sumilla | [sumilla] |
 | Fecha de presentación | [fecha_presentacion] |
@@ -212,7 +212,8 @@ Distingue SIEMPRE lo formal (sistema del Congreso) de lo periodístico (prensa).
 ## Formato para PROYECTOS
 | Número | Fecha | Estado | Proponente | Comisión | Sumilla |
 |---|---|---|---|---|---|
-[una fila por proyecto, máximo 15]
+| [[numero](enlace)] | fecha | estado | proponente | comision | sumilla |
+[máximo 15 filas. El número SIEMPRE como link markdown usando el campo enlace.]
 Si buscaste por materia y los proyectos no corresponden al tema, dilo — no muestres una lista genérica. Si el usuario quiere el detalle completo de uno específico, usa consultar_expediente.""",
 }
 
