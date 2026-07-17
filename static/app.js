@@ -206,8 +206,30 @@
     const delBtn = e.target.closest('.chat-item-del');
     if (delBtn) {
       e.stopPropagation();
-      const id = delBtn.closest('.chat-item')?.dataset.id;
-      if (id) deleteConv(id);
+      const item = delBtn.closest('.chat-item');
+      const id   = item?.dataset.id;
+      if (!id) return;
+
+      // Si ya está en modo confirmación, confirmar el borrado
+      if (delBtn.dataset.confirming) {
+        deleteConv(id);
+        return;
+      }
+
+      // Primera pulsación: mostrar confirmación inline
+      delBtn.dataset.confirming = '1';
+      delBtn.title = '¿Eliminar? Clic para confirmar';
+      delBtn.innerHTML = `<span style="font-size:10px;font-weight:800;color:#e53e3e;white-space:nowrap">¿Borrar?</span>`;
+
+      // Si el usuario no confirma en 3s, resetear
+      const timer = setTimeout(() => {
+        if (delBtn.dataset.confirming) {
+          delete delBtn.dataset.confirming;
+          delBtn.title = 'Eliminar conversación';
+          delBtn.innerHTML = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l10 10M12 2L2 12"/></svg>`;
+        }
+      }, 3000);
+      delBtn._timer = timer;
       return;
     }
   });
