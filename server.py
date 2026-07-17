@@ -8,6 +8,7 @@ from live_transcriber import stream_transcription
 from duckduckgo_search import DDGS
 import json
 import os
+import sys
 import re
 import io
 import httpx
@@ -17,10 +18,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+BASE_DIR = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 RESUMEN_PROMPT = """Genera un RESUMEN EJECUTIVO SEMANAL del Congreso del Perú usando las herramientas disponibles.
 

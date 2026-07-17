@@ -13,9 +13,14 @@ let   py   = null;
 
 // ── Arranca el servidor FastAPI ─────────────────────────────
 function startServer() {
-  py = spawn('python3', [path.join(__dirname, 'server.py')], {
+  const isDev = !app.isPackaged;
+  const exe     = isDev ? 'python3'                                         : path.join(process.resourcesPath, 'server', 'server');
+  const args    = isDev ? [path.join(__dirname, 'server.py')]               : [];
+  const cwd     = isDev ? __dirname                                          : path.join(process.resourcesPath, 'server');
+
+  py = spawn(exe, args, {
     env: { ...process.env, PORT: String(PORT) },
-    cwd: __dirname,
+    cwd,
   });
   py.stdout.on('data', d => process.stdout.write('[py] ' + d));
   py.stderr.on('data', d => process.stderr.write('[py] ' + d));

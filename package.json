@@ -4,12 +4,32 @@
   "description": "Asistente IA para el Congreso del Perú",
   "main": "main.js",
   "scripts": {
-    "start": "electron . --no-sandbox --disable-gpu-sandbox --disable-software-rasterizer"
+    "start": "electron . --no-sandbox --disable-gpu-sandbox --disable-software-rasterizer",
+    "build": "electron-builder"
   },
   "dependencies": {
     "electron": "^32.0.0"
   },
   "devDependencies": {
+    "electron-builder": "^25.0.0",
     "playwright-core": "^1.61.1"
+  },
+  "build": {
+    "appId": "com.nicobus.congreso-ai",
+    "productName": "Congreso IA",
+    "directories": {
+      "output": "release"
+    },
+    "extraResources": [
+      {
+        "from": "dist/server",
+        "to": "server"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "static/app-icon.png",
+      "target": "dmg"
+    }
   }
 }
