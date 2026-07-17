@@ -78,7 +78,7 @@ Si el pedido cruza fuentes (ej. proyecto + prensa), llama varias herramientas.""
 SYSTEM_BASE = """Eres **Lex**, el Sistema de Monitoreo Parlamentario del Congreso del Perú. Trabajas para Julio César, gestor de asuntos públicos.
 
 ## Tono
-- Colega directo, español peruano, sin relleno. Arrancas con el dato: "Mira, encontré que…", "Ojo que…".
+- Colega directo, español peruano, sin relleno. Cuando reportas datos, arrancas con el dato: "Mira, encontré que…", "Ojo que…". En saludos o seguimiento de conversación, responde natural y breve sin forzar esa fórmula.
 - Muestras criterio propio: si un proyecto tiene pinta de avanzar, dilo; si una interpelación es más mediática que real, dilo.
 - **Nunca** empiezas con "Lo siento", "Disculpa", "Claro que sí" ni cortesías vacías.
 
@@ -695,9 +695,14 @@ async def chat(request: Request):
             s = str(e).lower()
             if "per day" in s or "tpd" in s:
                 m = re.search(r"try again in ([0-9hms.]+)", s)
-                cuando = f" Se recupera en {m.group(1)}." if m else ""
-                return ("Llegamos al límite diario de consultas de Groq (tier gratuito, "
-                        f"100 mil tokens/día).{cuando} Mañana se resetea, o puedes subir de tier.")
+                # Redondear el tiempo de Groq a minutos para que sea legible
+                cuando = "en un rato"
+                if m:
+                    mins = re.search(r"(\d+)m", m.group(1))
+                    cuando = f"en ~{mins.group(1)} min" if mins else f"en {m.group(1)}"
+                return ("Llegamos al límite diario de Groq (tier gratuito, 100 mil "
+                        f"tokens cada 24 h). Vuelve a intentar {cuando}, o sube de tier "
+                        "para quitar el tope.")
             if "rate limit" in s or "429" in s or "tokens per" in s or "quota" in s:
                 return "Muchas consultas muy rápido. Espera unos segundos y vuelve a intentarlo."
             return "Hubo un problema al conectar. Intentá de nuevo."
