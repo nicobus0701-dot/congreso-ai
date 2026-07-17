@@ -198,21 +198,24 @@ Usa el índice del documento para las cantidades reales (no solo el conteo aprox
 
     "buscar_interpelaciones": """
 ## Formato para INTERPELACIONES
-## Interpelaciones — [fecha de hoy]
+## Interpelaciones al Gabinete — [fecha de hoy]
 
-### Mociones presentadas formalmente
-| Ministro | Cartera | Fecha de presentación | Estado | Motivo (resumen) |
-|---|---|---|---|---|
-[Si no hay: "No hay mociones de interpelación presentadas formalmente ahorita."]
+### Mociones presentadas formalmente en el Congreso
+[Si mociones_formales tiene elementos:]
+| N° Moción | Ministro / Título | Fecha | Estado | Comisión | Expediente |
+|---|---|---|---|---|---|
+| [numero] | [titulo] | [fecha] | [estado] | [comision] | [[Ver]([enlace])] |
+[Si total_formales es 0: "No hay mociones de interpelación presentadas formalmente en este período."]
 
 ### En gestación (según prensa)
-- [Ministro X]: [medio] reporta que la bancada Y junta firmas por [motivo]. Fuente: [URL].
-[Si no hay: "Tampoco encontré noticias de firmas en curso."]
+[Para cada noticia en noticias_prensa que mencione interpelación o moción:]
+- [titulo]: [fuente] ([fecha si disponible]). [URL como link]
+[Si no hay noticias relevantes: "No encontré noticias recientes de firmas en curso."]
 
 ### Mi lectura
-[¿Tiene los votos? ¿Presión política o va en serio?]
+[¿Cuántas firmas se necesitan (25)? ¿Las bancadas impulsoras tienen los votos? ¿Presión política real o maniobra? Análisis directo en 2-3 líneas.]
 
-Distingue SIEMPRE lo formal (sistema del Congreso) de lo periodístico (prensa). Nunca presentes un rumor como moción presentada.""",
+Distingue SIEMPRE lo formal (dato de SPLEY) de lo periodístico (prensa). Nunca presentes un rumor como moción presentada.""",
 
     "buscar_proyectos": """
 ## Formato para PROYECTOS

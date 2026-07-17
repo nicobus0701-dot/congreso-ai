@@ -972,49 +972,65 @@ async def fetch_agenda_pleno():
 
 async def fetch_interpelaciones(ministro: str = None):
     """
-    Busca mociones de interpelación presentadas contra ministros,
-    incluyendo las que están juntando firmas.
-    `ministro` filtra opcionalmente por nombre del ministro o cartera.
+    Busca mociones de interpelación presentadas en el Congreso.
+    1) Busca en SPLEY por keyword "interpelacion" para obtener mociones formales.
+    2) Complementa con Google News para las que están juntando firmas.
     """
     import asyncio
 
+    kw_filter = (ministro or "").upper()
+
+    # ── 1. Buscar mociones formales en SPLEY ──────────────────────
+    mociones_spley = []
+    try:
+        payload = {"perParId": PER_PAR_ID, "page": 0, "size": 300}
+        async with _client() as c:
+            r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro", json=payload)
+            if r.status_code == 200:
+                all_items = r.json().get("data", {}).get("proyectos", [])
+                for p in all_items:
+                    titulo = (p.get("titulo") or "").upper()
+                    sumilla = (p.get("sumilla") or "").upper()
+                    if "INTERPELAC" in titulo or "INTERPELAC" in sumilla or "MOCIÓN" in titulo:
+                        if not kw_filter or kw_filter in titulo or kw_filter in sumilla:
+                            num = p.get("pleyNum") or ""
+                            mociones_spley.append({
+                                "numero":    p.get("proyectoLey") or num or "",
+                                "titulo":    p.get("titulo") or "",
+                                "estado":    p.get("desEstado") or "",
+                                "fecha":     _fmt_date(p.get("fecPresentacion") or ""),
+                                "proponente": p.get("desProponente") or p.get("autores") or "",
+                                "comision":  p.get("desComision") or "",
+                                "enlace":    f"{SPLEY_PORTAL}/{num}" if num else "",
+                            })
+    except Exception:
+        pass
+
+    # ── 2. Noticias recientes (prensa) ────────────────────────────
     base = f"interpelación {ministro} " if ministro else "interpelación ministro "
     queries = [
         f"moción {base}congreso peru 2026",
         f"{base}congreso peru firmas",
     ]
-    tasks = [_google_news(q, max_results=8) for q in queries]
-    resultados = await asyncio.gather(*tasks)
+    news_tasks = [_google_news(q, max_results=6) for q in queries]
+    news_results = await asyncio.gather(*news_tasks)
 
-    seen, items = set(), []
-    for lista in resultados:
+    seen_news, noticias = set(), []
+    for lista in news_results:
         for n in lista:
-            if n["enlace"] not in seen:
-                seen.add(n["enlace"])
-                items.append(n)
+            if n["enlace"] not in seen_news:
+                seen_news.add(n["enlace"])
+                noticias.append(n)
 
-    # Also scrape congreso destacados for interpelaciones
-    try:
-        async with _client() as c:
-            r = await c.get("https://www.congreso.gob.pe/home/")
-            soup = BeautifulSoup(r.text, "html.parser")
-            for a in soup.select("a[href]"):
-                text = a.get_text(strip=True).lower()
-                if "interpelac" in text or "moción" in text:
-                    enlace = a.get("href", "")
-                    titulo = a.get_text(strip=True)
-                    if enlace not in seen and titulo:
-                        seen.add(enlace)
-                        items.insert(0, {"titulo": titulo, "enlace": enlace, "fuente": "congreso.gob.pe"})
-    except Exception:
-        pass
-
-    if not items:
-        return {"sin_datos": True,
-                "mensaje": "No se encontraron mociones de interpelación activas en este momento."}
+    if not mociones_spley and not noticias:
+        return {
+            "sin_datos": True,
+            "mensaje": "No se encontraron mociones de interpelación activas en este momento.",
+        }
 
     return {
-        "fuente": "Google News + congreso.gob.pe",
-        "total": len(items),
-        "interpelaciones": items,
+        "fuente": "SPLEY (mociones formales) + Google News (prensa)",
+        "mociones_formales": mociones_spley,
+        "total_formales": len(mociones_spley),
+        "noticias_prensa": noticias,
     }
