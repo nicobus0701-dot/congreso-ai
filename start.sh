@@ -1,8 +1,10 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-# Matar backend previo en el puerto si existe (evita conflicto)
+# Matar cualquier instancia previa del app
 fuser -k 8732/tcp 2>/dev/null || true
+pkill -f "electron.*congreso-ai" 2>/dev/null || true
+sleep 0.5
 
 # Instala deps Python si faltan (silencioso, no bloquea el inicio)
 python3 -c "import fastapi, groq, httpx, bs4, Crypto" 2>/dev/null || \
