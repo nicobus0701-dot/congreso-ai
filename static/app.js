@@ -43,7 +43,7 @@
     ctx.clip();
     ctx.lineWidth = 1;
 
-    ctx.strokeStyle = 'rgba(201,168,76,0.06)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.07)';
     drawGrid(sidebarW);
 
     if (mx > sidebarW) {
@@ -51,7 +51,7 @@
       ctx.beginPath();
       ctx.arc(mx, my, 28, 0, Math.PI * 2);
       ctx.clip();
-      ctx.strokeStyle = 'rgba(201,168,76,0.18)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.30)';
       drawGrid(sidebarW);
       ctx.restore();
 
@@ -59,7 +59,7 @@
       ctx.beginPath();
       ctx.arc(mx, my, 14, 0, Math.PI * 2);
       ctx.clip();
-      ctx.strokeStyle = 'rgba(201,168,76,0.40)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.60)';
       drawGrid(sidebarW);
       ctx.restore();
 
@@ -67,7 +67,7 @@
       ctx.beginPath();
       ctx.arc(mx, my, 6, 0, Math.PI * 2);
       ctx.clip();
-      ctx.strokeStyle = 'rgba(201,168,76,0.70)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.90)';
       drawGrid(sidebarW);
       ctx.restore();
     }
