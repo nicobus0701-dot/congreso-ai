@@ -122,7 +122,7 @@ WORKFLOWS = {
 | Comisiones | [lista separada por comas] |
 
 ### Estado procesal
-[Muestra las fases como una línea de progreso: Presentado → Enviado a Comisiones → En Comisiones → ... indicando en cuál está actualmente]
+[Muestra las fases como línea de progreso: Presentado → Enviado a Comisiones → En Comisiones → Debate en Pleno → Enviado al Ejecutivo → Ley Publicada. Marca en cuál está actualmente con **negrita**.]
 
 ### Historial de trámite
 | Fecha | Estado | Comisión | Detalle |
@@ -130,11 +130,29 @@ WORKFLOWS = {
 [una fila por acto, del más reciente al más antiguo]
 
 ### Documentación Anexa
-[Si hay adjuntos en los actos, listar TODOS así:]
+[Si todos_los_adjuntos tiene elementos, mostrar tabla:]
 | Descripción | Enlace |
 |---|---|
-| [descripcion del archivo] | [url como link markdown: [Ver PDF](url)] |
-[Si no hay adjuntos: "No hay documentos adjuntos registrados."]
+| [descripcion] | [[Ver PDF](url)] |
+[Si está vacío: "No hay documentos adjuntos registrados."]
+
+### Proyectos Acumulados
+[Si proyectos_acumulados tiene elementos:]
+| Número | Título | Estado |
+|---|---|---|
+| [numero] | [titulo] | [estado] |
+[Si está vacío: "No hay proyectos acumulados."]
+
+### Secciones
+[Si secciones tiene elementos, mostrar los títulos y texto resumido de cada sección.]
+[Si está vacío: "No hay secciones registradas."]
+
+### Opinión Ciudadana
+[Si opinion_ciudadana tiene datos con total > 0:]
+- Total de opiniones: [total_opiniones]
+- A favor: [a_favor] | En contra: [en_contra]
+- Comentarios registrados: [comentarios]
+[Si no hay datos o total es 0: "No hay opiniones ciudadanas registradas."]
 
 ### Predictamen
 [Si existe: "Hay predictamen: [nombre] — [Ver documento](url)". Si no: "No hay predictamen registrado."]
@@ -142,7 +160,7 @@ WORKFLOWS = {
 ### Mi lectura
 [¿Avanzando o dormido? ¿Qué falta para llegar al Pleno? Análisis en 2-3 líneas.]
 
-[Al final siempre: "🔗 [Ver expediente completo en SPLEY](enlace_expediente)"]""",
+[Al final siempre: "[Ver expediente completo en SPLEY](enlace_expediente)"]""",
 
     "agenda_comisiones": """
 ## Formato para AGENDA DE COMISIONES (siempre cuadro)
