@@ -258,11 +258,15 @@
             </svg>
           </span>
           <span class="chat-item-title" title="Doble clic para renombrar">${escHtml(c.title)}</span>
-          <button class="chat-item-del" title="Eliminar conversación">
-            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <button class="chat-item-del" title="Eliminar conversación" data-del-id="${c.id}">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="pointer-events:none">
               <path d="M2 2l10 10M12 2L2 12"/>
             </svg>
           </button>`;
+        el.querySelector('.chat-item-del').addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteConv(c.id);
+        });
         el.addEventListener('click', (e) => {
           if (e.target.closest('.chat-item-del')) return;
           el.classList.add('clicking');

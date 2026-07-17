@@ -52,7 +52,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration:  false,
       contextIsolation: true,
-      partition: 'nopersist',
+      partition: 'persist:congreso',
       preload: path.join(__dirname, 'preload.js'),
     },
   });
