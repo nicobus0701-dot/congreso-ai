@@ -49,6 +49,7 @@ function createWindow() {
     title: 'Asistente Congreso Perú',
     icon: path.join(__dirname, 'static', 'app-icon.png'),
     backgroundColor: '#ffffff',
+    frame: false,
     webPreferences: {
       nodeIntegration:  false,
       contextIsolation: true,

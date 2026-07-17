@@ -80,6 +80,11 @@ html, body {
   padding: 14px 14px 14px;
   border-bottom: 1px solid var(--border);
   gap: 8px;
+  -webkit-app-region: drag;
+}
+.sidebar-header button,
+.sidebar-header a {
+  -webkit-app-region: no-drag;
 }
 
 /* Logo como botón toggle */
