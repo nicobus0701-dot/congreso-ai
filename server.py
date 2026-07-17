@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Query, UploadFile, File
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from groq import Groq
+from openai import OpenAI
 from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, fetch_transcript_youtube, get_yt_captions, transcribe_with_whisper, fetch_expediente, fetch_agenda_comisiones, fetch_agenda_pleno, fetch_interpelaciones
 from live_transcriber import stream_transcription
 from duckduckgo_search import DDGS
@@ -535,7 +535,7 @@ STATUS_LABELS = {
 
 @app.get("/status")
 async def status():
-    ready = bool(os.getenv("GROQ_API_KEY", ""))
+    ready = bool(os.getenv("CEREBRAS_API_KEY", ""))
     return {"ready": ready}
 
 
@@ -681,28 +681,25 @@ async def upload_pdf(file: UploadFile = File(...)):
 async def chat(request: Request):
     body     = await request.json()
     messages = body.get("messages", [])
-    api_key  = os.getenv("GROQ_API_KEY", "")
+    api_key  = os.getenv("CEREBRAS_API_KEY", "")
 
     if not api_key:
         async def err():
-            yield f"data: {json.dumps({'error': 'Falta la API key de Groq'})}\n\n"
+            yield f"data: {json.dumps({'error': 'Falta la API key de Cerebras'})}\n\n"
         return StreamingResponse(err(), media_type="text/event-stream")
 
-    client = Groq(api_key=api_key)
+    client = OpenAI(api_key=api_key, base_url="https://api.cerebras.ai/v1")
 
     async def generate():
         def _friendly_error(e):
             s = str(e).lower()
             if "per day" in s or "tpd" in s:
                 m = re.search(r"try again in ([0-9hms.]+)", s)
-                # Redondear el tiempo de Groq a minutos para que sea legible
                 cuando = "en un rato"
                 if m:
                     mins = re.search(r"(\d+)m", m.group(1))
                     cuando = f"en ~{mins.group(1)} min" if mins else f"en {m.group(1)}"
-                return ("Llegamos al límite diario de Groq (tier gratuito, 100 mil "
-                        f"tokens cada 24 h). Vuelve a intentar {cuando}, o sube de tier "
-                        "para quitar el tope.")
+                return (f"Llegamos al límite de tokens por ahora. Vuelve a intentar {cuando}.")
             if "rate limit" in s or "429" in s or "tokens per" in s or "quota" in s:
                 return "Muchas consultas muy rápido. Espera unos segundos y vuelve a intentarlo."
             return "Hubo un problema al conectar. Intentá de nuevo."
@@ -758,7 +755,7 @@ async def chat(request: Request):
             msgs_directo = [{"role": "system", "content": system_p3}] + conversation
             try:
                 stream = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
+                    model="llama-3.3-70b",
                     messages=msgs_directo,
                     max_tokens=2048,
                     temperature=0.4,
@@ -789,7 +786,7 @@ async def chat(request: Request):
 
         try:
             resp = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="llama-3.3-70b",
                 messages=router_msgs,
                 tools=TOOLS,
                 tool_choice="required",
@@ -802,7 +799,7 @@ async def chat(request: Request):
                 # Model generated malformed tool call — retry without tools
                 try:
                     resp2 = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
+                        model="llama-3.3-70b",
                         messages=[{"role": "system", "content": SYSTEM_BASE}] + conversation,
                         max_tokens=2048,
                         temperature=0.4,
@@ -906,7 +903,7 @@ async def chat(request: Request):
         # ── Phase 3: stream final answer ───────────────────────
         try:
             stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="llama-3.3-70b",
                 messages=msgs,
                 max_tokens=2048,
                 temperature=0.4,
@@ -1113,7 +1110,7 @@ async def sesiones_resumir(request: Request):
     video_id = body.get("video_id", "")
     titulo   = body.get("titulo", "este video")
     en_vivo  = body.get("en_vivo", False)
-    api_key  = os.getenv("GROQ_API_KEY", "")
+    api_key  = os.getenv("CEREBRAS_API_KEY", "")
 
     async def generate():
         if not video_id:
@@ -1169,10 +1166,10 @@ Genera un resumen estructurado con este formato EXACTO:
 Transcript de la sesión:
 {tr['text']}"""
 
-        client = Groq(api_key=api_key)
+        client = OpenAI(api_key=api_key, base_url="https://api.cerebras.ai/v1")
         try:
             stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="llama-3.3-70b",
                 messages=[
                     {"role": "system", "content": "Eres Lex, experto en análisis parlamentario del Congreso del Perú. Analiza transcripts de sesiones y los conviertes en resúmenes ejecutivos con tablas."},
                     {"role": "user", "content": prompt},
@@ -1198,14 +1195,14 @@ async def sesiones_resumir_texto(request: Request):
     body    = await request.json()
     texto   = body.get("texto", "").strip()
     titulo  = body.get("titulo", "esta sesión")
-    api_key = os.getenv("GROQ_API_KEY", "")
+    api_key = os.getenv("CEREBRAS_API_KEY", "")
 
     async def generate():
         if not texto:
             yield f"data: {json.dumps({'error': 'No hay texto para resumir.'})}\n\n"
             return
         if not api_key:
-            yield f"data: {json.dumps({'error': 'Falta la API key de Groq.'})}\n\n"
+            yield f"data: {json.dumps({'error': 'Falta la API key de Cerebras.'})}\n\n"
             return
 
         yield f"data: {json.dumps({'status': 'Analizando transcripción...'})}\n\n"
@@ -1232,10 +1229,10 @@ Genera un resumen estructurado con este formato EXACTO:
 Transcript de la sesión:
 {texto[:40000]}"""
 
-        client = Groq(api_key=api_key)
+        client = OpenAI(api_key=api_key, base_url="https://api.cerebras.ai/v1")
         try:
             stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="llama-3.3-70b",
                 messages=[
                     {"role": "system", "content": "Eres Lex, experto en análisis parlamentario del Congreso del Perú."},
                     {"role": "user", "content": prompt},
@@ -1270,7 +1267,7 @@ Sé conciso (máximo 150 palabras). Tono analítico, no descriptivo."""
 @app.get("/live/transcribe")
 async def live_transcribe(video_id: str = Query(..., description="ID del video de YouTube")):
     """SSE stream que emite líneas de transcripción en tiempo real."""
-    api_key = os.getenv("GROQ_API_KEY", "")
+    api_key = os.getenv("CEREBRAS_API_KEY", "")
 
     async def generate():
         if not api_key:
@@ -1299,7 +1296,7 @@ async def live_analyze(request: Request):
     body       = await request.json()
     transcript = body.get("transcript", "").strip()
     titulo     = body.get("titulo", "sesión en vivo")
-    api_key    = os.getenv("GROQ_API_KEY", "")
+    api_key    = os.getenv("CEREBRAS_API_KEY", "")
 
     async def generate():
         if not transcript:
@@ -1308,10 +1305,10 @@ async def live_analyze(request: Request):
         # Send only the last 3000 chars to keep tokens low
         excerpt = transcript[-3000:]
         prompt  = f'Sesión: "{titulo}"\n\nTranscripción reciente:\n{excerpt}'
-        client  = Groq(api_key=api_key)
+        client  = OpenAI(api_key=api_key, base_url="https://api.cerebras.ai/v1")
         try:
             stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="llama-3.3-70b",
                 messages=[
                     {"role": "system", "content": LIVE_ANALYSIS_PROMPT},
                     {"role": "user",   "content": prompt},
