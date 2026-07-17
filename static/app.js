@@ -472,20 +472,8 @@
     const wrap = document.createElement('div');
     wrap.className = 'export-btns';
     wrap.innerHTML = `
-      <button class="export-btn" data-type="pdf">
-        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-          <path d="M4 2h7l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
-          <path d="M11 2v4h4M6 9h6M6 12h4"/>
-        </svg>
-        Descargar PDF
-      </button>
-      <button class="export-btn" data-type="word">
-        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-          <path d="M4 2h7l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
-          <path d="M11 2v4h4M5 9h3M5 12h4M5 15h6"/>
-        </svg>
-        Descargar Word
-      </button>`;
+      <button class="export-btn" data-type="pdf">PDF</button>
+      <button class="export-btn" data-type="word">Word</button>`;
     const pdfBtn  = wrap.querySelector('[data-type="pdf"]');
     const wordBtn = wrap.querySelector('[data-type="word"]');
     pdfBtn._orig  = pdfBtn.innerHTML;
