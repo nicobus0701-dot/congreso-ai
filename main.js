@@ -176,6 +176,27 @@ ipcMain.handle('export-word', async (event, content) => {
   return { ok: true };
 });
 
+// ── IPC: historial de chats (archivo JSON en disco) ─────────
+const HISTORY_FILE = path.join(app.getPath('userData'), 'chat-history.json');
+
+ipcMain.handle('save-history', (event, data) => {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(data), 'utf8');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+});
+
+ipcMain.handle('load-history', () => {
+  try {
+    if (!fs.existsSync(HISTORY_FILE)) return [];
+    return JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8')) || [];
+  } catch {
+    return [];
+  }
+});
+
 // ── Auto-update ──────────────────────────────────────────────
 function setupAutoUpdater() {
   if (!app.isPackaged) return;

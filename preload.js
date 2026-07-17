@@ -5,4 +5,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportWord:    (content) => ipcRenderer.invoke('export-word',   content),
   openSessions:  ()        => ipcRenderer.invoke('open-sessions'),
   openExternal:  (url)     => ipcRenderer.invoke('open-external', url),
+  saveHistory:   (data)    => ipcRenderer.invoke('save-history',  data),
+  loadHistory:   ()        => ipcRenderer.invoke('load-history'),
 });

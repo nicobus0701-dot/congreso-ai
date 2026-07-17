@@ -125,7 +125,7 @@
   sidebarToggle.addEventListener('click', () => toggleSidebar());
   sidebarOpen.addEventListener('click',   () => toggleSidebar(true));
 
-  // ── Conversations (localStorage) ─────────────────
+  // ── Conversations (archivo JSON via IPC, localStorage como fallback) ──
   const STORE = 'congreso_convs';
   let convs    = [];
   let activeId = null;
@@ -138,6 +138,9 @@
 
   function saveConvs() {
     localStorage.setItem(STORE, JSON.stringify(convs));
+    if (window.electronAPI?.saveHistory) {
+      window.electronAPI.saveHistory(convs).catch(() => {});
+    }
   }
 
   function getActive() {
@@ -998,7 +1001,37 @@ ${table.outerHTML}
   });
 
   // ── Init ──────────────────────────────────────────
-  loadConvs();
-  renderSidebar();
-  showWelcome();
+  async function init() {
+    // Intentar cargar desde archivo en disco (más confiable que localStorage)
+    if (window.electronAPI?.loadHistory) {
+      try {
+        const fromFile = await window.electronAPI.loadHistory();
+        if (Array.isArray(fromFile) && fromFile.length > 0) {
+          convs = fromFile;
+          // Sincronizar también a localStorage
+          localStorage.setItem(STORE, JSON.stringify(convs));
+        } else {
+          loadConvs(); // fallback a localStorage
+        }
+      } catch {
+        loadConvs();
+      }
+    } else {
+      loadConvs();
+    }
+
+    // Seleccionar automáticamente la conversación más reciente
+    if (convs.length > 0) {
+      activeId = convs[0].id;
+    }
+
+    renderSidebar();
+    if (activeId && getActive()?.messages?.length) {
+      renderMessages();
+    } else {
+      showWelcome();
+    }
+  }
+
+  init();
 })();
