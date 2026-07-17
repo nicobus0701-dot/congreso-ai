@@ -764,7 +764,7 @@ async def fetch_expediente(numero: str):
     for s in (data_secciones if isinstance(data_secciones, list) else data_secciones.get("secciones", [])):
         secciones.append({
             "titulo":  s.get("titulo") or s.get("nombre") or "",
-            "texto":   (s.get("texto") or s.get("contenido") or "")[:500],
+            "texto":   (s.get("texto") or s.get("contenido") or "")[:3000],
         })
 
     # Opinión ciudadana
@@ -790,7 +790,18 @@ async def fetch_expediente(numero: str):
         "coautores":             general.get("coAutores") or general.get("coautores") or "",
         "adherentes":            general.get("adherentes") or "",
         "grupo_parlamentario":   general.get("desGpar", ""),
-        "comisiones":            [c.get("nombre") or c.get("desComision","") for c in comisiones],
+        "comisiones":            [
+            {
+                "nombre": c.get("nombre") or c.get("desComision") or "",
+                "id":     c.get("comisionId") or c.get("id") or "",
+                "enlace": (
+                    f"https://www2.congreso.gob.pe/Sicr/ApoyComisiones/comision2011.nsf/"
+                    f"ComisionesVirtual?OpenForm&comision={c.get('comisionId','')}"
+                    if c.get("comisionId") else ""
+                ),
+            }
+            for c in comisiones
+        ],
         "fases":                 [f["fase"] for f in data.get("fases", []) if f.get("tipo") in (1, 2)],
         "actos":                 actos,
         "todos_los_adjuntos":    todos_archivos,

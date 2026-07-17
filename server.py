@@ -119,7 +119,10 @@ WORKFLOWS = {
 | Adherentes | [adherentes o "—"] |
 | Grupo parlamentario | [grupo_parlamentario] |
 | Estado actual | [estado] |
-| Comisiones | [lista separada por comas] |
+
+### Comisiones Asignadas
+[Para cada comisión en el campo "comisiones", mostrar como lista. Si tiene enlace, hacer el nombre clickeable: [[nombre](enlace)]. Si no tiene enlace, solo el nombre.]
+[Si está vacío: "No hay comisiones asignadas."]
 
 ### Estado procesal
 [Muestra las fases como línea de progreso: Presentado → Enviado a Comisiones → En Comisiones → Debate en Pleno → Enviado al Ejecutivo → Ley Publicada. Marca en cuál está actualmente con **negrita**.]
@@ -127,25 +130,28 @@ WORKFLOWS = {
 ### Historial de trámite
 | Fecha | Estado | Comisión | Detalle |
 |---|---|---|---|
-[una fila por acto, del más reciente al más antiguo]
+[una fila por acto, del más reciente al más antiguo. Si el acto tiene adjuntos, agregar en la columna Detalle los links: [[nombre_archivo](url)]]
 
 ### Documentación Anexa
-[Si todos_los_adjuntos tiene elementos, mostrar tabla:]
+[Si todos_los_adjuntos tiene elementos:]
 | Descripción | Enlace |
 |---|---|
-| [descripcion] | [[Ver PDF](url)] |
+| [descripcion] | [[Descargar](url)] |
 [Si está vacío: "No hay documentos adjuntos registrados."]
 
 ### Proyectos Acumulados
 [Si proyectos_acumulados tiene elementos:]
 | Número | Título | Estado |
 |---|---|---|
-| [numero] | [titulo] | [estado] |
+| [[numero](enlace)] | [titulo] | [estado] |
 [Si está vacío: "No hay proyectos acumulados."]
 
-### Secciones
-[Si secciones tiene elementos, mostrar los títulos y texto resumido de cada sección.]
-[Si está vacío: "No hay secciones registradas."]
+### Fórmula Legal
+[Busca en el campo "secciones" la sección cuyo título contenga "Fórmula Legal" o "Texto del Proyecto". Si existe, muestra su texto completo sin truncar. Si no existe en secciones, indicar: "La fórmula legal no está disponible como texto en el expediente — revisar los documentos adjuntos."]
+
+### Otras Secciones
+[Si hay secciones adicionales distintas a la fórmula legal, listar sus títulos con un resumen breve de 1-2 líneas cada una.]
+[Si no hay más secciones: omitir esta sección.]
 
 ### Opinión Ciudadana
 [Si opinion_ciudadana tiene datos con total > 0:]
@@ -155,7 +161,7 @@ WORKFLOWS = {
 [Si no hay datos o total es 0: "No hay opiniones ciudadanas registradas."]
 
 ### Predictamen
-[Si existe: "Hay predictamen: [nombre] — [Ver documento](url)". Si no: "No hay predictamen registrado."]
+[Si existe: "Hay predictamen: [nombre] — [[Ver documento](url)]". Si no: "No hay predictamen registrado."]
 
 ### Mi lectura
 [¿Avanzando o dormido? ¿Qué falta para llegar al Pleno? Análisis en 2-3 líneas.]
@@ -1184,6 +1190,10 @@ async def sesiones_resumir(request: Request):
             yield f"data: {json.dumps({'status': f'Audio transcrito. Analizando ({nota})...'})}\n\n"
         else:
             yield f"data: {json.dumps({'status': 'Subtítulos obtenidos. Analizando sesión...'})}\n\n"
+
+        # Emitir transcript raw para que el frontend ofrezca descarga
+        yt_url = f"https://www.youtube.com/watch?v={video_id}"
+        yield f"data: {json.dumps({'transcript_raw': tr['text'], 'video_url': yt_url, 'video_titulo': titulo})}\n\n"
 
         prompt = f"""Analiza este transcript de la sesión del Congreso del Perú titulada: "{titulo}".
 

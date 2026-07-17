@@ -112,7 +112,10 @@
       <span>Obteniendo transcript...</span>
     </div>`;
 
-    let fullText = '';
+    let fullText     = '';
+    let rawTranscript = '';
+    let rawVideoUrl   = '';
+    let rawVideoTitle = '';
 
     try {
       const resp = await fetch('/sesiones/resumir', {
@@ -142,6 +145,11 @@
               result.innerHTML = `<p style="color:#c00;font-size:13px;padding:8px 0">${esc(obj.error)}</p>`;
               break;
             }
+            if (obj.transcript_raw) {
+              rawTranscript = obj.transcript_raw;
+              rawVideoUrl   = obj.video_url   || '';
+              rawVideoTitle = obj.video_titulo || selected.titulo;
+            }
             if (obj.status) {
               result.innerHTML = `<div class="s-status">
                 <span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -160,7 +168,7 @@
       result.innerHTML = `<p style="color:#c00;font-size:13px;padding:8px 0">Error: ${esc(e.message)}</p>`;
     }
 
-    if (fullText) addExportBtns(fullText);
+    if (fullText) addExportBtns(fullText, rawTranscript, rawVideoUrl, rawVideoTitle);
 
     resumirBtn.disabled = false;
     resumirLbl.textContent = selected?.en_vivo ? 'Actualizar resumen' : 'Resumir de nuevo';
@@ -203,8 +211,8 @@
     });
   }
 
-  // ── Export PDF / Word ─────────────────────────────
-  function addExportBtns(md) {
+  // ── Export PDF / Word / TXT ───────────────────────
+  function addExportBtns(md, transcript, videoUrl, videoTitle) {
     const existing = result.querySelector('.s-export');
     if (existing) existing.remove();
 
@@ -224,7 +232,14 @@
           <path d="M11 2v4h4M5 9h3M5 12h4M5 15h6"/>
         </svg>
         Descargar Word
-      </button>`;
+      </button>
+      ${transcript ? `<button class="s-export-btn" data-type="txt">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M4 2h7l4 4v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
+          <path d="M11 2v4h4M5 7h8M5 10h8M5 13h5"/>
+        </svg>
+        Transcripción (.txt)
+      </button>` : ''}`;
 
     wrap.querySelector('[data-type="pdf"]').addEventListener('click', () => {
       if (window.electronAPI) {
@@ -252,6 +267,31 @@
         });
       }
     });
+
+    const txtBtn = wrap.querySelector('[data-type="txt"]');
+    if (txtBtn) {
+      txtBtn.addEventListener('click', () => {
+        const date = new Date().toLocaleDateString('es-PE', { day:'numeric', month:'long', year:'numeric' });
+        const filename = (videoTitle || 'transcripcion').replace(/[^a-zA-Z0-9\-_áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '-').slice(0, 60);
+        const content = [
+          `TRANSCRIPCIÓN — ${videoTitle || 'Sesión del Congreso'}`,
+          `Fecha de descarga: ${date}`,
+          videoUrl ? `Video: ${videoUrl}` : '',
+          '',
+          '─'.repeat(60),
+          '',
+          transcript,
+        ].filter(l => l !== undefined).join('\n');
+
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${filename}-${new Date().toISOString().slice(0,10)}.txt`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+    }
+
     result.appendChild(wrap);
   }
 
