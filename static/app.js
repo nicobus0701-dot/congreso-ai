@@ -43,7 +43,8 @@
     ctx.clip();
     ctx.lineWidth = 1;
 
-    ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+    const g = typeof GRID_DARK !== 'undefined' && GRID_DARK;
+    ctx.strokeStyle = g ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
     drawGrid(sidebarW);
 
     if (mx > sidebarW) {
@@ -51,7 +52,7 @@
       ctx.beginPath();
       ctx.arc(mx, my, 28, 0, Math.PI * 2);
       ctx.clip();
-      ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+      ctx.strokeStyle = g ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.30)';
       drawGrid(sidebarW);
       ctx.restore();
 
@@ -59,7 +60,7 @@
       ctx.beginPath();
       ctx.arc(mx, my, 14, 0, Math.PI * 2);
       ctx.clip();
-      ctx.strokeStyle = 'rgba(0,0,0,0.60)';
+      ctx.strokeStyle = g ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.60)';
       drawGrid(sidebarW);
       ctx.restore();
 
@@ -67,7 +68,7 @@
       ctx.beginPath();
       ctx.arc(mx, my, 6, 0, Math.PI * 2);
       ctx.clip();
-      ctx.strokeStyle = 'rgba(0,0,0,0.90)';
+      ctx.strokeStyle = g ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.90)';
       drawGrid(sidebarW);
       ctx.restore();
     }
@@ -80,6 +81,27 @@
   window.addEventListener('mousemove', e => { tx = e.clientX; ty = e.clientY; });
   resizeCanvas();
   requestAnimationFrame(frame);
+
+  // ── Modo oscuro ───────────────────────────────────
+  const DARK_KEY = 'congreso_dark';
+  const html     = document.documentElement;
+
+  function applyTheme(dark) {
+    html.dataset.theme = dark ? 'dark' : 'light';
+    document.getElementById('dark-icon-moon').style.display = dark ? 'none'  : '';
+    document.getElementById('dark-icon-sun').style.display  = dark ? ''      : 'none';
+    localStorage.setItem(DARK_KEY, dark ? '1' : '0');
+    // Actualizar colores del canvas de grid
+    GRID_DARK = dark;
+  }
+
+  let GRID_DARK = localStorage.getItem(DARK_KEY) === '1';
+  applyTheme(GRID_DARK);
+
+  document.getElementById('dark-toggle').addEventListener('click', () => {
+    GRID_DARK = html.dataset.theme !== 'dark';
+    applyTheme(GRID_DARK);
+  });
 
   // ── DOM refs ─────────────────────────────────────
   const chatArea      = document.getElementById('chat-area');
