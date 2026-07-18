@@ -194,6 +194,7 @@ html, body {
   transform-origin: left;
   transition: transform 0s;
   opacity: 0.06;
+  pointer-events: none;
 }
 .chat-item:hover::before { transform: scaleX(1); transition: transform 0.2s var(--smooth); }
 .chat-item:hover { color: var(--black); }
