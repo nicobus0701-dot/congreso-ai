@@ -1006,7 +1006,9 @@ ${table.outerHTML}
     if (window.electronAPI?.loadHistory) {
       try {
         const fromFile = await window.electronAPI.loadHistory();
-        if (Array.isArray(fromFile) && fromFile.length > 0) {
+        const valid = Array.isArray(fromFile) && fromFile.length > 0
+          && fromFile.every(c => c && typeof c.id === 'string' && Array.isArray(c.messages));
+        if (valid) {
           convs = fromFile;
           // Sincronizar también a localStorage
           localStorage.setItem(STORE, JSON.stringify(convs));

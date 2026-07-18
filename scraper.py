@@ -419,10 +419,14 @@ async def fetch_videos_youtube(limit=20):
                 if timestamp:
                     fecha = datetime.utcfromtimestamp(timestamp).strftime("%d/%m/%Y")
                 dur_str = ""
-                if duration:
-                    h, m = divmod(int(duration) // 60, 60)
-                    s    = int(duration) % 60
-                    dur_str = f"{h}h {m:02d}m" if h else f"{m}m {s:02d}s"
+                try:
+                    if duration:
+                        total_s = int(duration)
+                        h, rem = divmod(total_s, 3600)
+                        m, s   = divmod(rem, 60)
+                        dur_str = f"{h}h {m:02d}m" if h else f"{m}m {s:02d}s"
+                except (TypeError, ValueError):
+                    pass
                 videos.append({
                     "id":        vid_id,
                     "titulo":    title,

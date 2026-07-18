@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, Res
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
-from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, fetch_transcript_youtube, get_yt_captions, transcribe_with_whisper, fetch_expediente, fetch_agenda_comisiones, fetch_agenda_pleno, fetch_interpelaciones
+from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, get_yt_captions, transcribe_with_whisper, fetch_expediente, fetch_agenda_comisiones, fetch_agenda_pleno, fetch_interpelaciones
 from live_transcriber import stream_transcription
 from duckduckgo_search import DDGS
 import json
@@ -928,11 +928,14 @@ async def chat(request: Request):
                     yield f"data: {json.dumps({'status': status})}\n\n"
 
                     try:
-                        result = await TOOL_MAP[name](args)
-                        if isinstance(result, dict) and "error" in result:
-                            result = {"sin_datos": True, "mensaje": "No hay información disponible en este momento."}
-                    except Exception:
-                        result = {"sin_datos": True, "mensaje": "No hay información disponible en este momento."}
+                        if name not in TOOL_MAP:
+                            result = {"sin_datos": True, "mensaje": f"Herramienta '{name}' no disponible."}
+                        else:
+                            result = await TOOL_MAP[name](args)
+                            if isinstance(result, dict) and "error" in result:
+                                result = {"sin_datos": True, "mensaje": result.get("error", "No hay información disponible.")}
+                    except Exception as tool_err:
+                        result = {"sin_datos": True, "mensaje": f"Error al consultar {name}: {str(tool_err)[:100]}"}
 
                     tool_msgs.append({
                         "role": "tool",

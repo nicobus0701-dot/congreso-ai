@@ -78,6 +78,7 @@ async function loadVideos() {
 
 /* ── Select a video ──────────────────────────────────── */
 function selectVideo(id, title, isLive) {
+  if (!id) return;
   // Stop any running transcription
   stopTranscription(false);
 
@@ -93,7 +94,7 @@ function selectVideo(id, title, isLive) {
   lv_columns.style.display = "";
 
   // Embed video
-  iframe.src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+  iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1`;
   videoTitleLabel.textContent = title;
 
   // Reset transcript panel
