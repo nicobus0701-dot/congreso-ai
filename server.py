@@ -45,7 +45,7 @@ Preparado por: Lex — Sistema de Monitoreo Parlamentario
 [Breve análisis de los 2-3 más importantes]
 
 ## 3. AGENDA Y SESIONES
-[Lista de sesiones y convocatorias relevantes con fechas]
+⚠️ REGLA CRÍTICA: Usa SOLO los datos reales devueltos por las herramientas agenda_comisiones y agenda_pleno. Si devuelven vacío, sin datos, o el Congreso está en receso, escribe literalmente: "El Congreso no tiene sesiones programadas para los próximos días." NUNCA inventes números de proyectos, fechas, comisiones ni sesiones. Si no hay datos reales = no hay agenda.
 
 ## 4. NOTICIAS Y COYUNTURA
 [Las 3-5 noticias más importantes con su impacto]
@@ -169,15 +169,23 @@ WORKFLOWS = {
 [Al final siempre: "[Ver expediente completo en SPLEY](enlace_expediente)"]""",
 
     "agenda_comisiones": """
-## Formato para AGENDA DE COMISIONES (siempre cuadro)
+## Formato para AGENDA DE COMISIONES
+
+⚠️ REGLA ABSOLUTA: Muestra SOLO las sesiones que están literalmente en los datos devueltos por la herramienta. Si la herramienta devuelve sin_datos, vacío o error → escribe: "No hay sesiones de comisiones programadas para los próximos 2 días." JAMÁS inventes fechas, nombres de comisiones, ni números de proyectos.
+
+Si hay datos reales, mostrar en tabla:
 | Fecha | Hora | Comisión | Lugar / Modalidad | Link a la agenda |
 |---|---|---|---|---|
-| dd/mm | HH:MM | [Comisión] | [Sala X / Virtual] | [URL exacta que devolvió la herramienta] |
+| dd/mm | HH:MM | [Comisión] | [Sala X / Virtual] | [URL exacta devuelta] |
 
-Extrae del texto de cada síntesis SOLO las sesiones de los días consultados, agrupadas por día. Ordena por fecha y hora. Si un campo no vino, pon "—". Cierra con una línea de criterio: qué sesión conviene seguir.""",
+Ordena por fecha y hora. Si un campo no vino, pon "—". Cierra con criterio: qué sesión conviene seguir.""",
 
     "agenda_pleno": """
 ## Formato para AGENDA DEL PLENO
+
+⚠️ REGLA ABSOLUTA: Usa SOLO los datos del documento real devuelto por la herramienta. Si no hay agenda o la herramienta devuelve vacío/error → escribe: "No hay Agenda del Pleno publicada para esta semana." JAMÁS inventes dictámenes, mociones ni números de proyecto.
+
+Si hay datos reales:
 ## Agenda del Pleno — [fecha de la agenda]
 
 ### Resumen en números
@@ -187,8 +195,6 @@ Extrae del texto de cada síntesis SOLO las sesiones de los días consultados, a
 | Denuncias constitucionales | X |
 | Mociones | X |
 | Insistencias / observadas | X |
-
-Usa el índice del documento para las cantidades reales (no solo el conteo aproximado de menciones).
 
 ### Lo más relevante
 - [3-5 puntos concretos con número de proyecto/dictamen]
@@ -741,6 +747,10 @@ async def chat(request: Request):
     client = Groq(api_key=api_key)
 
     async def generate():
+        # Inyectar fecha actual en el system prompt para evitar alucinaciones temporales
+        hoy = datetime.now().strftime("%d/%m/%Y")
+        system_con_fecha = SYSTEM_BASE + f"\n\n**Fecha actual: {hoy}** — Solo muestra sesiones o eventos a partir de hoy. Si una herramienta no devuelve sesiones reales, di exactamente: \"No hay sesiones programadas para los próximos días.\""
+
         def _friendly_error(e):
             s = str(e).lower()
             if "per day" in s or "tpd" in s:
@@ -797,7 +807,7 @@ async def chat(request: Request):
         # Short-circuit: analizar un documento cargado o una sesión no requiere
         # scraping. Vamos directo a la Fase 3 con el flujo correspondiente.
         if analizar_documento or (has_sesion and not is_resumen):
-            system_p3 = SYSTEM_BASE
+            system_p3 = system_con_fecha
             if analizar_documento:
                 system_p3 += "\n" + WORKFLOW_PDF_FORMULA
             if has_sesion:
@@ -850,7 +860,7 @@ async def chat(request: Request):
                 try:
                     resp2 = client.chat.completions.create(
                         model="llama-3.3-70b-versatile",
-                        messages=[{"role": "system", "content": SYSTEM_BASE}] + conversation,
+                        messages=[{"role": "system", "content": system_con_fecha}] + conversation,
                         max_tokens=2048,
                         temperature=0.4,
                         stream=True,
@@ -939,7 +949,7 @@ async def chat(request: Request):
                          "Responde de forma directa y natural en español peruano. "
                          "Sin relleno, sin cortesías vacías. Si te saludan, saluda brevemente y ofrece ayuda concreta.")
         else:
-            system_p3 = SYSTEM_BASE
+            system_p3 = system_con_fecha
             for t in tools_usados:
                 if t in WORKFLOWS:
                     system_p3 += "\n" + WORKFLOWS[t]

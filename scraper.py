@@ -860,13 +860,10 @@ async def fetch_agenda_comisiones(dias: int = 2, comision: str = None):
                 enlace = href if href.startswith("http") else CONGRESO2 + href
                 entradas.append({"fecha": fecha, "enlace": enlace})
 
-        # Síntesis dentro del rango [hoy, hoy+dias]; si no hay, la más reciente
+        # Solo síntesis dentro del rango [hoy, hoy+dias] — sin fallback a datos viejos
         en_rango = [e for e in entradas if today <= e["fecha"] <= limite]
-        vigentes = en_rango or entradas[:1]
-        nota = None if en_rango else (
-            "No hay síntesis publicada para los próximos días; "
-            "se muestra la más reciente disponible."
-        )
+        vigentes = en_rango
+        nota = None
 
         sintesis = []
         for e in vigentes[:3]:
