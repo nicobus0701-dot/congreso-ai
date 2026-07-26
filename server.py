@@ -1031,23 +1031,36 @@ async def chat(request: Request):
         # router_msgs: prompt compacto solo para elegir tools en la Fase 1.
         # Si hay un doc gigante en contexto, no lo mandamos al router (gasta tokens
         # y no aporta a la elección de herramienta): usamos solo el texto del pedido.
+        # Detectar si hay un expediente completo en el historial reciente
+        recent_assistant = " ".join(
+            m.get("content", "") for m in messages[-6:]
+            if m.get("role") == "assistant"
+        )
+        has_expediente_en_contexto = any(
+            marker in recent_assistant
+            for marker in ("FICHA DEL PROYECTO", "COMISIONES A LAS QUE FUE DERIVADO",
+                           "ACTOS DE TRABAJO POR COMISIÓN", "MI LECTURA")
+        )
+
         if doc_en_contexto:
             router_msgs = [{"role": "system", "content": ROUTER_PROMPT},
                            {"role": "user", "content": last_msg}]
+        elif has_expediente_en_contexto:
+            # El expediente ya está en contexto: enviar solo la pregunta + nota breve.
+            # NO mandar el historial completo al router — el expediente puede ser miles
+            # de tokens y revienta el rate limit solo en Phase 1.
+            router_context = (
+                "[CONTEXTO: El asistente ya mostró el expediente completo de un proyecto "
+                "en esta conversación (FICHA DEL PROYECTO, SEGUIMIENTO, COMISIONES, etc.). "
+                "Si el usuario pregunta sobre ese expediente — comisiones, actos, predictamen, "
+                "adjuntos, estado, autores — usa responder_directo. "
+                "Solo llama fetch_expediente si pide OTRO proyecto diferente.]\n\n"
+                f"Pregunta: {last_msg}"
+            )
+            router_msgs = [{"role": "system", "content": ROUTER_PROMPT},
+                           {"role": "user", "content": router_context}]
         else:
-            # Si el historial reciente contiene un expediente completo, darle más contexto
-            # al router para que detecte que ya tiene los datos y use responder_directo.
-            recent_assistant = " ".join(
-                m.get("content", "") for m in messages[-6:]
-                if m.get("role") == "assistant"
-            )
-            has_expediente_en_contexto = any(
-                marker in recent_assistant
-                for marker in ("FICHA DEL PROYECTO", "COMISIONES A LAS QUE FUE DERIVADO",
-                               "ACTOS DE TRABAJO POR COMISIÓN", "MI LECTURA")
-            )
-            router_window = messages[-8:] if has_expediente_en_contexto else messages[-4:]
-            router_msgs = [{"role": "system", "content": ROUTER_PROMPT}] + router_window
+            router_msgs = [{"role": "system", "content": ROUTER_PROMPT}] + messages[-4:]
 
         # ── Phase 1: let model decide if it needs tools ────────
         def _is_tool_format_error(e):
