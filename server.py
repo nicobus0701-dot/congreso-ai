@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, Res
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
-from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, get_yt_captions, transcribe_with_whisper, fetch_expediente, fetch_agenda_comisiones, fetch_agenda_pleno, fetch_interpelaciones
+from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, get_yt_captions, transcribe_with_whisper, fetch_transcript_youtube, fetch_expediente, fetch_agenda_comisiones, fetch_agenda_pleno, fetch_interpelaciones
 from live_transcriber import stream_transcription
 from duckduckgo_search import DDGS
 import json
@@ -979,6 +979,36 @@ async def chat(request: Request):
                 system_p3 += "\n" + WORKFLOW_PDF_FORMULA
             if has_sesion:
                 system_p3 += "\n" + WORKFLOW_SESION
+                # Intentar obtener el transcript del video de YouTube antes de Fase 3
+                yt_match = re.search(
+                    r"(?:youtube\.com/(?:watch\?v=|live/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})",
+                    last_msg
+                )
+                if yt_match:
+                    video_id = yt_match.group(1)
+                    yield f"data: {json.dumps({'status': 'Obteniendo transcript de la sesión...'})}\n\n"
+                    try:
+                        transcript_data = await fetch_transcript_youtube(video_id)
+                    except Exception:
+                        transcript_data = None
+
+                    if transcript_data and transcript_data.get("ok") and transcript_data.get("text"):
+                        # Insertar el transcript como contexto justo antes del último mensaje del usuario
+                        transcript_msg = {
+                            "role": "user",
+                            "content": (
+                                f"[TRANSCRIPT DE LA SESIÓN — fuente: {transcript_data.get('source', 'youtube')}]\n"
+                                f"{transcript_data['text']}\n"
+                                "[FIN DEL TRANSCRIPT]"
+                            )
+                        }
+                        conversation = conversation[:-1] + [transcript_msg, conversation[-1]]
+                    else:
+                        # Sin subtítulos disponibles — informar directamente sin pasar por el modelo
+                        yield f"data: {json.dumps({'text': 'No pude obtener el transcript de ese video (sin subtítulos disponibles o video privado). Para analizar la sesión podés: (1) cargar el PDF del acta con el botón de adjunto, o (2) pegar el texto del transcript directamente en el chat.'})}\n\n"
+                        yield "data: [DONE]\n\n"
+                        return
+
             msgs_directo = [{"role": "system", "content": system_p3}] + conversation
             try:
                 stream = client.chat.completions.create(
