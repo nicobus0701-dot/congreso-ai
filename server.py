@@ -67,13 +67,14 @@ ROUTER_PROMPT = """Eres el enrutador de Lex. Tu única tarea: decidir si el mens
 - Es seguimiento de algo ya respondido ("¿y eso qué implica?", "¿qué harías tú?", "desarrolla eso")
 - Pide una opinión o valoración ("¿qué te parece?", "¿crees que va a pasar?")
 - La respuesta no necesita datos frescos del Congreso de hoy
+- **El historial ya contiene el expediente del proyecto** (ves secciones como FICHA DEL PROYECTO, SEGUIMIENTO, COMISIONES A LAS QUE FUE DERIVADO, PROYECTOS ACUMULADOS, MI LECTURA, etc.) y el usuario pregunta algo sobre ese mismo expediente: comisiones, actos, predictamen, adjuntos, seguimiento, autores, estado. En ese caso responder_directo — los datos ya están, no volver a fetchear.
 
 ## Usa herramientas solo cuando necesita datos actualizados:
 | Pedido | Herramienta |
 |---|---|
 | Proyectos por tema, autor o comisión | buscar_proyectos |
 | Estado de un proyecto específico (tiene N°) | rastrear_proyecto |
-| Expediente completo de un proyecto | fetch_expediente |
+| Expediente completo de un proyecto (primera vez) | fetch_expediente |
 | Sesiones de comisiones pasadas | buscar_sesiones |
 | Sesiones de comisiones próximas (hoy/mañana) | fetch_agenda_comisiones |
 | Agenda del Pleno actual | fetch_agenda_pleno |
@@ -1034,7 +1035,19 @@ async def chat(request: Request):
             router_msgs = [{"role": "system", "content": ROUTER_PROMPT},
                            {"role": "user", "content": last_msg}]
         else:
-            router_msgs = [{"role": "system", "content": ROUTER_PROMPT}] + messages[-4:]
+            # Si el historial reciente contiene un expediente completo, darle más contexto
+            # al router para que detecte que ya tiene los datos y use responder_directo.
+            recent_assistant = " ".join(
+                m.get("content", "") for m in messages[-6:]
+                if m.get("role") == "assistant"
+            )
+            has_expediente_en_contexto = any(
+                marker in recent_assistant
+                for marker in ("FICHA DEL PROYECTO", "COMISIONES A LAS QUE FUE DERIVADO",
+                               "ACTOS DE TRABAJO POR COMISIÓN", "MI LECTURA")
+            )
+            router_window = messages[-8:] if has_expediente_en_contexto else messages[-4:]
+            router_msgs = [{"role": "system", "content": ROUTER_PROMPT}] + router_window
 
         # ── Phase 1: let model decide if it needs tools ────────
         def _is_tool_format_error(e):
