@@ -1063,18 +1063,23 @@ async def chat(request: Request):
             router_msgs = [{"role": "system", "content": ROUTER_PROMPT}] + messages[-4:]
 
         # ── Phase 1: let model decide if it needs tools ────────
+        # Usar modelo pequeño (8B) para el router: solo elige una función,
+        # no necesita 70B. El 8B tiene 20k TPM vs 6k del 70B — evita rate limits.
+        ROUTER_MODEL = "llama-3.1-8b-instant"
+        MAIN_MODEL   = "llama-3.3-70b-versatile"
+
         def _is_tool_format_error(e):
             s = str(e)
             return "tool_use_failed" in s or "failed_generation" in s or "400" in s
 
         try:
             resp = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=ROUTER_MODEL,
                 messages=router_msgs,
                 tools=TOOLS,
                 tool_choice="required",
-                max_tokens=1024,
-                temperature=0.6,
+                max_tokens=512,
+                temperature=0.2,
                 stream=False,
             )
         except Exception as e:
@@ -1082,7 +1087,7 @@ async def chat(request: Request):
                 # Model generated malformed tool call — retry without tools
                 try:
                     resp2 = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
+                        model=MAIN_MODEL,
                         messages=[{"role": "system", "content": system_con_fecha}] + conversation,
                         max_tokens=2048,
                         temperature=0.4,
@@ -1160,10 +1165,15 @@ async def chat(request: Request):
                     except Exception as tool_err:
                         result = {"sin_datos": True, "mensaje": f"Error al consultar {name}: {str(tool_err)[:100]}"}
 
+                    # Cap tool result size: el JSON del expediente puede ser enorme.
+                    # 18000 chars ≈ ~5000 tokens — suficiente para las 5 pestañas.
+                    result_str = json.dumps(result, ensure_ascii=False)
+                    if len(result_str) > 18000:
+                        result_str = result_str[:18000] + '... [recortado por tamaño]"}'
                     tool_msgs.append({
                         "role": "tool",
                         "tool_call_id": tc.id,
-                        "content": json.dumps(result, ensure_ascii=False),
+                        "content": result_str,
                     })
 
         # ── Build Phase 3 system prompt: base + solo los flujos relevantes ──
@@ -1184,11 +1194,10 @@ async def chat(request: Request):
         msgs = [{"role": "system", "content": system_p3}] + conversation + tool_msgs
 
         # ── Phase 3: stream final answer ───────────────────────
-        # Expedientes necesitan muchos tokens — 5 pestañas completas
-        _max_tokens = 8000 if "fetch_expediente" in tools_usados else 4096
+        _max_tokens = 5000 if "fetch_expediente" in tools_usados else 3000
         try:
             stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=MAIN_MODEL,
                 messages=msgs,
                 max_tokens=_max_tokens,
                 temperature=0.4,
