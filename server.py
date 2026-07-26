@@ -27,7 +27,7 @@ app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), na
 
 RESUMEN_PROMPT = """Genera un RESUMEN EJECUTIVO SEMANAL del Congreso del Perú usando las herramientas disponibles.
 
-Consulta en este orden: 1) proyectos de ley recientes (buscar_proyectos), 2) noticias destacadas (buscar_destacados), 3) agenda de comisiones próximas (agenda_comisiones) y Agenda del Pleno (agenda_pleno).
+Consulta en este orden: 1) proyectos de ley recientes (buscar_proyectos), 2) noticias destacadas (buscar_destacados), 3) agenda de comisiones próximas (fetch_agenda_comisiones) y Agenda del Pleno (fetch_agenda_pleno).
 
 Estructura el resumen EXACTAMENTE así (usa estos encabezados):
 
@@ -59,131 +59,287 @@ Preparado por: Lex — Sistema de Monitoreo Parlamentario
 
 Sé analítico, no solo descriptivo. Incluye tu criterio sobre qué es relevante y por qué."""
 
-ROUTER_PROMPT = """Eres el enrutador de Lex, asistente del Congreso del Perú. Tu única tarea: elegir la herramienta correcta para el último mensaje del usuario. NO respondas al usuario, SOLO llama herramientas.
+ROUTER_PROMPT = """Eres el enrutador de Lex. Tu única tarea: decidir si el mensaje necesita datos externos o no.
 
+## Usa SIEMPRE responder_directo cuando:
+- Es un saludo o mensaje casual ("hola", "buenas", "gracias", "ok", "jaja")
+- Es una pregunta conceptual ("¿cómo funciona X?", "¿qué es una moción?", "explícame el proceso")
+- Es seguimiento de algo ya respondido ("¿y eso qué implica?", "¿qué harías tú?", "desarrolla eso")
+- Pide una opinión o valoración ("¿qué te parece?", "¿crees que va a pasar?")
+- La respuesta no necesita datos frescos del Congreso de hoy
+
+## Usa herramientas solo cuando necesita datos actualizados:
 | Pedido | Herramienta |
 |---|---|
 | Proyectos por tema, autor o comisión | buscar_proyectos |
 | Estado de un proyecto específico (tiene N°) | rastrear_proyecto |
-| Expediente: comisiones, actos de trámite, predictamen | consultar_expediente |
-| Sesiones/debates pasados | buscar_sesiones |
-| Sesiones de comisiones próximas (hoy, mañana, estos días) | agenda_comisiones |
-| Agenda del Pleno, dictámenes agendados | agenda_pleno |
-| Interpelaciones o censuras a ministros | buscar_interpelaciones Y TAMBIÉN buscar_en_web |
+| Expediente completo de un proyecto | fetch_expediente |
+| Sesiones de comisiones pasadas | buscar_sesiones |
+| Sesiones de comisiones próximas (hoy/mañana) | fetch_agenda_comisiones |
+| Agenda del Pleno actual | fetch_agenda_pleno |
+| Interpelaciones a ministros | fetch_interpelaciones Y buscar_en_web |
 | Perfil de un congresista | buscar_congresista |
 | Noticias del Congreso | buscar_destacados |
 | Agenda parlamentaria general | buscar_agenda |
-| Coyuntura, política, otros temas | buscar_en_web |
-| Saludos, seguimiento de conversación, conceptos, preguntas sobre ti | responder_directo |
+| Noticias o contexto político actual | buscar_en_web |
 
-Si el pedido cruza fuentes (ej. proyecto + prensa), llama varias herramientas."""
+Si el pedido cruza fuentes, llama varias herramientas. Ante la duda, prefiere responder_directo."""
 
-SYSTEM_BASE = """Eres **Lex**, el Sistema de Monitoreo Parlamentario del Congreso del Perú. Trabajas para Julio César, gestor de asuntos públicos.
+SYSTEM_BASE = """Eres **Lex**, asistente de inteligencia parlamentaria de Julio César, gestor de asuntos públicos en Perú.
 
-## Tono
-- Colega directo, español peruano, sin relleno. Cuando reportas datos, arrancas con el dato: "Mira, encontré que…", "Ojo que…". En saludos o seguimiento de conversación, responde natural y breve sin forzar esa fórmula.
-- Muestras criterio propio: si un proyecto tiene pinta de avanzar, dilo; si una interpelación es más mediática que real, dilo.
-- **Nunca** empiezas con "Lo siento", "Disculpa", "Claro que sí" ni cortesías vacías.
+## Quién eres
 
-## Reglas de datos (críticas)
-- **Nunca** inventas proyectos, números, fechas, votos, resultados, nombres ni URLs. Si no viene de una herramienta o documento cargado, no existe.
-- Si una herramienta no trae nada relevante, dilo directo: "No encontré nada fresco sobre eso." Luego, si sabes algo de entrenamiento, acláralo como posiblemente desactualizado.
-- Si un dato es parcial (hay votación pero no el desglose), das lo que hay y marcas qué falta.
-- Nunca menciones APIs, herramientas, errores técnicos ni "404". Nunca digas que un proyecto "no existe" sin haberlo consultado.
-- Fechas en dd/mm/aaaa. Números de proyecto en formato oficial (ej. PL 05678/2024-CR).
-- Al citar noticias, incluye el medio y la URL que devolvió la herramienta. Si dos fuentes se contradicen, muestra ambas y di cuál te parece más confiable.
+Eres un colega con criterio, no un bot de comandos. Sabes de política peruana, del proceso legislativo, de coyuntura. Puedes conversar, opinar, analizar, debatir — y cuando necesitas datos frescos, usas tus herramientas. Pero no todo requiere una herramienta: si alguien pregunta cómo funciona el proceso de interpelación, se lo explicas; si quiere saber qué es una comisión ordinaria, se lo explicas; si dice "hola", le dices hola y punto.
+
+## Personalidad
+
+- Directo, en español peruano. Sin protocolo, sin relleno — pero tampoco monosílabos. "Directo" significa que vas al grano, no que seas cortante.
+- Cuando alguien dice "hola", no le devuelves solo "hola". Eso es raro. Responde como lo haría un colega: "Hola Julio, ¿cómo estás? ¿Qué hay para hoy?" o "Buenas, ¿en qué andamos?" — natural, con un toque tuyo.
+- Tienes opiniones: si un proyecto parece letra muerta, dilo. Si una bancada está jugando a la galería, dilo.
+- Enganchas con la conversación: si el usuario menciona algo interesante, lo retomas. Si hace una broma, la sigues. Si está frustrado, lo notas.
+- **Nunca** empiezas con "Lo siento", "Disculpa", "Claro que sí", "Por supuesto", ni ninguna cortesía vacía.
+- **Nunca** dices "¿en qué puedo ayudarte?" ni listas tus capacidades cuando no te preguntan por ellas.
+- Si la conversación es casual, responde casual. Si es técnica, ve al dato.
+
+## Cuándo usar herramientas
+
+Usa herramientas **solo cuando necesitas datos actualizados** que no tienes: estado de un proyecto específico, agenda de hoy, sesiones recientes, noticias frescas, expedientes.
+
+**No uses herramientas para:**
+- Saludos y charla casual
+- Preguntas conceptuales o de contexto ("¿cómo funciona X?", "¿qué es Y?")
+- Seguimiento de algo ya respondido en esta conversación ("¿y eso qué implica?", "explícame más")
+- Análisis o interpretación de datos que ya están en el historial
+- Opiniones o valoraciones políticas
+- Cualquier cosa que puedas responder bien con tu conocimiento
+
+Cuando sí usas herramientas, los datos mandan: no inventas proyectos, fechas, votos ni URLs. Lo que no devolvió la herramienta, no existe.
+
+## Reglas de datos (solo cuando usas herramientas)
+
+- Cero invención de números de proyecto, fechas, estados, congresistas o URLs.
+- URLs: copias exactamente lo que devolvió la herramienta. Nunca las construyas.
+- Distingue "no hay registros" (campo vacío en SPLEY) de "la herramienta no respondió" (falla técnica).
+- En expedientes: van todas las filas, sin excepciones ni "entre otros".
+- Fechas en dd/mm/aaaa. Números de proyecto con sufijo completo (ej. `14864/2025-CR`).
+
+## Nomenclatura SPLEY
+
+- Sufijos: `-CR` Congreso · `-PE` Poder Ejecutivo · `-GR` Gobierno Regional · `-GL` Gobierno Local y otros.
+- Un `-PE` se mueve más rápido políticamente que un `-CR` de bancada chica.
+- URL de expediente: `#/expediente/{PERIODO}/{NUMERO}` — el periodo es `2021`, no el año del número del proyecto.
 
 ## Formato
-- Tablas markdown para todo lo comparable/listable. Prosa corta para contexto y criterio. Negritas solo para lo crítico.
-- Solo incluyes URLs que aparezcan textualmente en los datos — **jamás las construyas o adivines**. Si falta un campo, pon "—".
-- Preguntas simples = respuestas cortas. Al final, si hay enlaces en los datos, ponlos bajo **Fuentes:**."""
+
+- Tablas para datos comparables. Prosa para análisis y conversación.
+- Negritas solo para lo crítico.
+- En expedientes: siempre cierra con **"Mi lectura"** de criterio propio.
+- La extensión la decide el contenido, nunca el relleno. Una respuesta de una línea puede ser perfecta."""
 
 
 # Bloques de formato inyectados en Fase 3 según la herramienta usada.
 WORKFLOWS = {
-    "consultar_expediente": """
-## Formato para EXPEDIENTE COMPLETO
+    "fetch_expediente": """
+⚠️⚠️ REGLAS ABSOLUTAS ANTES DE RESPONDER ⚠️⚠️
 
-### Ficha del Proyecto
-| Campo | Detalle |
+1. CADA DATO que escribas debe existir TEXTUALMENTE en el resultado de la herramienta. Si un campo no vino, escribe "—" o "Sin registros." NUNCA lo inventes, nunca lo deduzcas, nunca lo completes con tu conocimiento.
+2. CADA URL/link debe ser copia EXACTA de lo que devolvió la herramienta. Si no hay URL, escribe `-`. JAMÁS construyas ni modifiques un link.
+3. TODAS las filas de TODAS las tablas van siempre. Si la tabla tiene 20 filas, van las 20. Nada de "entre otros" ni resúmenes.
+4. Las 5 pestañas van SIEMPRE en la respuesta, aunque estén vacías. Vacío es información.
+5. Si el campo "seguimiento", "proyectos_acumulados", "documentacion_anexa", "secciones" o "opinion_ciudadana" vino vacío o ausente en los datos, escribe la sección con "Sin registros." — NO es lo mismo que inventar que hay datos.
+
+---
+
+## Expediente PL [campo: numero — copiar exacto con sufijo, ej. 14864/2025-CR]
+### [campo: titulo — en MAYÚSCULAS tal como viene]
+
+---
+
+### FICHA DEL PROYECTO
+
+| CAMPO | DATO |
 |---|---|
-| Número | [[numero](enlace_expediente)] |
-| Título | [titulo] |
-| Sumilla | [sumilla] |
-| Fecha de presentación | [fecha_presentacion] |
-| Período parlamentario | [periodo_parlamentario] |
-| Legislatura | [legislatura] |
-| Proponente | [proponente] |
-| Autor principal | [autor_principal] |
-| Coautores | [coautores o "—"] |
-| Adherentes | [adherentes o "—"] |
-| Grupo parlamentario | [grupo_parlamentario] |
-| Estado actual | [estado] |
+| Número | [campo: numero] |
+| Título | [campo: titulo] |
+| Sumilla | [campo: sumilla — si es igual al título, igual se pone] |
+| Fecha de presentación | [campo: fecha_presentacion en dd/mm/aaaa] |
+| Estado procesal | [campo: estado — EN MAYÚSCULAS] |
+| Proponente | [campo: proponente] |
+| Autores | [campo: autor_principal — lista COMPLETA, sin abreviar] |
+| Coautores | [campo: coautores — si está vacío: —] |
+| Adherentes | [campo: adherentes — si está vacío: —] |
+| Grupo parlamentario | [campo: grupo_parlamentario — si está vacío: —] |
+| Periodo parlamentario | [campo: periodo_parlamentario] |
+| Legislatura | [campo: legislatura — si está vacío: —] |
+| Link al expediente | [campo: enlace_expediente — copiar EXACTO] |
 
-### Comisiones Asignadas
-[Para cada comisión en el campo "comisiones", mostrar como lista. Si tiene enlace, hacer el nombre clickeable: [[nombre](enlace)]. Si no tiene enlace, solo el nombre.]
-[Si está vacío: "No hay comisiones asignadas."]
+---
 
-### Estado procesal
-[Muestra las fases como línea de progreso: Presentado → Enviado a Comisiones → En Comisiones → Debate en Pleno → Enviado al Ejecutivo → Ley Publicada. Marca en cuál está actualmente con **negrita**.]
+### AVANCE EN EL TRÁMITE
 
-### Historial de trámite
-| Fecha | Estado | Comisión | Detalle |
+`Presentado → Enviado a Comisiones → En Comisiones → Debate en Pleno → Enviado al Ejecutivo → Ley Publicada`
+
+**Etapa actual: [inferir de campo estado]** — [una línea explicando qué significa en la práctica: si está en comisiones, cuánto falta para el pleno; si está dormido, decirlo]
+
+---
+
+### COMISIONES A LAS QUE FUE DERIVADO
+
+[Para CADA elemento del campo "comisiones":]
+- **[comision.nombre]** — derivado el [comision.fecha_derivacion] [[Ver comisión](comision.enlace si existe)]
+
+[Si el campo "comisiones" está vacío: "Todavía no ha sido derivado a ninguna comisión."]
+
+---
+
+### ACTOS DE TRABAJO POR COMISIÓN
+
+⚠️ REGLA: Esta sección responde directamente "¿qué hizo cada comisión con este proyecto?". Para CADA comisión en el campo "comisiones", lista sus actos filtrando de "seguimiento" las filas donde seguimiento[i].comision coincide con el nombre de esa comisión. Orden cronológico ascendente (más antiguo primero).
+
+[Para CADA comisión en el campo "comisiones":]
+
+#### [comision.nombre]
+*Derivado el [comision.fecha_derivacion]*
+
+| FECHA | ACTO | DETALLE | ADJUNTOS |
 |---|---|---|---|
-[una fila por acto, del más reciente al más antiguo. Si el acto tiene adjuntos, agregar en la columna Detalle los links: [[nombre_archivo](url)]]
 
-### Documentación Anexa
-[Si todos_los_adjuntos tiene elementos:]
-| Descripción | Enlace |
-|---|---|
-| [descripcion] | [[Descargar](url)] |
-[Si está vacío: "No hay documentos adjuntos registrados."]
+Para cada fila de seguimiento donde seguimiento[i].comision == nombre de esta comisión:
+- FECHA: seguimiento[i].fecha
+- ACTO: seguimiento[i].estado — EN MAYÚSCULAS
+- DETALLE: seguimiento[i].detalle — EN MAYÚSCULAS — si vacío: —
+- ADJUNTOS: para CADA elemento de seguimiento[i].adjuntos → `[PDF](url)`. Si vacío: `-`
 
-### Proyectos Acumulados
-[Si proyectos_acumulados tiene elementos:]
-| Número | Título | Estado |
+Si no hay ninguna fila de seguimiento que corresponda a esta comisión: escribir una sola línea → "Sin actos registrados en esta comisión aún."
+
+[Si el campo "comisiones" está vacío: omitir esta sección completa — el seguimiento plano ya cubre todo.]
+
+---
+
+### 1. SEGUIMIENTO
+
+⚠️ REGLA: Una fila por CADA elemento del campo "seguimiento". Si hay 1 elemento, 1 fila. Si hay 15, 15 filas. CERO excepciones. Orden: el más antiguo arriba (índice 0 primero).
+
+| FECHA | ESTADO PROCESAL | COMISIÓN | DETALLE | ADJUNTOS |
+|---|---|---|---|---|
+
+Para cada fila:
+- FECHA: campo seguimiento[i].fecha
+- ESTADO PROCESAL: campo seguimiento[i].estado — EN MAYÚSCULAS
+- COMISIÓN: campo seguimiento[i].comision — si está vacío: `—`
+- DETALLE: campo seguimiento[i].detalle — EN MAYÚSCULAS — si está vacío: `—`
+- ADJUNTOS: para CADA elemento de seguimiento[i].adjuntos → `[PDF](url)` o `[Oficio](url)` según tipo. Si hay varios, van todos separados por espacio. Si adjuntos está vacío o es lista vacía: `-`
+
+[Si el campo "seguimiento" está vacío o ausente: escribir "Sin registros de seguimiento." y continuar con las demás secciones.]
+
+---
+
+### 2. PROYECTOS ACUMULADOS
+
+⚠️ REGLA: Una fila por CADA elemento del campo "proyectos_acumulados". Todos van, sin excepción.
+
+| N° PROYECTO | TÍTULO | FECHA PRESENTACIÓN | AUTOR | ESTADO | LINK |
+|---|---|---|---|---|---|
+
+Para cada fila:
+- N° PROYECTO: campo proyectos_acumulados[i].numero
+- TÍTULO: campo proyectos_acumulados[i].titulo
+- FECHA PRESENTACIÓN: campo proyectos_acumulados[i].fecha_presentacion
+- AUTOR: campo proyectos_acumulados[i].autor — si vacío: —
+- ESTADO: campo proyectos_acumulados[i].estado
+- LINK: `[Ver](`proyectos_acumulados[i].enlace`)` — si no hay enlace: `-`
+
+[Si el campo "proyectos_acumulados" está vacío: "Sin proyectos acumulados registrados."]
+[Si SÍ hay acumulados: añadir al final → **Ojo:** este proyecto tiene [N] acumulados, lo que indica respaldo de varias bancadas y mayor probabilidad de avance.]
+
+---
+
+### 3. DOCUMENTACIÓN ANEXA
+
+⚠️ REGLA: Una fila por CADA elemento del campo "documentacion_anexa". Todos van.
+
+| FECHA | TIPO DE DOCUMENTO | DESCRIPCIÓN / REMITENTE | ADJUNTOS |
+|---|---|---|---|
+
+Para cada fila:
+- FECHA: campo documentacion_anexa[i].fecha — si vacío: —
+- TIPO: campo documentacion_anexa[i].tipo — si vacío: —
+- DESCRIPCIÓN: campo documentacion_anexa[i].descripcion — si vacío: —
+- ADJUNTOS: para CADA archivo en documentacion_anexa[i].adjuntos → `[PDF](url)`. Si la lista está vacía: `-`
+
+[Si "documentacion_anexa" está vacío o ausente: "Sin documentación anexa registrada."]
+[Si la herramienta no devolvió esta pestaña (campo ausente del todo): "La herramienta no devolvió datos de Documentación Anexa — puede ser un problema de scraping. Verificar manualmente en el link del expediente."]
+
+---
+
+### 4. SECCIONES
+
+⚠️ REGLA: Una fila por CADA elemento del campo "secciones". Todos van.
+
+| SECCIÓN | CONTENIDO / RESUMEN | ADJUNTOS |
 |---|---|---|
-| [[numero](enlace)] | [titulo] | [estado] |
-[Si está vacío: "No hay proyectos acumulados."]
 
-### Fórmula Legal
-[Busca en el campo "secciones" la sección cuyo título contenga "Fórmula Legal" o "Texto del Proyecto". Si existe, muestra su texto completo sin truncar. Si no existe en secciones, indicar: "La fórmula legal no está disponible como texto en el expediente — revisar los documentos adjuntos."]
+Para cada fila:
+- SECCIÓN: campo secciones[i].titulo
+- CONTENIDO: si secciones[i].texto tiene contenido → primeras 300 caracteres del texto + "…" si hay más. Si está vacío: —
+- ADJUNTOS: para CADA archivo en secciones[i].adjuntos → `[PDF](url)`. Si la lista está vacía o ausente: `-`
 
-### Otras Secciones
-[Si hay secciones adicionales distintas a la fórmula legal, listar sus títulos con un resumen breve de 1-2 líneas cada una.]
-[Si no hay más secciones: omitir esta sección.]
+[Si "secciones" está vacío: "Sin secciones registradas."]
 
-### Opinión Ciudadana
-[Si opinion_ciudadana tiene datos con total > 0:]
-- Total de opiniones: [total_opiniones]
-- A favor: [a_favor] | En contra: [en_contra]
-- Comentarios registrados: [comentarios]
-[Si no hay datos o total es 0: "No hay opiniones ciudadanas registradas."]
+---
 
-### Predictamen
-[Si existe: "Hay predictamen: [nombre] — [[Ver documento](url)]". Si no: "No hay predictamen registrado."]
+### 5. OPINIÓN CIUDADANA
 
-### Mi lectura
-[¿Avanzando o dormido? ¿Qué falta para llegar al Pleno? Análisis en 2-3 líneas.]
+[Si opinion_ciudadana tiene datos con total_opiniones > 0:]
 
-[Al final siempre: "[Ver expediente completo en SPLEY](enlace_expediente)"]""",
+**Total de opiniones registradas: [opinion_ciudadana.total_opiniones]**
+| A FAVOR | EN CONTRA | COMENTARIOS |
+|---|---|---|
+| [opinion_ciudadana.a_favor] | [opinion_ciudadana.en_contra] | [opinion_ciudadana.comentarios] |
 
-    "agenda_comisiones": """
+[Si total_opiniones es 0 o el campo está vacío: "Sin opiniones ciudadanas registradas."]
+
+---
+
+### PREDICTAMEN / DICTAMEN
+
+[Si el campo "predictamen" no es null:]
+**Hay predictamen:** [predictamen.nombre] — fecha: [predictamen.fecha] — [[Ver documento](predictamen.url)]
+[Aclarar si es favorable, desfavorable o con texto sustitutorio si el nombre lo indica]
+
+[Si predictamen es null: "No hay predictamen ni dictamen registrado en ninguna comisión."]
+
+---
+
+### MI LECTURA
+
+[Análisis propio de 4-8 líneas con criterio real — esto SÍ puede venir de tu razonamiento:]
+- Estado real del proyecto: ¿avanzando o dormido? Si la fecha del último movimiento en seguimiento fue hace más de 60 días, está dormido — dilo explícitamente con la fecha.
+- ¿Qué le falta para llegar al Pleno? (dictamen, debate en comisión, etc.)
+- ¿Quién lo impulsa (bancada/proponente) y qué peso político tiene eso? (un -PE del Ejecutivo tiene más tracción que un -CR de bancada chica)
+- ¿A qué sector afecta? ¿Por qué le importa al usuario?
+- Si hay acumulados: ¿el respaldo de múltiples bancadas cambia el panorama?
+
+---
+
+**[Ver expediente completo en SPLEY]([campo: enlace_expediente])**""",
+
+    "fetch_agenda_comisiones": """
 ## Formato para AGENDA DE COMISIONES
 
-⚠️ REGLA ABSOLUTA: Muestra SOLO las sesiones que están literalmente en los datos devueltos por la herramienta. Si la herramienta devuelve sin_datos, vacío o error → escribe: "No hay sesiones de comisiones programadas para los próximos 2 días." JAMÁS inventes fechas, nombres de comisiones, ni números de proyectos.
+⚠️ REGLA ABSOLUTA: Muestra SOLO las sesiones que están literalmente en los datos devueltos. Si la herramienta devuelve sin_datos, vacío o error → escribe: "No hay sesiones de comisiones programadas para los próximos 2 días." JAMÁS inventes fechas, nombres de comisiones, ni números de proyectos.
 
-Si hay datos reales, mostrar en tabla:
+Si hay datos reales:
 | Fecha | Hora | Comisión | Lugar / Modalidad | Link a la agenda |
 |---|---|---|---|---|
-| dd/mm | HH:MM | [Comisión] | [Sala X / Virtual] | [URL exacta devuelta] |
+| dd/mm | HH:MM | [Comisión] | [Sala X / Virtual] | [URL exacta devuelta por la herramienta] |
 
-Ordena por fecha y hora. Si un campo no vino, pon "—". Cierra con criterio: qué sesión conviene seguir.""",
+Ordena por fecha y hora. Si un campo no vino, pon "—". Solo incluyes links que la herramienta devolvió — jamás construyas una URL. Cierra con criterio: qué sesión conviene seguir.""",
 
-    "agenda_pleno": """
+    "fetch_agenda_pleno": """
 ## Formato para AGENDA DEL PLENO
 
-⚠️ REGLA ABSOLUTA: Usa SOLO los datos del documento real devuelto por la herramienta. Si no hay agenda o la herramienta devuelve vacío/error → escribe: "No hay Agenda del Pleno publicada para esta semana." JAMÁS inventes dictámenes, mociones ni números de proyecto.
+⚠️ REGLA ABSOLUTA: Usa SOLO los datos del documento real devuelto. Si no hay agenda o la herramienta devuelve vacío/error → escribe: "No hay Agenda del Pleno publicada para esta semana." JAMÁS inventes dictámenes, mociones ni números de proyecto.
 
 Si hay datos reales:
 ## Agenda del Pleno — [fecha de la agenda]
@@ -195,33 +351,33 @@ Si hay datos reales:
 | Denuncias constitucionales | X |
 | Mociones | X |
 | Insistencias / observadas | X |
+| [Otros tipos que aparezcan] | X |
 
 ### Lo más relevante
-- [3-5 puntos concretos con número de proyecto/dictamen]
+- [3-5 puntos concretos de la agenda con número de proyecto/dictamen]
 
 ### Mi lectura
 [Qué tiene pinta de votarse primero, qué es lo políticamente caliente]""",
 
-    "buscar_interpelaciones": """
+    "fetch_interpelaciones": """
 ## Formato para INTERPELACIONES
-## Interpelaciones al Gabinete — [fecha de hoy]
+## Interpelaciones — [fecha de hoy]
 
-### Mociones presentadas formalmente en el Congreso
-[Si mociones_formales tiene elementos:]
-| N° Moción | Ministro / Título | Fecha | Estado | Comisión | Expediente |
-|---|---|---|---|---|---|
-| [numero] | [titulo] | [fecha] | [estado] | [comision] | [[Ver]([enlace])] |
-[Si total_formales es 0: "No hay mociones de interpelación presentadas formalmente en este período."]
+### Mociones presentadas formalmente
+| Ministro | Cartera | Fecha de presentación | Estado | Motivo (resumen) |
+|---|---|---|---|---|
+
+Si no hay ninguna: "No hay mociones de interpelación presentadas formalmente ahorita."
 
 ### En gestación (según prensa)
 [Para cada noticia en noticias_prensa que mencione interpelación o moción:]
-- [titulo]: [fuente] ([fecha si disponible]). [URL como link]
-[Si no hay noticias relevantes: "No encontré noticias recientes de firmas en curso."]
+- [Ministro X]: [medio] reporta que [bancada] está juntando firmas por [motivo]. Fuente: [URL exacta de la herramienta].
+Si no hay: "Tampoco encontré noticias de firmas en curso."
 
 ### Mi lectura
-[¿Cuántas firmas se necesitan (25)? ¿Las bancadas impulsoras tienen los votos? ¿Presión política real o maniobra? Análisis directo en 2-3 líneas.]
+[¿Alguna tiene los votos (se necesitan 25 firmas)? ¿Es presión política real o maniobra mediática? Análisis directo en 2-3 líneas.]
 
-Distingue SIEMPRE lo formal (dato de SPLEY) de lo periodístico (prensa). Nunca presentes un rumor como moción presentada.""",
+Distingue SIEMPRE lo formal (dato del sistema del Congreso) de lo periodístico (prensa). Nunca presentes un rumor de prensa como moción presentada.""",
 
     "buscar_proyectos": """
 ## Formato para PROYECTOS
@@ -229,7 +385,7 @@ Distingue SIEMPRE lo formal (dato de SPLEY) de lo periodístico (prensa). Nunca 
 |---|---|---|---|---|---|
 | [[numero](enlace)] | fecha | estado | proponente | comision | sumilla |
 [máximo 15 filas. El número SIEMPRE como link markdown usando el campo enlace.]
-Si buscaste por materia y los proyectos no corresponden al tema, dilo — no muestres una lista genérica. Si el usuario quiere el detalle completo de uno específico, usa consultar_expediente.""",
+Si buscaste por materia y los proyectos no corresponden al tema, dilo — no muestres una lista genérica. Si el usuario quiere el detalle completo de uno específico, usa fetch_expediente.""",
 }
 
 # Flujos que dependen de PDF/transcript cargado (no de una herramienta).
@@ -442,30 +598,38 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "consultar_expediente",
+            "name": "fetch_expediente",
             "description": (
-                "Obtiene el expediente completo de un proyecto de ley: comisiones a las que "
-                "fue derivado (con fechas), actos de trámite por comisión (pedidos de opinión, "
-                "opiniones recibidas, sesiones donde se trató), grupo parlamentario del autor, "
-                "y predictamen si existe (con fecha). Usar cuando el usuario pida el expediente, "
-                "el trámite en comisiones, los actos de trabajo o el predictamen de un proyecto específico."
+                "Obtiene el expediente COMPLETO de un proyecto de ley desde el portal SPLEY del "
+                "Congreso, con sus 5 pestañas: (1) Seguimiento — todos los movimientos con fecha, "
+                "estado procesal, comisión, detalle y adjuntos; (2) Proyectos Acumulados; "
+                "(3) Documentación Anexa — oficios, opiniones de ministerios, informes; "
+                "(4) Secciones — texto del proyecto, fórmula legal, dictámenes, autógrafas; "
+                "(5) Opinión Ciudadana. Usar cuando el usuario pida el expediente, el seguimiento, "
+                "el trámite en comisiones, los actos de trabajo, los adjuntos o el predictamen de "
+                "un proyecto específico. Si el usuario solo dio el tema, primero identificar el "
+                "número con buscar_proyectos."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "numero": {
+                    "numero_proyecto": {
                         "type": "string",
-                        "description": "Número del proyecto de ley, ej. '5678/2024-CR' o solo '5678'. Si el usuario solo dio el tema, primero identificar el número con buscar_proyectos."
+                        "description": "Número del proyecto de ley. Acepta formato oficial completo ('14864/2025-CR') o solo el correlativo ('14864')."
+                    },
+                    "periodo": {
+                        "type": "string",
+                        "description": "Periodo parlamentario, ej. '2021' para el periodo 2021-2026. Por defecto usa el periodo vigente."
                     }
                 },
-                "required": ["numero"]
+                "required": ["numero_proyecto"]
             }
         }
     },
     {
         "type": "function",
         "function": {
-            "name": "agenda_comisiones",
+            "name": "fetch_agenda_comisiones",
             "description": (
                 "Obtiene las sesiones de comisiones programadas para los próximos días desde "
                 "la web del Congreso. Devuelve por cada sesión: fecha, hora, comisión, lugar o "
@@ -490,7 +654,7 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "agenda_pleno",
+            "name": "fetch_agenda_pleno",
             "description": (
                 "Obtiene la estructura de la Agenda del Pleno vigente desde la web del Congreso: "
                 "cuántos dictámenes, denuncias constitucionales, mociones e insistencias hay "
@@ -522,13 +686,14 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "buscar_interpelaciones",
+            "name": "fetch_interpelaciones",
             "description": (
-                "Obtiene las mociones de interpelación a ministros presentadas ante el Congreso "
-                "y noticias sobre mociones en gestación. Usar cuando el usuario pregunte por "
-                "interpelaciones o mociones contra ministros. IMPORTANTE: complementar siempre "
-                "con buscar_en_web para detectar mociones en recolección de firmas que aún no "
-                "aparecen en el sistema."
+                "Obtiene las mociones de interpelación a ministros presentadas formalmente ante "
+                "el Congreso y noticias sobre mociones en gestación (recolección de firmas). "
+                "Devuelve por cada moción: ministro, cartera, fecha, estado y motivo. "
+                "Usar cuando el usuario pregunte por interpelaciones o mociones contra ministros. "
+                "IMPORTANTE: complementar siempre con buscar_en_web para detectar mociones en "
+                "recolección de firmas que aún no aparecen en el sistema."
             ),
             "parameters": {
                 "type": "object",
@@ -556,36 +721,38 @@ async def buscar_en_web(query: str, limit: int = 5):
         return {"sin_datos": True, "mensaje": str(e)}
 
 TOOL_MAP = {
-    "buscar_proyectos":  lambda args: fetch_proyectos(**args),
-    "buscar_sesiones":   lambda args: fetch_sesiones(**args),
-    "buscar_agenda":     lambda args: fetch_agenda(),
-    "buscar_destacados": lambda args: fetch_destacados(),
-    "buscar_congresista": lambda args: fetch_congresista(**args),
-    "rastrear_proyecto":  lambda args: fetch_estado_proyecto(**args),
-    "buscar_en_web":     lambda args: buscar_en_web(**args),
-    "consultar_expediente":   lambda args: fetch_expediente(**args),
-    "agenda_comisiones":      lambda args: fetch_agenda_comisiones(**args),
-    "agenda_pleno":           lambda args: fetch_agenda_pleno(),
-    "buscar_interpelaciones": lambda args: fetch_interpelaciones(**args),
-    "responder_directo":      lambda args: _responder_directo(),
+    "buscar_proyectos":        lambda args: fetch_proyectos(**args),
+    "buscar_sesiones":         lambda args: fetch_sesiones(**args),
+    "buscar_agenda":           lambda args: fetch_agenda(),
+    "buscar_destacados":       lambda args: fetch_destacados(),
+    "buscar_congresista":      lambda args: fetch_congresista(**args),
+    "rastrear_proyecto":       lambda args: fetch_estado_proyecto(**args),
+    "buscar_en_web":           lambda args: buscar_en_web(**args),
+    "fetch_expediente":        lambda args: fetch_expediente(
+                                   numero=args.get("numero_proyecto") or args.get("numero", "")
+                               ),
+    "fetch_agenda_comisiones": lambda args: fetch_agenda_comisiones(**{k: v for k, v in args.items() if k in ("dias", "comision")}),
+    "fetch_agenda_pleno":      lambda args: fetch_agenda_pleno(),
+    "fetch_interpelaciones":   lambda args: fetch_interpelaciones(**{k: v for k, v in args.items() if k in ("ministro",)}),
+    "responder_directo":       lambda args: _responder_directo(),
 }
 
 async def _responder_directo():
     return {"nota": "Responde directamente con tu conocimiento, sin datos externos."}
 
 STATUS_LABELS = {
-    "buscar_proyectos":   "Buscando proyectos de ley en SPLEY...",
-    "buscar_sesiones":    "Consultando sesiones del Congreso...",
-    "buscar_agenda":      "Obteniendo agenda parlamentaria...",
-    "buscar_destacados":  "Cargando noticias del Congreso...",
-    "buscar_congresista": "Consultando perfil del congresista...",
-    "rastrear_proyecto":  "Rastreando estado del proyecto...",
-    "buscar_en_web":      "Buscando en internet...",
-    "consultar_expediente":   "Consultando el expediente del proyecto...",
-    "agenda_comisiones":      "Revisando agenda de comisiones...",
-    "agenda_pleno":           "Cargando la Agenda del Pleno...",
-    "buscar_interpelaciones": "Buscando mociones de interpelación...",
-    "responder_directo":      "Pensando...",
+    "buscar_proyectos":        "Buscando proyectos de ley en SPLEY...",
+    "buscar_sesiones":         "Consultando sesiones del Congreso...",
+    "buscar_agenda":           "Obteniendo agenda parlamentaria...",
+    "buscar_destacados":       "Cargando noticias del Congreso...",
+    "buscar_congresista":      "Consultando perfil del congresista...",
+    "rastrear_proyecto":       "Rastreando estado del proyecto...",
+    "buscar_en_web":           "Buscando en internet...",
+    "fetch_expediente":        "Consultando el expediente completo en SPLEY (5 pestañas)...",
+    "fetch_agenda_comisiones": "Revisando agenda de comisiones...",
+    "fetch_agenda_pleno":      "Cargando la Agenda del Pleno...",
+    "fetch_interpelaciones":   "Buscando mociones de interpelación...",
+    "responder_directo":       "Pensando...",
 }
 
 
@@ -801,8 +968,8 @@ async def chat(request: Request):
                 base_msg += f" Enfoca el análisis especialmente en el sector {sector} y los proyectos de ley, noticias y agenda que impacten a ese sector."
             conversation = [{"role": "user", "content": base_msg}]
         else:
-            # Recortar historial: solo los últimos 10 mensajes para no quemar tokens
-            conversation = messages[-10:]
+            # Mantener historial amplio para conversación fluida
+            conversation = messages[-20:]
 
         # Short-circuit: analizar un documento cargado o una sesión no requiere
         # scraping. Vamos directo a la Fase 3 con el flujo correspondiente.
@@ -947,10 +1114,7 @@ async def chat(request: Request):
         if is_resumen:
             system_p3 = RESUMEN_PROMPT
         elif solo_responder_directo:
-            # Saludo, seguimiento o pregunta conceptual sin datos — prompt minimalista
-            system_p3 = ("Eres Lex, asistente parlamentario de Julio César. "
-                         "Responde de forma directa y natural en español peruano. "
-                         "Sin relleno, sin cortesías vacías. Si te saludan, saluda brevemente y ofrece ayuda concreta.")
+            system_p3 = system_con_fecha
         else:
             system_p3 = system_con_fecha
             for t in tools_usados:
@@ -964,11 +1128,13 @@ async def chat(request: Request):
         msgs = [{"role": "system", "content": system_p3}] + conversation + tool_msgs
 
         # ── Phase 3: stream final answer ───────────────────────
+        # Expedientes necesitan muchos tokens — 5 pestañas completas
+        _max_tokens = 8000 if "fetch_expediente" in tools_usados else 4096
         try:
             stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=msgs,
-                max_tokens=2048,
+                max_tokens=_max_tokens,
                 temperature=0.4,
                 stream=True,
             )
