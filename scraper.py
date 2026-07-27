@@ -722,13 +722,18 @@ async def fetch_expediente(numero: str):
     def _archivo_url(a):
         ruta = a.get("rutaArchivo") or a.get("ruta") or ""
         nombre = a.get("nombreArchivo") or ""
+        raw = ""
         if ruta and ruta.startswith("http"):
-            return ruta
-        if ruta:
-            return f"{ARCHIVO_BASE}/{ruta}"
-        if nombre:
-            return f"{ARCHIVO_BASE}/{nombre}"
-        return ""
+            raw = ruta
+        elif ruta:
+            raw = f"{ARCHIVO_BASE}/{ruta}"
+        elif nombre:
+            raw = f"{ARCHIVO_BASE}/{nombre}"
+        # URL-encode spaces and special chars in the filename portion
+        if raw and " " in raw:
+            parts = raw.rsplit("/", 1)
+            raw = parts[0] + "/" + urllib.parse.quote(parts[1], safe="") if len(parts) == 2 else raw
+        return raw
 
     def _fmt_archivo(a):
         return {

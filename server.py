@@ -151,7 +151,7 @@ WORKFLOWS = {
 
 ---
 
-## Expediente PL [campo: numero — copiar exacto con sufijo, ej. 14864/2025-CR]
+## Expediente [**[campo: numero]**([campo: enlace_expediente]) — copiar exacto con sufijo, ej. 14864/2025-CR]
 ### [campo: titulo — en MAYÚSCULAS tal como viene]
 
 ---
@@ -172,7 +172,7 @@ WORKFLOWS = {
 | Grupo parlamentario | [campo: grupo_parlamentario — si está vacío: —] |
 | Periodo parlamentario | [campo: periodo_parlamentario] |
 | Legislatura | [campo: legislatura — si está vacío: —] |
-| Link al expediente | [campo: enlace_expediente — copiar EXACTO] |
+| Link al expediente | [[Ver en SPLEY](campo: enlace_expediente — copiar EXACTO)] |
 
 ---
 
@@ -323,6 +323,17 @@ Para cada fila:
 
 ---
 
+### ADJUNTOS DEL EXPEDIENTE
+
+⚠️ REGLA: Lista TODOS los adjuntos del campo "todos_los_adjuntos". Cada adjunto en una línea con link clickeable. Si el campo está vacío o ausente: "Sin adjuntos registrados."
+
+Para cada elemento en todos_los_adjuntos:
+- 📄 **[todos_los_adjuntos[i].nombre]** — [todos_los_adjuntos[i].descripcion si es distinta al nombre, si no omitir] → [Descargar PDF](todos_los_adjuntos[i].url)
+
+[Si "todos_los_adjuntos" está vacío: "Sin adjuntos registrados en el expediente."]
+
+---
+
 **[Ver expediente completo en SPLEY]([campo: enlace_expediente])**""",
 
     "fetch_agenda_comisiones": """
@@ -382,11 +393,25 @@ Distingue SIEMPRE lo formal (dato del sistema del Congreso) de lo periodístico 
 
     "buscar_proyectos": """
 ## Formato para PROYECTOS
-| Número | Fecha | Estado | Proponente | Comisión | Sumilla |
+
+⚠️ El número del proyecto SIEMPRE debe ser un link markdown usando el campo enlace: `[[numero](enlace)]`. Si no hay enlace: el número sin link.
+
+| N° PROYECTO | FECHA | ESTADO | PROPONENTE | COMISIÓN | SUMILLA |
 |---|---|---|---|---|---|
 | [[numero](enlace)] | fecha | estado | proponente | comision | sumilla |
-[máximo 15 filas. El número SIEMPRE como link markdown usando el campo enlace.]
-Si buscaste por materia y los proyectos no corresponden al tema, dilo — no muestres una lista genérica. Si el usuario quiere el detalle completo de uno específico, usa fetch_expediente.""",
+
+Máximo 15 filas. Si buscaste por materia y los resultados no corresponden al tema, dilo.
+
+### Detalle
+Para cada proyecto en la tabla, agrega debajo una línea con formato limpio:
+**[numero]** — [sumilla completa sin abreviar]. Autores: [autor si viene en los datos].
+
+### Adjuntos
+Si algún proyecto tiene campo enlace con PDF directo o archivos adjuntos, listarlos así:
+- **[numero]:** [Texto del proyecto](url_pdf) | [Exposición de motivos](url) — según lo que devuelva la herramienta.
+Si no hay adjuntos en los datos devueltos: omitir esta sección.
+
+Si el usuario quiere el expediente completo de uno, sugerir usar fetch_expediente.""",
 }
 
 # Flujos que dependen de PDF/transcript cargado (no de una herramienta).
