@@ -1223,13 +1223,16 @@ async def chat(request: Request):
         msgs = [{"role": "system", "content": system_p3}] + conv_p3 + tool_msgs
 
         # ── Phase 3: stream final answer ───────────────────────
+        # Con tool results el request es pesado (>6k tokens) — usar 8B (20k TPM).
+        # Sin tools (solo conversación) el request es ligero — usar 70B.
+        _p3_model   = ROUTER_MODEL if tool_msgs else MAIN_MODEL
         _max_tokens = 4000 if "fetch_expediente" in tools_usados else 2500
 
         import asyncio as _asyncio
 
         async def _stream_p3(msgs_in, max_tok):
             stream = client.chat.completions.create(
-                model=MAIN_MODEL,
+                model=_p3_model,
                 messages=msgs_in,
                 max_tokens=max_tok,
                 temperature=0.4,
