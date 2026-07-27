@@ -1190,11 +1190,10 @@ async def chat(request: Request):
                     except Exception as tool_err:
                         result = {"sin_datos": True, "mensaje": f"Error al consultar {name}: {str(tool_err)[:100]}"}
 
-                    # Cap tool result size: el JSON del expediente puede ser enorme.
-                    # 18000 chars ≈ ~5000 tokens — suficiente para las 5 pestañas.
+                    # Cap tool result: 12k chars ≈ ~3400 tokens
                     result_str = json.dumps(result, ensure_ascii=False)
-                    if len(result_str) > 18000:
-                        result_str = result_str[:18000] + '... [recortado por tamaño]"}'
+                    if len(result_str) > 12000:
+                        result_str = result_str[:12000] + '... [recortado]"}'
                     tool_msgs.append({
                         "role": "tool",
                         "tool_call_id": tc.id,
@@ -1216,25 +1215,50 @@ async def chat(request: Request):
             if has_sesion:
                 system_p3 += "\n" + WORKFLOW_SESION
 
-        msgs = [{"role": "system", "content": system_p3}] + conversation + tool_msgs
+        # Cuando hay tool results, recortar el historial enviado a Phase 3.
+        # El tool result ya aporta el contexto; mandar 20 mensajes adicionales
+        # dispara el TPM fácilmente. Con tools: solo los últimos 4 mensajes.
+        conv_p3 = messages[-4:] if tool_msgs else conversation
+
+        msgs = [{"role": "system", "content": system_p3}] + conv_p3 + tool_msgs
 
         # ── Phase 3: stream final answer ───────────────────────
-        _max_tokens = 5000 if "fetch_expediente" in tools_usados else 3000
-        try:
+        _max_tokens = 4000 if "fetch_expediente" in tools_usados else 2500
+
+        import asyncio as _asyncio
+
+        async def _stream_p3(msgs_in, max_tok):
             stream = client.chat.completions.create(
                 model=MAIN_MODEL,
-                messages=msgs,
-                max_tokens=_max_tokens,
+                messages=msgs_in,
+                max_tokens=max_tok,
                 temperature=0.4,
                 stream=True,
             )
             for chunk in stream:
                 delta = chunk.choices[0].delta.content
                 if delta:
-                    yield f"data: {json.dumps({'text': delta})}\n\n"
+                    yield delta
+
+        try:
+            async for delta in _stream_p3(msgs, _max_tokens):
+                yield f"data: {json.dumps({'text': delta})}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'error': _friendly_error(e)})}\n\n"
+            s = str(e).lower()
+            is_rate = "rate limit" in s or "429" in s or "tokens per" in s or "quota" in s or "per day" in s
+            if is_rate:
+                # Reintentar una vez tras 4 segundos antes de rendirse
+                yield f"data: {json.dumps({'status': 'Límite de Groq alcanzado, reintentando en 4s...'})}\n\n"
+                await _asyncio.sleep(4)
+                try:
+                    async for delta in _stream_p3(msgs, _max_tokens):
+                        yield f"data: {json.dumps({'text': delta})}\n\n"
+                    yield "data: [DONE]\n\n"
+                except Exception as e2:
+                    yield f"data: {json.dumps({'error': _friendly_error(e2)})}\n\n"
+            else:
+                yield f"data: {json.dumps({'error': _friendly_error(e)})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
