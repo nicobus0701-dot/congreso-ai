@@ -185,7 +185,7 @@ def _format_proyectos(items):
             "comision":            p.get("desComision") or "",
             "grupo_parlamentario": p.get("desGpar") or "",
             "legislatura":         p.get("desLegis") or "",
-            "enlace":              f"{SPLEY_PORTAL}/{num}" if num else f"{SPLEY_PORTAL}/search",
+            "enlace":              f"{SPLEY_PORTAL}/{PER_PAR_ID}/{num}" if num else f"{SPLEY_PORTAL}/search",
         })
     return {"fuente": "SPLEY — api.congreso.gob.pe",
             "total": len(out), "items": out}
@@ -378,7 +378,7 @@ async def fetch_estado_proyecto(numero: str):
                         "autor":         p.get("autores") or p.get("desProponente") or "",
                         "comision":      p.get("desComision") or "",
                         "sumilla":       p.get("sumilla") or p.get("titulo") or "",
-                        "enlace":        f"{SPLEY_PORTAL}/{num}" if num else "",
+                        "enlace":        f"{SPLEY_PORTAL}/{PER_PAR_ID}/{num}" if num else "",
                         "fuente":        "SPLEY — api.congreso.gob.pe",
                     }
         except Exception:
@@ -695,13 +695,15 @@ async def fetch_expediente(numero: str):
             _get(c, "/acumulados"),
             _get(c, "/secciones"),
             _get(c, "/opinion-ciudadana"),
+            _get(c, "/documentacion"),
             return_exceptions=True,
         )
 
-    data            = results[0] if isinstance(results[0], dict) else {}
-    data_acumulados = results[1] if isinstance(results[1], dict) else {}
-    data_secciones  = results[2] if isinstance(results[2], dict) else {}
-    data_opinion    = results[3] if isinstance(results[3], dict) else {}
+    data               = results[0] if isinstance(results[0], dict) else {}
+    data_acumulados    = results[1] if isinstance(results[1], dict) else {}
+    data_secciones     = results[2] if isinstance(results[2], dict) else {}
+    data_opinion       = results[3] if isinstance(results[3], dict) else {}
+    data_documentacion = results[4] if isinstance(results[4], dict) else {}
 
     if not data:
         return {"error": f"No se pudo obtener el expediente del proyecto {numero}."}
@@ -709,6 +711,11 @@ async def fetch_expediente(numero: str):
     general      = data.get("general", {})
     comisiones   = data.get("comisiones", [])
     seguimientos = data.get("seguimientos", [])
+    firmantes    = data.get("firmantes", [])
+
+    # tipoFirmanteId 1 = autor principal, 2+ = coautores
+    _autores_principales = [f["nombre"] for f in firmantes if f.get("tipoFirmanteId") == 1]
+    _coautores           = [f["nombre"] for f in firmantes if f.get("tipoFirmanteId") != 1]
 
     ARCHIVO_BASE = "https://api.congreso.gob.pe/spley-portal-service/expediente/archivo"
 
@@ -731,17 +738,17 @@ async def fetch_expediente(numero: str):
             "tipo":        a.get("tipoArchivo") or "pdf",
         }
 
-    # Format seguimientos (chronological acts)
-    actos = []
+    # Pestaña 1: Seguimiento (orden cronológico ascendente — el más antiguo arriba)
+    seguimiento = []
     todos_archivos = []
     for s in reversed(seguimientos):
         archivos_acto = [_fmt_archivo(a) for a in s.get("archivos", []) if a.get("activo") or a.get("nombreArchivo")]
         todos_archivos.extend(archivos_acto)
-        actos.append({
-            "fecha":     s.get("fecha", "")[:10],
-            "estado":    s.get("desEstado", ""),
+        seguimiento.append({
+            "fecha":     _fmt_date(s.get("fecha", "")),
+            "estado":    (s.get("desEstado") or "").upper(),
             "comision":  s.get("desComisiones") or "",
-            "detalle":   (s.get("detalle") or "")[:300],
+            "detalle":   (s.get("detalle") or "").upper(),
             "adjuntos":  archivos_acto,
         })
 
@@ -753,22 +760,41 @@ async def fetch_expediente(numero: str):
         None,
     )
 
-    # Proyectos acumulados
+    # Pestaña 2: Proyectos acumulados
     pley_acumulados = []
     for p in (data_acumulados if isinstance(data_acumulados, list) else data_acumulados.get("proyectos", [])):
         pley_acumulados.append({
-            "numero":  p.get("proyectoLey") or p.get("pleyNum") or "",
-            "titulo":  p.get("titulo") or "",
-            "estado":  p.get("desEstado") or "",
-            "enlace":  f"{SPLEY_PORTAL}/{p.get('pleyNum','')}" if p.get("pleyNum") else "",
+            "numero":             p.get("proyectoLey") or p.get("pleyNum") or "",
+            "titulo":             p.get("titulo") or "",
+            "fecha_presentacion": _fmt_date(p.get("fecPresentacion") or ""),
+            "autor":              p.get("autores") or p.get("desProponente") or "",
+            "proponente":         p.get("desProponente") or "",
+            "estado":             p.get("desEstado") or "",
+            "enlace":             f"{SPLEY_PORTAL}/{PER_PAR_ID}/{p.get('pleyNum','')}" if p.get("pleyNum") else "",
         })
 
-    # Secciones (texto articulado del proyecto)
+    # Pestaña 3: Documentación Anexa (oficios, opiniones de ministerios, informes)
+    documentacion_anexa = []
+    _raw_docs = data_documentacion
+    if isinstance(_raw_docs, dict):
+        _raw_docs = (_raw_docs.get("documentos") or _raw_docs.get("documentacion")
+                     or _raw_docs.get("items") or [])
+    for d in (_raw_docs if isinstance(_raw_docs, list) else []):
+        documentacion_anexa.append({
+            "fecha":       _fmt_date(d.get("fecha") or ""),
+            "tipo":        d.get("tipo") or d.get("tipoDocumento") or "",
+            "descripcion": d.get("descripcion") or d.get("remitente") or d.get("nombre") or "",
+            "adjuntos":    [_fmt_archivo(a) for a in (d.get("archivos") or [])] if d.get("archivos") else [],
+        })
+
+    # Pestaña 4: Secciones (texto articulado del proyecto, fórmula legal, dictámenes, autógrafas)
     secciones = []
     for s in (data_secciones if isinstance(data_secciones, list) else data_secciones.get("secciones", [])):
+        sec_adjuntos = [_fmt_archivo(a) for a in (s.get("archivos") or []) if a.get("nombreArchivo") or a.get("rutaArchivo")]
         secciones.append({
-            "titulo":  s.get("titulo") or s.get("nombre") or "",
-            "texto":   (s.get("texto") or s.get("contenido") or "")[:3000],
+            "titulo":    s.get("titulo") or s.get("nombre") or "",
+            "texto":     (s.get("texto") or s.get("contenido") or "")[:3000],
+            "adjuntos":  sec_adjuntos,
         })
 
     # Opinión ciudadana
@@ -781,6 +807,7 @@ async def fetch_expediente(numero: str):
             "comentarios":     len(data_opinion.get("comentarios") or data_opinion.get("opiniones") or []),
         }
 
+    pley_num_str = str(general.get("pleyNum", ""))
     return {
         "numero":                general.get("proyectoLey", numero),
         "titulo":                general.get("titulo", ""),
@@ -790,14 +817,15 @@ async def fetch_expediente(numero: str):
         "periodo_parlamentario": general.get("desPerPar") or "2021-2026",
         "legislatura":           general.get("desLegis", ""),
         "proponente":            general.get("desProponente", ""),
-        "autor_principal":       general.get("autores") or general.get("desProponente") or "",
-        "coautores":             general.get("coAutores") or general.get("coautores") or "",
+        "autor_principal":       ", ".join(_autores_principales) if _autores_principales else (general.get("autores") or general.get("desProponente") or ""),
+        "coautores":             ", ".join(_coautores) if _coautores else (general.get("coAutores") or ""),
         "adherentes":            general.get("adherentes") or "",
         "grupo_parlamentario":   general.get("desGpar", ""),
         "comisiones":            [
             {
                 "nombre": c.get("nombre") or c.get("desComision") or "",
                 "id":     c.get("comisionId") or c.get("id") or "",
+                "fecha_derivacion": _fmt_date(c.get("fecha") or ""),
                 "enlace": (
                     f"https://www2.congreso.gob.pe/Sicr/ApoyComisiones/comision2011.nsf/"
                     f"ComisionesVirtual?OpenForm&comision={c.get('comisionId','')}"
@@ -807,17 +835,23 @@ async def fetch_expediente(numero: str):
             for c in comisiones
         ],
         "fases":                 [f["fase"] for f in data.get("fases", []) if f.get("tipo") in (1, 2)],
-        "actos":                 actos,
-        "todos_los_adjuntos":    todos_archivos,
+        # Pestaña 1
+        "seguimiento":           seguimiento,
+        # Pestaña 2
         "proyectos_acumulados":  pley_acumulados,
+        # Pestaña 3
+        "documentacion_anexa":   documentacion_anexa,
+        # Pestaña 4
         "secciones":             secciones,
+        # Pestaña 5
         "opinion_ciudadana":     opinion,
+        "todos_los_adjuntos":    todos_archivos,
         "predictamen":           {
-            "fecha":   dictamen.get("fecha", "")[:10] if dictamen else None,
+            "fecha":   _fmt_date(dictamen.get("fecha", "")) if dictamen else None,
             "nombre":  dictamen.get("nombreArchivo") if dictamen else None,
             "url":     _archivo_url(dictamen) if dictamen else None,
         } if dictamen else None,
-        "enlace_expediente":     f"{SPLEY_PORTAL}/{general.get('pleyNum', '')}",
+        "enlace_expediente":     f"{SPLEY_PORTAL}/{PER_PAR_ID}/{pley_num_str}" if pley_num_str else "",
         "fuente":                f"SPLEY expediente — {SPLEY_API}",
     }
 
@@ -1002,7 +1036,7 @@ async def fetch_interpelaciones(ministro: str = None):
                                 "fecha":     _fmt_date(p.get("fecPresentacion") or ""),
                                 "proponente": p.get("desProponente") or p.get("autores") or "",
                                 "comision":  p.get("desComision") or "",
-                                "enlace":    f"{SPLEY_PORTAL}/{num}" if num else "",
+                                "enlace":    f"{SPLEY_PORTAL}/{PER_PAR_ID}/{num}" if num else "",
                             })
     except Exception:
         pass
