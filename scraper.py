@@ -1074,3 +1074,111 @@ async def fetch_interpelaciones(ministro: str = None):
         "total_formales": len(mociones_spley),
         "noticias_prensa": noticias,
     }
+
+
+# ── Agenda bicameral (Senado + Diputados + Pleno) ─────────────
+
+AGENDA_COMUNICACIONES = "https://comunicaciones.congreso.gob.pe/agenda"
+
+async def fetch_agenda_camaras(dias: int = 2, camara: str = None):
+    """
+    Obtiene la agenda parlamentaria bicameral desde comunicaciones.congreso.gob.pe/agenda.
+    Cubre Senado, Cámara de Diputados, Pleno del Congreso y Comisiones.
+    `camara` filtra opcionalmente: 'senado', 'diputados', 'pleno', 'comision'.
+    """
+    from datetime import timedelta
+
+    today = datetime.now().date()
+    sesiones_total = []
+
+    async with _client() as c:
+        for delta in range(dias):
+            dia = today + timedelta(days=delta)
+            url = f"{AGENDA_COMUNICACIONES}/{dia.year}/{dia.month}/{dia.day}/"
+            try:
+                r = await c.get(url, headers=HEADERS)
+                # WordPress puede devolver 404 con contenido válido — no saltarse
+                if not r.text or len(r.text) < 500:
+                    continue
+                soup = BeautifulSoup(r.text, "html.parser")
+                texto = soup.get_text(separator="\n", strip=True)
+                lineas = [l.strip() for l in texto.split("\n") if l.strip()]
+
+                # Estructura real: HORA / hh:mm / AM|PM / TEMA / texto / organiza / ORGANIZA / LUGAR / lugar1 / lugar2
+                SKIP = {"HORA", "TEMA", "ORGANIZA", "LUGAR"}
+                sesiones_dia = []
+                i = 0
+                while i < len(lineas):
+                    if re.match(r"^\d{1,2}:\d{2}$", lineas[i]):
+                        hora = lineas[i]
+                        j = i + 1
+                        # AM/PM opcional en la siguiente línea
+                        if j < len(lineas) and lineas[j].upper() in ("AM", "PM"):
+                            hora = f"{hora} {lineas[j]}"
+                            j += 1
+                        # Saltar encabezado TEMA
+                        if j < len(lineas) and lineas[j] == "TEMA":
+                            j += 1
+                        # Tema: primera línea no-header
+                        tema = lineas[j] if j < len(lineas) and lineas[j] not in SKIP else ""
+                        if tema:
+                            j += 1
+                        # Organiza: siguiente línea no-header que no sea lugar
+                        organiza = ""
+                        if j < len(lineas) and lineas[j] not in SKIP:
+                            organiza = lineas[j]
+                            j += 1
+                        # Saltar ORGANIZA, LUGAR headers
+                        while j < len(lineas) and lineas[j] in SKIP:
+                            j += 1
+                        # Lugar: máximo 2 líneas hasta el siguiente HORA o header
+                        lugar_partes = []
+                        while j < len(lineas) and lineas[j] not in SKIP and not re.match(r"^\d{1,2}:\d{2}$", lineas[j]) and len(lugar_partes) < 2:
+                            lugar_partes.append(lineas[j])
+                            j += 1
+                        lugar = " ".join(lugar_partes)
+                        sesiones_dia.append({
+                            "fecha": dia.strftime("%d/%m/%Y"),
+                            "hora": hora,
+                            "tema": tema,
+                            "organiza": organiza,
+                            "lugar": lugar,
+                            "camara": _detectar_camara(tema + " " + organiza + " " + lugar),
+                        })
+                        i = j
+                    else:
+                        i += 1
+
+                sesiones_total.extend(sesiones_dia)
+            except Exception:
+                continue
+
+    if camara:
+        sesiones_total = [s for s in sesiones_total
+                          if camara.lower() in s["camara"].lower() or camara.lower() in s["tema"].lower()]
+
+    if not sesiones_total:
+        return {
+            "sin_datos": True,
+            "mensaje": f"No hay sesiones programadas en los próximos {dias} días"
+                       + (f" para '{camara}'" if camara else "") + ".",
+        }
+
+    return {
+        "fuente": f"comunicaciones.congreso.gob.pe/agenda — {dias} días",
+        "sesiones": sesiones_total,
+        "total": len(sesiones_total),
+    }
+
+
+def _detectar_camara(texto: str) -> str:
+    t = texto.lower()
+    if "senado" in t:
+        return "Senado"
+    if "diputado" in t:
+        return "Cámara de Diputados"
+    if "pleno" in t:
+        return "Pleno del Congreso"
+    if "comisión" in t or "comision" in t:
+        return "Comisión"
+    return "Congreso"

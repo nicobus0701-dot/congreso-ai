@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, Res
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
-from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, get_yt_captions, transcribe_with_whisper, fetch_transcript_youtube, fetch_expediente, fetch_agenda_comisiones, fetch_agenda_pleno, fetch_interpelaciones
+from scraper import fetch_proyectos, fetch_sesiones, fetch_agenda, fetch_destacados, fetch_congresista, fetch_estado_proyecto, fetch_videos_youtube, get_yt_captions, transcribe_with_whisper, fetch_transcript_youtube, fetch_expediente, fetch_agenda_comisiones, fetch_agenda_pleno, fetch_interpelaciones, fetch_agenda_camaras
 from live_transcriber import stream_transcription
 from duckduckgo_search import DDGS
 import json
@@ -78,6 +78,7 @@ ROUTER_PROMPT = """Eres el enrutador de Lex. Tu única tarea: decidir si el mens
 | Sesiones de comisiones pasadas | buscar_sesiones |
 | Sesiones de comisiones próximas (hoy/mañana) | fetch_agenda_comisiones |
 | Agenda del Pleno actual | fetch_agenda_pleno |
+| Sesiones del Senado, Cámara de Diputados o Pleno bicameral | fetch_agenda_camaras |
 | Interpelaciones a ministros | fetch_interpelaciones Y buscar_en_web |
 | Perfil de un congresista | buscar_congresista |
 | Noticias del Congreso | buscar_destacados |
@@ -123,6 +124,17 @@ Cuando sí usas herramientas, los datos mandan: no inventas proyectos, fechas, v
 - Distingue "no hay registros" (campo vacío en SPLEY) de "la herramienta no respondió" (falla técnica).
 - En expedientes: van todas las filas, sin excepciones ni "entre otros".
 - Fechas en dd/mm/aaaa. Números de proyecto con sufijo completo (ej. `14864/2025-CR`).
+
+## Sistema bicameral (desde julio 2026)
+
+Perú pasó de un Congreso unicameral a uno **bicameral** al inicio del nuevo gobierno (27/07/2026):
+
+- **Senado** (60 senadores) — cámara alta. Revisa las leyes aprobadas por Diputados, ratifica tratados, nombra altos funcionarios. Web: `senado.congreso.gob.pe`
+- **Cámara de Diputados** (130 diputados) — cámara baja. Aprueba el presupuesto, inicia la mayoría de proyectos de ley, interpela ministros. Web: `diputados.congreso.gob.pe`
+- **Pleno del Congreso** — sesión conjunta de ambas cámaras. Web: `bicameral.congreso.gob.pe`
+- **SPLEY** sigue siendo el sistema de proyectos de ley. El periodo parlamentario aún es `2021` mientras el sistema se actualiza al nuevo ciclo.
+- Un proyecto de ley ahora tiene que pasar por ambas cámaras para convertirse en ley (salvo excepciones del Reglamento).
+- Las sesiones de todas las cámaras se publican en `comunicaciones.congreso.gob.pe/agenda`.
 
 ## Nomenclatura SPLEY
 
@@ -390,6 +402,23 @@ Si no hay: "Tampoco encontré noticias de firmas en curso."
 [¿Alguna tiene los votos (se necesitan 25 firmas)? ¿Es presión política real o maniobra mediática? Análisis directo en 2-3 líneas.]
 
 Distingue SIEMPRE lo formal (dato del sistema del Congreso) de lo periodístico (prensa). Nunca presentes un rumor de prensa como moción presentada.""",
+
+    "fetch_agenda_camaras": """
+## Formato para AGENDA BICAMERAL (Senado / Diputados / Pleno)
+
+⚠️ REGLA ABSOLUTA: Muestra SOLO las sesiones que están en los datos devueltos. Si sin_datos=true → "No hay sesiones programadas para los próximos días en el Congreso bicameral." JAMÁS inventes sesiones, horas ni lugares.
+
+Si hay datos:
+## Agenda del Congreso — [fechas cubiertas]
+
+| Fecha | Hora | Cámara | Sesión / Tema | Lugar |
+|---|---|---|---|---|
+| dd/mm | HH:MM | Senado / Diputados / Pleno | [tema] | [lugar] |
+
+Ordena por fecha y hora. Agrupa visualmente por cámara si hay varias del mismo día.
+
+### Mi lectura
+[Qué sesión conviene seguir y por qué — en 2-3 líneas.]""",
 
     "buscar_proyectos": """
 ## Formato para PROYECTOS
@@ -712,6 +741,31 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "fetch_agenda_camaras",
+            "description": (
+                "Obtiene las sesiones programadas del Senado, Cámara de Diputados y Pleno del "
+                "Congreso bicameral desde comunicaciones.congreso.gob.pe/agenda. "
+                "Usar cuando el usuario pregunte por sesiones del Senado, Diputados, Pleno "
+                "bicameral, o la agenda general del nuevo Congreso."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "dias": {
+                        "type": "integer",
+                        "description": "Días hacia adelante a consultar (default: 2)."
+                    },
+                    "camara": {
+                        "type": "string",
+                        "description": "Filtrar por cámara: 'senado', 'diputados', 'pleno', 'comision'. Omitir para ver todas."
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "fetch_interpelaciones",
             "description": (
                 "Obtiene las mociones de interpelación a ministros presentadas formalmente ante "
@@ -759,6 +813,7 @@ TOOL_MAP = {
                                ),
     "fetch_agenda_comisiones": lambda args: fetch_agenda_comisiones(**{k: v for k, v in args.items() if k in ("dias", "comision")}),
     "fetch_agenda_pleno":      lambda args: fetch_agenda_pleno(),
+    "fetch_agenda_camaras":    lambda args: fetch_agenda_camaras(**{k: v for k, v in args.items() if k in ("dias", "camara")}),
     "fetch_interpelaciones":   lambda args: fetch_interpelaciones(**{k: v for k, v in args.items() if k in ("ministro",)}),
     "responder_directo":       lambda args: _responder_directo(),
 }
@@ -777,6 +832,7 @@ STATUS_LABELS = {
     "fetch_expediente":        "Consultando el expediente completo en SPLEY (5 pestañas)...",
     "fetch_agenda_comisiones": "Revisando agenda de comisiones...",
     "fetch_agenda_pleno":      "Cargando la Agenda del Pleno...",
+    "fetch_agenda_camaras":    "Revisando agenda del Congreso bicameral...",
     "fetch_interpelaciones":   "Buscando mociones de interpelación...",
     "responder_directo":       "Pensando...",
 }
