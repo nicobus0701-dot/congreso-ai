@@ -259,9 +259,12 @@
     if (!activeId || !getActive()) newChat();
     const conv = getActive();
 
-    // First message → auto-title
+    // First message → auto-title. El resumen manda un centinela como texto, así
+    // que sin este caso el título del chat quedaba como "__RESUMEN_SEMANAL__".
     if (!conv.messages.length) {
-      conv.title = autoTitle(text);
+      conv.title = isResumen
+        ? 'Resumen Semanal' + (sector && sector !== 'general' ? ' — ' + sector : '')
+        : autoTitle(text);
     }
 
     mainEl.classList.add('chat-mode');
