@@ -323,23 +323,82 @@ async def fetch_destacados():
         destacados = _extract_items("widget_wc_widget_feature_article")
         citaciones  = _extract_items("widget_wc_widget_citation_article")
 
-        if not destacados and not citaciones:
-            raise Exception("sin items")
+        # Distinguir "el Congreso no publicó nada" de "el scraping se rompió".
+        # Los widgets se renderizan en el servidor con el literal
+        # "No hay publicaciones para mostrar" cuando están vacíos; antes eso se
+        # trataba como fallo y se devolvían noticias de Google News como si
+        # fueran documentos, lo que llevaba al modelo a decir que no tenía
+        # acceso a descargas.
+        vacio_declarado = "No hay publicaciones para mostrar" in r.text
 
-        return {
+        resultado = {
             "fuente": CONGRESO + "/home/",
             "destacados": destacados,
             "citaciones": citaciones,
         }
 
+        if not destacados and not citaciones:
+            if not vacio_declarado:
+                raise Exception("sin items y sin aviso de vacío — el HTML cambió")
+            resultado["estado_fuente"] = (
+                "El portal del Congreso no tiene publicaciones en DESTACADO ni en "
+                "CITACIONES en este momento (sus widgets muestran 'No hay publicaciones "
+                "para mostrar'). No es un fallo de conexión."
+            )
+            resultado["documentos_disponibles"] = await _documentos_disponibles()
+
+        return resultado
+
     except Exception as _e:
-        logger.warning("Congreso scrape failed, fallback Google News: %s", _e)
-        # Fallback: Google News RSS
-        query = "congreso perú noticias destacados sesión pleno ley 2026"
-        noticias = await _google_news(query, max_results=15)
-        if noticias:
-            return {"fuente": "Google News", "items": noticias}
-        return {"error": "No se pudo obtener las noticias del Congreso."}
+        logger.warning("Congreso scrape falló: %s", _e)
+        noticias = await _google_news(
+            "congreso perú noticias destacados sesión pleno ley 2026", max_results=10
+        )
+        return {
+            "fuente": CONGRESO + "/home/",
+            "sin_datos": True,
+            "mensaje": f"No se pudo leer las secciones DESTACADO y CITACIONES ({_e}).",
+            "documentos_disponibles": await _documentos_disponibles(),
+            # Etiquetado aparte: son noticias, no documentos oficiales.
+            "noticias_relacionadas": noticias,
+        }
+
+
+async def _documentos_disponibles():
+    """
+    Documentos oficiales descargables que sí están publicados hoy.
+
+    Se usa cuando DESTACADO/CITACIONES están vacíos, para poder ofrecer
+    descargas reales en vez de una negativa.
+    """
+    docs = []
+    try:
+        agenda = await fetch_agenda_pleno()
+        if agenda.get("enlace"):
+            docs.append({
+                "titulo": agenda.get("titulo") or "Agenda del Pleno vigente",
+                "enlace": agenda["enlace"],
+                "tipo": "Agenda del Pleno (PDF)",
+            })
+        for prev in (agenda.get("agendas_anteriores") or [])[:5]:
+            if prev.get("enlace"):
+                docs.append({
+                    "titulo": prev.get("titulo") or "Agenda del Pleno anterior",
+                    "enlace": prev["enlace"],
+                    "tipo": "Agenda del Pleno anterior (PDF)",
+                })
+    except Exception as e:
+        logger.warning("_documentos_disponibles: agenda del Pleno falló: %s", e)
+
+    docs.extend([
+        {"titulo": "Reglamento del Congreso de la República (setiembre 2025)",
+         "enlace": "https://www3.congreso.gob.pe/Docs/constitucion/reglamento/reglamento%20setiembre-2025.pdf",
+         "tipo": "Norma de referencia (PDF)"},
+        {"titulo": "Constitución Política del Perú (dic. 2024)",
+         "enlace": "https://www3.congreso.gob.pe/Docs/files/constitucion/constitucion-12-2024.pdf",
+         "tipo": "Norma de referencia (PDF)"},
+    ])
+    return docs
 
 
 # ── Congresista ────────────────────────────────────────────────

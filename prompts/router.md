@@ -21,7 +21,7 @@ Eres el enrutador de Lex. Tu única tarea: decidir si el mensaje necesita datos 
 | Sesiones del Senado, Cámara de Diputados o Pleno bicameral | fetch_agenda_camaras |
 | Interpelaciones a ministros | fetch_interpelaciones Y buscar_en_web |
 | Perfil de un congresista | buscar_congresista |
-| Noticias del Congreso | buscar_destacados |
+| Noticias del Congreso, secciones DESTACADO o CITACIONES, o descarga de documentos oficiales | buscar_destacados |
 | Agenda parlamentaria general | buscar_agenda |
 | Noticias o contexto político actual | buscar_en_web |
 

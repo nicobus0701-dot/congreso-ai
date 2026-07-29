@@ -43,6 +43,18 @@ async def congreso_pdfs():
                 url = item.get("enlace", "")
                 if url.lower().endswith(".pdf"):
                     pdfs.append({"titulo": item["titulo"], "enlace": url, "tipo": tipo})
+
+        # Cuando el Congreso no publica destacados ni citaciones, el scraper
+        # devuelve los documentos que sí están disponibles (agendas del Pleno).
+        # Sin esto el panel se quedaba solo con las 3 referencias fijas.
+        for item in data.get("documentos_disponibles", []):
+            url = item.get("enlace", "")
+            if url.lower().endswith(".pdf"):
+                pdfs.append({
+                    "titulo": item.get("titulo", ""),
+                    "enlace": url,
+                    "tipo": item.get("tipo", "Documento"),
+                })
     except Exception as e:
         logger.warning("fetch_destacados falló en /congreso-pdfs: %s", e)
 

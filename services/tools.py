@@ -112,7 +112,12 @@ TOOLS = [
         "function": {
             "name": "buscar_destacados",
             "description": (
-                "Obtiene las noticias y citaciones destacadas del Congreso del Perú."
+                "Obtiene las secciones DESTACADO y CITACIONES del portal del Congreso del "
+                "Perú con sus enlaces de descarga, y una lista de documentos oficiales "
+                "descargables en PDF (agenda del Pleno vigente y anteriores, Reglamento del "
+                "Congreso, Constitución). Úsala cuando el usuario pida documentos, "
+                "citaciones, destacados, o acceso a descargas de Diputados, Senado o "
+                "Congreso. NO respondas que no puedes dar descargas: llama a esta herramienta."
             ),
             "parameters": {
                 "type": "object",
@@ -407,7 +412,7 @@ STATUS_LABELS = {
     "buscar_proyectos":        "Buscando proyectos de ley en SPLEY...",
     "buscar_sesiones":         "Consultando sesiones del Congreso...",
     "buscar_agenda":           "Obteniendo agenda parlamentaria...",
-    "buscar_destacados":       "Cargando noticias del Congreso...",
+    "buscar_destacados":       "Buscando destacados, citaciones y documentos...",
     "buscar_congresista":      "Consultando perfil del congresista...",
     "rastrear_proyecto":       "Rastreando estado del proyecto...",
     "buscar_en_web":           "Buscando en internet...",

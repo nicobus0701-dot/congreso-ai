@@ -1,110 +1,38 @@
 {
-  "fuente": "Google News",
-  "items": [
+  "citaciones": [],
+  "destacados": [],
+  "documentos_disponibles": [
     {
-      "enlace": "https://news.google.com/rss/articles/CBMi5AFBVV95cUxQX1pCQ3RDX0U2clQ2bXVKQjVYOTBJb1VySnpqOFFtbWExa2g3Rko5dWRqaU10RThlR003S3MyLU9Qa2pxejNVVDlvU2I2bFNRZURYVmdUc2ZiaE1vc3ZXTjMwbm5LckFGMXN4ajM3MWZINl85MGlueVFFN0hOS1lLZ2ZoSnZRUGdXN2Y0Mi1jNl8xUWZLa011RlhUY3JZcVBfRjJibk1ZcEVpVHMwRGZSVERIbEJuQWFfcXRKNS1FTExMdmV5eXFrblFMQjU4U19nVHhpQ2t6SFhhWlppRzJfNC1OcmQ?oc=5",
-      "fecha": "Mon, 22 Jun 2026",
-      "fuente": "facebook.com",
-      "resumen": "🔴🔵El Pleno del Congreso volverá a sesionar este martes 23 de junio a partir de las 10:00 a. m., en el que sería la última de la era bicameral, debido a que la Segunda Legislatura del Período Anual de Sesiones 2025-2026 termina al día siguiente.&nbsp;&nbsp;facebook.com",
-      "titulo": "🔴🔵El Pleno del Congreso volverá a sesionar este martes 23 de junio a partir de las 10:00 a. m., en el que sería la última de la era bicameral, debido a que la Segunda Legislatura del Período Anual de Sesiones 2025-2026 termina al día siguiente. - facebook.com"
+      "enlace": "https://www2.congreso.gob.pe/Sicr/RelatAgenda/PlenoComiPerm20112016.nsf/Apleno/042584C5955AA07705258E1E00511398/$FILE/AGENDA-PLENO-23-06-2026.pdf",
+      "tipo": "Agenda del Pleno (PDF)",
+      "titulo": "Agenda del Pleno de la sesión del martes 23 de junio de 2026."
     },
     {
-      "enlace": "https://news.google.com/rss/articles/CBMihAJBVV95cUxQWFVLbUZ3RFVvQ1lYeVM1cDBOdE5kT1dNcXZkQ0I0UlI5cGViNHRvZHR0aF80VFk5T0JRdnoybXFiWXZwcDVXMkZFZDlRekxxUE9VUWZRbGw2ekIxT3BZV0xZbWtBZG1NMjl4U09LeldiNXpfSHJiRHhBcXdrOHg0TkZkNVN3U2dkQm5OaXZ0ZDkzeFZJZVR5cVRKZklDWi1fVTVrTFItNFFlZDk3WFJPZmxFZTR4eElraUllOXZySzU2c2Z6SGFVbVBZNmVtTzhQUkMya2ZOWWhQN0xMS1RxVXFaMHFkYmpsNzUzVnBIZUFzMk9tU1FmX0YwcU13bnctQ0lTV9IBnwJBVV95cUxNYTgxeU1nZUpINWtJc09NLWFxVnAyTDRDQVpIWGhEZkNXUTgyYjJPcXROQkwxblR6ZDhNTnlNWjFjalJDdGpvYndGZE8yUmVFOW0wSm8zVEh2Q1BSeG90RDNLWGZ5cDZPM3QtaEJMWUNWVDMzT25keDM3bGZSNWZJSU9hRl9rR1VyNjNIMmdBS0NrenJXeEhiVVYtc1lSYVE1TUZRRTF3Z29abkQ5U2F1ZU5SZFlYR2JYVlVGc3lqQzd0d0VqaW5PRlAxaWZvQ3Jiby1ZbjZfU0RpWC1TR3k4aEIycUQ3ZVlWM2hiNVdvQWVEYndsWlR2a0lFbTBoOUVnYVNuVlZ0U3pyVG5VVjFIU0hIYXgxMzRRYXlzWlowYw?oc=5",
-      "fecha": "Thu, 16 Jul 2026",
-      "fuente": "Infobae",
-      "resumen": "Crédito suplementario aprobado: el Congreso dio el visto bueno a S/9.596 millones que incluyen gratificaciones CAS y bonos para docentes&nbsp;&nbsp;Infobae",
-      "titulo": "Crédito suplementario aprobado: el Congreso dio el visto bueno a S/9.596 millones que incluyen gratificaciones CAS y bonos para docentes - Infobae"
+      "enlace": "https://www2.congreso.gob.pe/Sicr/RelatAgenda/PlenoComiPerm20112016.nsf/Apleno/53319D7B368E5FED05258E12004D4263/$FILE/AGENDA-PLENO-11-06-2026.pdf",
+      "tipo": "Agenda del Pleno anterior (PDF)",
+      "titulo": "Agenda del Pleno de la sesión del jueves 11 de junio de 2026."
     },
     {
-      "enlace": "https://news.google.com/rss/articles/CBMimwFBVV95cUxOS1ptMEtWZ1hZekVjWG95TEpGM2h5VTZFeFFVUnIwZC0tcF91Q1JVZWhKNTZicWZSdmxzQ2hJYkRqSGdTczFQSUJRZEU4NjU5Z3B6ZThtdGgtR0l1RGltYlhWcE1hTlFVWm1mSFQtTjZWalBmU0RTTTB4dFowU0VFRWRFaXJlNzJUQ2tJTGhaN0ROaHB5ckRKTEU3RQ?oc=5",
-      "fecha": "Wed, 13 May 2026",
-      "fuente": "Congreso",
-      "resumen": "Pleno del Congreso se reunirá este jueves 14&nbsp;&nbsp;Congreso",
-      "titulo": "Pleno del Congreso se reunirá este jueves 14 - Congreso"
+      "enlace": "https://www2.congreso.gob.pe/Sicr/RelatAgenda/PlenoComiPerm20112016.nsf/Apleno/B3564F884C9F087605258E0A004EAF3C/$FILE/AGENDA-PLENO-03-06-2026-DESCENTRA.pdf",
+      "tipo": "Agenda del Pleno anterior (PDF)",
+      "titulo": "Agenda del Pleno de la sesión del miércoles 3 de junio de 2026."
     },
     {
-      "enlace": "https://news.google.com/rss/articles/CBMitAFBVV95cUxONWZuYXdaczBFVXM4aks1aGgzZXFCVmtyaTU2RTZTcXVTdzJNWkZJSTNLMEpkNlFCMWxlZnNGcWpQQ096Z0w2eVBWbG5ORHdmODA3OWNEbWZfVWtncnA0YjlUR21QY3gxUE5veHhuak5tVmdkS1Bab05aRjF5UU0zNWtMZVJUNjVWbkd0QjNZU3J2XzJTcmVlWXNlY3hKTG9INEUzRU5wNWstUTVxZFRHSTE0SC0?oc=5",
-      "fecha": "Fri, 12 Jun 2026",
-      "fuente": "El Peruano",
-      "resumen": "Congreso de la República unicameral prosigue hoy con su última sesión plenaria&nbsp;&nbsp;El Peruano",
-      "titulo": "Congreso de la República unicameral prosigue hoy con su última sesión plenaria - El Peruano"
+      "enlace": "https://www2.congreso.gob.pe/Sicr/RelatAgenda/PlenoComiPerm20112016.nsf/Apleno/42133EA814178BB405258DFD004F0F37/$FILE/AGENDA-PLENO-21-05-2026.pdf",
+      "tipo": "Agenda del Pleno anterior (PDF)",
+      "titulo": "Agenda del Pleno de la sesión del jueves 21 de mayo de 2026."
     },
     {
-      "enlace": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQQ0ptQWFraU9uZTN6SkFhdmJFMTVhSjBVN0lnQ1J5M0xwNkZaRlRYR2gyeUZWdm8tbzQyN0gyM0NlYXhXSVdEVGRGb1BPc3FjX0R1SThMeGFUakRQNWNlWW9qd2MyUlhuRzBnYjgzb2FNbC16UHl1c3Rnem4yZ1JobVlheTZmeUFoX25BWURndkNwZkpiOXNDWndKNGRVQ1RjbmZyWk5ZX1podw?oc=5",
-      "fecha": "Wed, 24 Jun 2026",
-      "fuente": "Agencia Andina",
-      "resumen": "Congreso: hoy continúa sesión del pleno desde las 15:00 horas&nbsp;&nbsp;Agencia Andina",
-      "titulo": "Congreso: hoy continúa sesión del pleno desde las 15:00 horas - Agencia Andina"
+      "enlace": "https://www3.congreso.gob.pe/Docs/constitucion/reglamento/reglamento%20setiembre-2025.pdf",
+      "tipo": "Norma de referencia (PDF)",
+      "titulo": "Reglamento del Congreso de la República (setiembre 2025)"
     },
     {
-      "enlace": "https://news.google.com/rss/articles/CBMigAJBVV95cUxNRXIwcjdMWDRjNDh6Z0ZfbE4zQk9LZHNLZDlzVHVLRUZ6NmY4OFhtZ2pLU0xmLWZYSXQ5R0ZKS29OaUlXa3ZaMkNZOHUzd3JyVnptTlV2SEx3MXJFUjI5OVZseTBRWmVUbkdfcTloRFV2UUJNclA3b3RHbmZYWnNTbS1taHBMcWJOMUFHUk9OOFdZMXBtUk40RV90cmJ2TklkanlKMkdGYlVZa0U5bzZWZmJhYS1XeFBueUtVdS1UdE9zRnZBSVJWRXNUMVhfSmhzUzBsYWE2dHpZTEpTejNXWDBobjlUWXhMclJlQnEyOVJxVHZNbHpVTnpxOXBxMk9O0gGGAkFVX3lxTE1uR1FLcUVJR2FjRm0tVWtyYzJVaTY0TXlTVWctTWRSbFViS3Nvdk9VajZwRlhlemZFcEFueExwSXVwMDhrNjZJRW1QODFkRXlHUGtVanlHNjdONWFQVzhjSzRnT0x2c0tTMGF3LVFMMi16UDNsSDdVVXJsbWFjSVdFZ1M4R3lfUWNJc1Y1SGVRcXNldkxneGhNaFhWYmZzYjZlQnRVa3k0RHRueGh2NjlmSEM3VjRvVlBqVVlrOGppaWZKbFgwV1U5c2U3ajNNZFctNTd2R0JQNDBiYmxhalVfZ1BHbTI5RmFnQ2dCaFBUcTFkSF9LaU9QQUVlaWk1MTdYY1kyOFE?oc=5",
-      "fecha": "Thu, 04 Jun 2026",
-      "fuente": "La República",
-      "resumen": "Congreso suspende sesión del Pleno de hoy donde Roberto Sánchez había pedido incluir derogación de leyes pro crimen&nbsp;&nbsp;La República",
-      "titulo": "Congreso suspende sesión del Pleno de hoy donde Roberto Sánchez había pedido incluir derogación de leyes pro crimen - La República"
-    },
-    {
-      "enlace": "https://news.google.com/rss/articles/CBMi-AFBVV95cUxNNVVFM180ekVKdmJ0emlUUXlxTUJBTlFYYk5xb19lZFZpUGdkRXg0bjE1QkkxOE1hZVBTMGZsTmNiRFdpSjNON2R0b1AzeG9uVXNzN1hYR1NBemN6V2xuRENGcTNORDdCV2RwcXVuWjdRbzBqTnkzX3RJNU1nczluSW1ES0lhazBFdDJYeGRzeGI3Uy1pekhPOVNUSVhxazgwSjJNU2RLdS1BRkhodm1nZGpVOHNWeGZsQ0dIcWNpZ1JmUE9HSF90cjMzYk03SzZLUWNOTmRJaTNmM2xPdFVjNUQ4LUg5LXZLWm4zNWZ4TFplaUZ2YkMwRdIBkwJBVV95cUxNMlBJblFSa0NzRTJqYzVveUROQ2s2dWJOeHI3M1VMc2ZhcVViTXljUWJ6TDZOeVg5N19Mck1qbXBERkZjeXowLXoxOVRIdExyQW9sdEJyMFRfR1ZkeUp4NnUtTWVaVjBNVWRJVDdCUGFSWnB3ajV1QmFxZzlTVERDVFFlMXVKbFNEN2ROSzVndXdJcEk5bzJOcjFOajMxR2lHaEpSd3dKQld6SnE5YTBTM1BIb3B0TW5nY3pYNjB3aUMxNjYwWjA1ZkIzZlB3NUgwN2xUY2FBRVpYU3gwa3ZZenM4VWIwbUFsbkM4YnhTWkdiaTJ2MkJndXRXdGJzc3NHSFU3dVlQMzZTVThkTmUzSVNibw?oc=5",
-      "fecha": "Tue, 14 Jul 2026",
-      "fuente": "Infobae",
-      "resumen": "El Congreso vuelve a suspender el debate del crédito suplementario y la gratificación CAS queda sin resolver por cuarta vez&nbsp;&nbsp;Infobae",
-      "titulo": "El Congreso vuelve a suspender el debate del crédito suplementario y la gratificación CAS queda sin resolver por cuarta vez - Infobae"
-    },
-    {
-      "enlace": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPYmhSV0tmWl9uUVV3ZFpCRktQX0wwUXZmNDdzaDl0QlE5a0ZQR08tbnNqRGdWeDZiWHJXNFFvYkpLTHBFWTROSTliSGpyekZ3d2R2dEZVNWNJeUZrVEFEWFBxY0g4TjI4V25wUmNDbGV3T1VRbVBsZTRmY1ZXS3ZyMlZDSVhfVDh3T29YZVhjRUsxZ0hlOUJtdUNwSmdIN21lclRyU1lB?oc=5",
-      "fecha": "Tue, 31 Mar 2026",
-      "fuente": "Congreso",
-      "resumen": "Pleno del Congreso sesionará este miércoles 1 de abril&nbsp;&nbsp;Congreso",
-      "titulo": "Pleno del Congreso sesionará este miércoles 1 de abril - Congreso"
-    },
-    {
-      "enlace": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxOa04yUUNFNl8zRXVaV1VqeTZIdXNuWFQ5bHR1Vk9BTUdtd3o4dWNja1FWY1VEZnR3OGFPNS1XSFNtNEpNdWRDTnVtaGV6TVloUXBSTU9BY05YOXBPMTZmUWFUMldYaWxjTzVVZFRjcUY4b3NjRkdYRkNMbDNSeXgxUGM1VVR6RHktQXliYU5BN1B1Y1RIb0F2NW9GVXRtTkZ4eUU4cElTSFZjSFU?oc=5",
-      "fecha": "Wed, 29 Apr 2026",
-      "fuente": "TVPerú",
-      "resumen": "Pleno del Congreso se reunirá este jueves 30 desde las 10:00 a. m.&nbsp;&nbsp;TVPerú",
-      "titulo": "Pleno del Congreso se reunirá este jueves 30 desde las 10:00 a. m. - TVPerú"
-    },
-    {
-      "enlace": "https://news.google.com/rss/articles/CBMi3wFBVV95cUxNRThoSXp3ZVlwOEVyc1JvY1E0aW1HQnF5YmppTzRIbFJvbWlITklWQ3kwVjJFdmlhRGF4VUs0aWEtamdvWFhwZWc1c2EzNVd5andmWElRSjdaTDJ2cExnNzhIYkZaTUNELTI5cldleUJXblFQRG8wZnRqSmVFbTdyc2dhSmQwM0o0NFlLQ01JUDQxX18yYzBZU2ZtMHh0LTU5SVBPMVU2UmkwWmZzT19HbjJMdk14bGdhNHltVzZNLVl0eTMwQUlUampqSFdMa2M5NXM2cnUxTURzWVdnS3hv?oc=5",
-      "fecha": "Wed, 24 Jun 2026",
-      "fuente": "El Peruano",
-      "resumen": "El Peruano te informa: consulta aquí las principales normas legales para hoy, miércoles 24 de junio del 2026&nbsp;&nbsp;El Peruano",
-      "titulo": "El Peruano te informa: consulta aquí las principales normas legales para hoy, miércoles 24 de junio del 2026 - El Peruano"
-    },
-    {
-      "enlace": "https://news.google.com/rss/articles/CBMi5AFBVV95cUxPaEIwaGszSEpnSzhIMmtudlRQTzdXc0pvSkRyaGZZbnh0VG4wTzlibWxnMU9xMHVjR0FIdmNtdzVVY2FaaUxVNTJacTQ1YkxRd1Rxc1ZvSjZvZlBsa3J4UEg4WkRkZnBhNHN3RmxfRHdaN1VLUWdtNGJsV2xpQkpLd3ozQ3VQTElTb1pPdEptVTlrOUxsa3pXaVdJb3M5aVJTeC1EeWNPVkJOdmlNamJXZm9hc1hQOHhYZGtDYVBWeXZmemtjXzYtWXNNU1dEcjZ6Y3VaWlVaUTBrSXRKYWQ0Y2tkQ1I?oc=5",
-      "fecha": "Thu, 12 Mar 2026",
-      "fuente": "facebook.com",
-      "resumen": "🔴🔵El Pleno del Congreso de la República sesiona nuevamente por segunda vez de forma semipresencial este jueves 12 de marzo, en el marco del Segundo Período Anual de Sesiones 2025-2026. 🌐Más información en: https://www.exitosanoticias.pe&nbsp;&nbsp;facebook.com",
-      "titulo": "🔴🔵El Pleno del Congreso de la República sesiona nuevamente por segunda vez de forma semipresencial este jueves 12 de marzo, en el marco del Segundo Período Anual de Sesiones 2025-2026. 🌐Más información en: https://www.exitosanoticias.pe - facebook.com"
-    },
-    {
-      "enlace": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOME1uYW5CaFpIek1GWlVGaHFIYmNnSW0wWE1vcmg1cEZRT3VWLU9WSjV5VTc2WDFkSlJVQ3EyXzd6ajdKeGdJREViQUVVTXl3VWMxWGFueXV6dmE2QXZQS3dlZTd0NHZMYjE3TGFpVTFhY1c4VkV3OE5fZzk3c1BrdzdZWW8xaXhqVi1rY0owOVJLMHc5SllKMUtnMEloMHpuZUU4NVRFaGpaZVFpUFE?oc=5",
-      "fecha": "Thu, 14 May 2026",
-      "fuente": "Agencia Andina",
-      "resumen": "Congreso: sesión plenaria se desarrolla con discusión de proyectos de ley&nbsp;&nbsp;Agencia Andina",
-      "titulo": "Congreso: sesión plenaria se desarrolla con discusión de proyectos de ley - Agencia Andina"
-    },
-    {
-      "enlace": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxNdzA4M0owelpuRXdYU1RWVXRsMW51X0ZOcjJydFNrdXFCbEs3NTExZWVsbWppUHJTNTYzNzU5cW5RRDdwZ2VtVTNFakFsR0VXQ0hKUEMyY19yVkxqbUIyc0RDZEFxb0N5UFB1YTY5bjhiRk93Z1NveTk1d0lHcXFaX05WMG1xUHg5LWtrQTN6S3pLV25RNFNhdEd3UEhfVE5zZS1wU1g2SUhkbTQwakNqa1k2VzFGSTF3c0JUTEFqUVp2dw?oc=5",
-      "fecha": "Tue, 10 Mar 2026",
-      "fuente": "Congreso",
-      "resumen": "Junta de Portavoces define temas a ser debatidos en el Pleno de esta semana&nbsp;&nbsp;Congreso",
-      "titulo": "Junta de Portavoces define temas a ser debatidos en el Pleno de esta semana - Congreso"
-    },
-    {
-      "enlace": "https://news.google.com/rss/articles/CBMiywFBVV95cUxQb3VvaUoxSWd3V1hwal8xYUNhZ3R1UU45VTVOUWg0YlY2X21qOUx3UHp3RUN6SXpxTG8tdjdnV0pCZ1FlYXBMZVJfcVVId0IyNElIT0dwWGt3THNsVXltb1JzMnJqWjFlX2xoSXdDdFFMYWROQld3RVlVWWZMLUhyNkFJendMSF9RTEgwWU5HTmdaMlFvYnB5bnRVR0RuMWZuUEtRODdNRFdDaGhndTBKWnlzQXNYS2ZqWWFQdWF6UXItaGFpLUdzeDd3MNIB5gFBVV95cUxQUFNYWklkajB1RGptLXVYS2NBLVlDNzVVYXZMU29qS0ZraEwwbVpMY1JtVHRxOHVTNVVuSmpLSzZ0NjMwSFh6M1ZkWHZIZW9SMlVsVm9OV1pSMllmamhqTFNlanN5OFZpXzROc3VEc0pyeTc1UFNIX3FncnlQVnpiUHJpWEF6QzJsUnRYN2xPSWNReEVwV0wxb3FGUHF5a3Q5Mkp5X2NMdDlzT0lPV2EydDN1NV9MRlFNNURGRFJQelFSTndzeUtQZGpCM3RfeEVzelFSb3BQRk9kRkZGVzdFbVV3MEJMQQ?oc=5",
-      "fecha": "Thu, 04 Jun 2026",
-      "fuente": "Infobae",
-      "resumen": "Congreso cancela Pleno de hoy: Roberto Sánchez iba a buscar que se deroguen leyes ‘procrimen’&nbsp;&nbsp;Infobae",
-      "titulo": "Congreso cancela Pleno de hoy: Roberto Sánchez iba a buscar que se deroguen leyes ‘procrimen’ - Infobae"
-    },
-    {
-      "enlace": "https://news.google.com/rss/articles/CBMi8AFBVV95cUxPMXFjcXExRXUzTTFnanpMRTd5b01DTFh0Uklma3lOLUptZGw1eEF2UE5MZjVzVWlyUGRKZWl6dmhrZmpBQ2dMd3BXY1R3MVpzLTR6VWdSeVdqaS1qSjFacDN2SVd0NlZaVXVZd0ZRanU0OEtnYW5rSUVCQktEZlRWUnN0cU5HQXpDUG5VWnIxRTVFcGxQTDk5aUpJX29EcGEwVHh0MURWb1NnNEEzcm9Sek9jY0hXcU1Rdk45bXZSLVNTQ21YdWNlbGlJaUIyY25IUHlFTUljVjVIV3BLd3JETlZnYWhHWWE0ZG8yRnRWcFc?oc=5",
-      "fecha": "Thu, 04 Jun 2026",
-      "fuente": "facebook.com",
-      "resumen": "La Oficialía Mayor del Congreso comunicó la suspensión de la sesión del Pleno programada para este 4 de junio debido a la renuncia del ministro de Comercio Exterior, José Fernando Reyes Llanos. La decisión se produjo luego de que Roberto Sánchez so&nbsp;&nbsp;facebook.com",
-      "titulo": "La Oficialía Mayor del Congreso comunicó la suspensión de la sesión del Pleno programada para este 4 de junio debido a la renuncia del ministro de Comercio Exterior, José Fernando Reyes Llanos. La decisión se produjo luego de que Roberto Sánchez so - facebook.com"
+      "enlace": "https://www3.congreso.gob.pe/Docs/files/constitucion/constitucion-12-2024.pdf",
+      "tipo": "Norma de referencia (PDF)",
+      "titulo": "Constitución Política del Perú (dic. 2024)"
     }
-  ]
+  ],
+  "estado_fuente": "El portal del Congreso no tiene publicaciones en DESTACADO ni en CITACIONES en este momento (sus widgets muestran 'No hay publicaciones para mostrar'). No es un fallo de conexión.",
+  "fuente": "https://www.congreso.gob.pe/home/"
 }
