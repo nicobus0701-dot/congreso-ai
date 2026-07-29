@@ -50,7 +50,20 @@
   }
 
   function saveConvs() {
-    localStorage.setItem(STORE, JSON.stringify(convs));
+    // localStorage tiene ~5 MB: unas pocas respuestas de expediente completo
+    // lo llenan y setItem tira QuotaExceededError. Si eso escala, congela el
+    // chat entero, así que acá se descartan las conversaciones más viejas.
+    try {
+      localStorage.setItem(STORE, JSON.stringify(convs));
+    } catch (e) {
+      console.warn('localStorage lleno, recortando historial:', e.name);
+      try {
+        convs = convs.slice(0, 10);
+        localStorage.setItem(STORE, JSON.stringify(convs));
+      } catch {
+        localStorage.removeItem(STORE);
+      }
+    }
     if (window.electronAPI?.saveHistory) {
       window.electronAPI.saveHistory(convs).catch(() => {});
     }
@@ -313,21 +326,29 @@
       }
     } catch (err) {
       renderContent(assistantEl, `**Error de conexión:** ${err.message}`);
-    }
-
-    if (fullText) {
-      conv.messages.push({ role: 'assistant', content: fullText });
-      saveConvs();
-      addCopyBtns(assistantEl);
-      addMessageCopyBtns(assistantEl.closest('.message'), fullText);
-      if (toolCalled && hasExportableContent(fullText)) {
-        addExportBtns(assistantEl.closest('.message'), fullText);
+    } finally {
+      // Ojo: esto va sí o sí en el finally. Si `streaming` se queda en true
+      // (por ej. si saveConvs revienta con el localStorage lleno), los chips
+      // y el botón de enviar dejan de responder para siempre, sin ningún error
+      // visible, hasta recargar la ventana.
+      try {
+        if (fullText) {
+          conv.messages.push({ role: 'assistant', content: fullText });
+          saveConvs();
+          addCopyBtns(assistantEl);
+          addMessageCopyBtns(assistantEl.closest('.message'), fullText);
+          if (toolCalled && hasExportableContent(fullText)) {
+            addExportBtns(assistantEl.closest('.message'), fullText);
+          }
+        }
+      } catch (e) {
+        console.error('Error al guardar/renderizar la respuesta:', e);
       }
-    }
 
-    streaming = false;
-    sendBtn.disabled = !msgInput.value.trim();
-    scrollBottom();
+      streaming = false;
+      sendBtn.disabled = !msgInput.value.trim();
+      scrollBottom();
+    }
   }
 
   // ── DOM helpers ───────────────────────────────────
@@ -779,9 +800,25 @@ ${table.outerHTML}
 
 
   // ── Markdown parser ───────────────────────────────
-  // marked + DOMPurify: más robusto que el parser manual y XSS-safe
-  marked.setOptions({ breaks: true, gfm: true });
+  // marked + DOMPurify: más robusto que el parser manual y XSS-safe.
+  // El guard importa: si alguna de las dos librerías no cargó, una excepción
+  // acá aborta el resto del script y deja sin cablear los listeners de más
+  // abajo (navegación), con la app aparentemente viva pero sin botones.
+  const MD_OK = typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined';
+  if (MD_OK) {
+    marked.setOptions({ breaks: true, gfm: true });
+  } else {
+    console.error('marked/DOMPurify no cargaron — se muestra el texto sin formato.');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   function parseMarkdown(md) {
+    // Degradar a texto plano escapado antes que romper el chat.
+    if (!MD_OK) return `<p>${escapeHtml(md).replace(/\n/g, '<br>')}</p>`;
     const raw = marked.parse(md);
     return DOMPurify.sanitize(raw, {
       ADD_ATTR: ['target', 'rel'],
