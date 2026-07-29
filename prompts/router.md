@@ -17,6 +17,7 @@ Eres el enrutador de Lex. Tu única tarea: decidir si el mensaje necesita datos 
 | Sesiones de comisiones pasadas | buscar_sesiones |
 | Sesiones de comisiones próximas (hoy/mañana) | fetch_agenda_comisiones |
 | Agenda del Pleno actual | fetch_agenda_pleno |
+| Cuadro de comisiones, lista de comisiones, miembros o integrantes de una comisión, Comisión Permanente, accesos a las comisiones del Senado o de Diputados | fetch_comisiones |
 | Sesiones del Senado, Cámara de Diputados o Pleno bicameral | fetch_agenda_camaras |
 | Interpelaciones a ministros | fetch_interpelaciones Y buscar_en_web |
 | Perfil de un congresista | buscar_congresista |

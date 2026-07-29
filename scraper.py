@@ -1218,3 +1218,91 @@ def _detectar_camara(texto: str) -> str:
     if "comisión" in t or "comision" in t:
         return "Comisión"
     return "Congreso"
+
+
+# ── Cuadro de comisiones y Comisión Permanente ─────────────────
+
+# Enlaces oficiales verificados (todos responden 200). El visor de PDF de las
+# páginas /comisiones/ del Senado y Diputados está roto del lado del Congreso
+# —el iframe nunca recibe archivo—, así que el cuadro se arma con la API SPLEY
+# y estos enlaces se ofrecen como acceso directo.
+COMISIONES_ENLACES = {
+    "senado": {
+        "Comisiones del Senado":        "https://senado.congreso.gob.pe/comisiones/",
+        "Portal del Senado":            "https://senado.congreso.gob.pe/",
+    },
+    "diputados": {
+        "Comisiones de Diputados":      "https://diputados.congreso.gob.pe/comisiones/",
+        "Portal de Diputados":          "https://diputados.congreso.gob.pe/",
+    },
+    "comunes": {
+        "Visor de sesiones de comisiones":
+            "https://wb2server.congreso.gob.pe/visor-sesiones/#/",
+        "Comisiones especiales":
+            "https://wb2server.congreso.gob.pe/comisiones-especiales-visor/#/comisiones/especiales",
+        "Comisiones investigadoras":
+            "https://wb2server.congreso.gob.pe/comisiones-investigadoras-visor/#/comisiones/investigadoras",
+    },
+}
+
+
+async def fetch_comisiones(camara: str = None):
+    """
+    Cuadro de comisiones del Congreso y datos de la Comisión Permanente.
+
+    Los nombres salen de la API SPLEY (/comisiones), que es pública y no
+    requiere auth. La composición nominal de cada comisión vive tras
+    service-portal-publico-ext, que exige token, así que no se puede obtener:
+    para eso se devuelven los enlaces oficiales.
+    """
+    comisiones, permanente, error = [], None, None
+
+    try:
+        async with _client() as c:
+            r = await c.get(f"{SPLEY_API}/comisiones")
+        if r.status_code == 200:
+            for item in r.json().get("data", []):
+                nombre = (item.get("nombreComision") or "").strip()
+                if not nombre:
+                    continue
+                # Solo el nombre: el listado completo en dicts supera los 7 000
+                # chars con que el orquestador recorta los tool results.
+                if "permanente" in nombre.lower():
+                    permanente = nombre
+                else:
+                    comisiones.append(nombre)
+        else:
+            error = f"SPLEY respondió {r.status_code}"
+    except Exception as e:
+        logger.warning("fetch_comisiones: SPLEY falló: %s", e)
+        error = str(e)
+
+    comisiones.sort()
+
+    cam = (camara or "").lower().strip()
+    enlaces = dict(COMISIONES_ENLACES["comunes"])
+    if cam in ("senado", "diputados"):
+        enlaces = {**COMISIONES_ENLACES[cam], **enlaces}
+    else:
+        enlaces = {**COMISIONES_ENLACES["senado"],
+                   **COMISIONES_ENLACES["diputados"], **enlaces}
+
+    resultado = {
+        "fuente": "API SPLEY del Congreso (api.congreso.gob.pe) + portales oficiales",
+        "total_comisiones": len(comisiones),
+        "comisiones": comisiones,
+        "comision_permanente": permanente,
+        "enlaces_oficiales": enlaces,
+        "nota_composicion": (
+            "El Congreso no publica la composición nominal de las comisiones en una "
+            "API abierta: ese dato está detrás de un servicio con autenticación. "
+            "Los enlaces oficiales de arriba son la vía para consultar los miembros."
+        ),
+    }
+    if error and not comisiones:
+        resultado["sin_datos"] = True
+        resultado["mensaje"] = (
+            f"No se pudo obtener el cuadro de comisiones desde SPLEY ({error}). "
+            "Los enlaces oficiales siguen disponibles."
+        )
+    return resultado

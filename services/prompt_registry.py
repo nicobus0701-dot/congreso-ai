@@ -24,6 +24,7 @@ WORKFLOWS = {
     "fetch_interpelaciones":   load_prompt("workflow_interpelaciones"),
     "fetch_agenda_camaras":    load_prompt("workflow_agenda_camaras"),
     "buscar_proyectos":        load_prompt("workflow_proyectos"),
+    "fetch_comisiones":        load_prompt("workflow_comisiones"),
 }
 
 # Flujos que dependen de un PDF/transcript cargado, no de una herramienta.

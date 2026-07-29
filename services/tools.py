@@ -7,7 +7,7 @@ STATUS_LABELS— texto de progreso que ve el usuario mientras corre cada una.
 """
 import asyncio
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 from config import logger
 from scraper import (
@@ -15,6 +15,7 @@ from scraper import (
     fetch_agenda_camaras,
     fetch_agenda_comisiones,
     fetch_agenda_pleno,
+    fetch_comisiones,
     fetch_congresista,
     fetch_destacados,
     fetch_estado_proyecto,
@@ -263,6 +264,31 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "fetch_comisiones",
+            "description": (
+                "Obtiene el CUADRO DE COMISIONES del Congreso del Perú (las 89 comisiones "
+                "ordinarias, especiales y de investigación) y los accesos oficiales a la "
+                "COMISIÓN PERMANENTE y a las comisiones del Senado y de la Cámara de "
+                "Diputados. Devuelve además los enlaces directos verificados a los portales "
+                "y visores oficiales. Úsala SIEMPRE que el usuario pida el cuadro de "
+                "comisiones, la lista de comisiones, los miembros o integrantes de una "
+                "comisión, o los accesos a la Comisión Permanente del Senado o Diputados. "
+                "NO respondas que no tienes acceso: llama a esta herramienta."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "camara": {
+                        "type": "string",
+                        "description": "Opcional. 'senado' o 'diputados' para priorizar los enlaces de esa cámara. Omitir para incluir ambas."
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "responder_directo",
             "description": (
                 "Usar cuando la pregunta NO requiere datos actualizados del Congreso ni "
@@ -327,18 +353,31 @@ TOOLS = [
 ]
 
 async def buscar_en_web(query: str, limit: int = 5):
-    """DuckDuckGo en un executor — el SDK es síncrono y bloquearía el loop."""
+    """
+    Búsqueda web en un executor — el SDK es síncrono y bloquearía el loop.
+
+    Usa `ddgs`. El paquete anterior (`duckduckgo_search`) quedó deprecado y su
+    parser dejó de extraer resultados: devolvía [] para toda consulta sin lanzar
+    excepción, así que el modelo concluía "no tengo acceso" en vez de fallar.
+    Por eso acá una lista vacía se reporta explícitamente como sin_datos.
+    """
     def _search():
         with DDGS() as ddgs:
             return list(ddgs.text(query, max_results=limit))
 
     try:
         results = await asyncio.get_running_loop().run_in_executor(None, _search)
-        return [{"titulo": r.get("title"), "url": r.get("href"), "resumen": r.get("body")}
-                for r in results]
     except Exception as e:
-        logger.warning("buscar_en_web falló: %s", e)
-        return {"sin_datos": True, "mensaje": str(e)}
+        logger.warning("buscar_en_web falló para %r: %s", query, e)
+        return {"sin_datos": True, "mensaje": f"La búsqueda web falló: {e}"}
+
+    if not results:
+        logger.warning("buscar_en_web sin resultados para %r", query)
+        return {"sin_datos": True,
+                "mensaje": f"La búsqueda web no devolvió resultados para '{query}'."}
+
+    return [{"titulo": r.get("title"), "url": r.get("href"), "resumen": r.get("body")}
+            for r in results]
 
 
 async def _responder_directo():
@@ -358,6 +397,7 @@ TOOL_MAP = {
                                ),
     "fetch_agenda_comisiones": lambda args: fetch_agenda_comisiones(**{k: v for k, v in args.items() if k in ("dias", "comision")}),
     "fetch_agenda_pleno":      lambda args: fetch_agenda_pleno(),
+    "fetch_comisiones":        lambda args: fetch_comisiones(**{k: v for k, v in args.items() if k in ("camara",)}),
     "fetch_agenda_camaras":    lambda args: fetch_agenda_camaras(**{k: v for k, v in args.items() if k in ("dias", "camara")}),
     "fetch_interpelaciones":   lambda args: fetch_interpelaciones(**{k: v for k, v in args.items() if k in ("ministro",)}),
     "responder_directo":       lambda args: _responder_directo(),
@@ -374,6 +414,7 @@ STATUS_LABELS = {
     "fetch_expediente":        "Consultando el expediente completo en SPLEY (5 pestañas)...",
     "fetch_agenda_comisiones": "Revisando agenda de comisiones...",
     "fetch_agenda_pleno":      "Cargando la Agenda del Pleno...",
+    "fetch_comisiones":        "Consultando el cuadro de comisiones...",
     "fetch_agenda_camaras":    "Revisando agenda del Congreso bicameral...",
     "fetch_interpelaciones":   "Buscando mociones de interpelación...",
     "responder_directo":       "Pensando...",
