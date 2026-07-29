@@ -1,0 +1,45 @@
+{
+  "fuente": "SPLEY — api.congreso.gob.pe",
+  "items": [
+    {
+      "autor": "Luque Ibarra, Ruth; Bazán Narro, Sigrid Tesoro; Paredes Piqué, Susel Ana María",
+      "comision": "",
+      "enlace": "https://wb2server.congreso.gob.pe/spley-portal/#/expediente/2021/14864",
+      "estado": "PRESENTADO",
+      "fecha_presentacion": "2026-07-22",
+      "grupo_parlamentario": "",
+      "legislatura": "",
+      "numero": "14864/2025-CR",
+      "proponente": "Congreso",
+      "sumilla": "PROYECTO DE LEY QUE RESTITUYE LA COMPETENCIA DE LA JURISDICCIÓN ORDINARIA SOBRE LOS PROCESOS PENALES SEGUIDOS CONTRA MILITARES Y POLICÍAS",
+      "titulo": "PROYECTO DE LEY QUE RESTITUYE LA COMPETENCIA DE LA JURISDICCIÓN ORDINARIA SOBRE LOS PROCESOS PENALES SEGUIDOS CONTRA MILITARES Y POLICÍAS"
+    },
+    {
+      "autor": "Poder Ejecutivo",
+      "comision": "",
+      "enlace": "https://wb2server.congreso.gob.pe/spley-portal/#/expediente/2021/14863",
+      "estado": "PRESENTADO",
+      "fecha_presentacion": "2026-07-20",
+      "grupo_parlamentario": "",
+      "legislatura": "",
+      "numero": "14863/2025-PE",
+      "proponente": "Poder Ejecutivo",
+      "sumilla": "PROYECTO DE LEY QUE MODIFICA LA LEY N.° 27943, LEY DEL SISTEMA PORTUARIO NACIONAL, A FIN DE OTORGAR LA FACULTAD DE EJECUCIÓN COACTIVA A LA AUTORIDAD PORTUARIA NACIONAL",
+      "titulo": "PROYECTO DE LEY QUE MODIFICA LA LEY N.° 27943, LEY DEL SISTEMA PORTUARIO NACIONAL, A FIN DE OTORGAR LA FACULTAD DE EJECUCIÓN COACTIVA A LA AUTORIDAD PORTUARIA NACIONAL"
+    },
+    {
+      "autor": "Poder Ejecutivo",
+      "comision": "",
+      "enlace": "https://wb2server.congreso.gob.pe/spley-portal/#/expediente/2021/14862",
+      "estado": "PRESENTADO",
+      "fecha_presentacion": "2026-07-17",
+      "grupo_parlamentario": "",
+      "legislatura": "",
+      "numero": "14862/2025-PE",
+      "proponente": "Poder Ejecutivo",
+      "sumilla": "PROYECTO DE LEY DE CREACIÓN DEL DISTRITO DE WINCHINKIM EN LA PROVINCIA DE CONDORCANQUI DEL DEPARTAMENTO DE AMAZONAS",
+      "titulo": "PROYECTO DE LEY DE CREACIÓN DEL DISTRITO DE WINCHINKIM EN LA PROVINCIA DE CONDORCANQUI DEL DEPARTAMENTO DE AMAZONAS"
+    }
+  ],
+  "total": 3
+}

@@ -1,0 +1,54 @@
+{
+  "adherentes": "",
+  "autor_principal": "Luque Ibarra, Ruth",
+  "coautores": "Bazán Narro, Sigrid Tesoro, Paredes Piqué, Susel Ana María",
+  "comisiones": [],
+  "documentacion_anexa": [],
+  "enlace_expediente": "",
+  "estado": "PRESENTADO",
+  "fases": [
+    "Presentado"
+  ],
+  "fecha_presentacion": "22/07/2026",
+  "fuente": "SPLEY expediente — https://api.congreso.gob.pe/spley-portal-service",
+  "grupo_parlamentario": "Bloque Democrático Popular",
+  "legislatura": "Segunda Legislatura Ordinaria 2025",
+  "numero": "14864/2025-CR",
+  "opinion_ciudadana": {
+    "a_favor": 0,
+    "comentarios": 0,
+    "en_contra": 0,
+    "total_opiniones": 0
+  },
+  "periodo_parlamentario": "2021-2026",
+  "predictamen": null,
+  "proponente": "Congreso",
+  "proyectos_acumulados": [],
+  "secciones": [],
+  "seguimiento": [
+    {
+      "adjuntos": [
+        {
+          "descripcion": "PL 14864",
+          "nombre": "PL 14864.pdf",
+          "tipo": "pdf",
+          "url": "https://api.congreso.gob.pe/spley-portal-service/expediente/archivo/PL%2014864.pdf"
+        }
+      ],
+      "comision": "",
+      "detalle": "PROYECTO DE LEY QUE RESTITUYE LA COMPETENCIA DE LA JURISDICCIÓN ORDINARIA SOBRE LOS PROCESOS PENALES SEGUIDOS CONTRA MILITARES Y POLICÍAS",
+      "estado": "PRESENTADO",
+      "fecha": "2026-07-22"
+    }
+  ],
+  "sumilla": "PROPONE RESTITUIR LA COMPETENCIA DE LA JURISDICCIÓN ORDINARIA PARA CONOCER LOS PROCESOS PENALES SEGUIDOS CONTRA MIEMBROS DE LAS FUERZAS ARMADAS Y DE LA POLICÍA NACIONAL DEL PERÚ POR HECHOS QUE NO CONSTITUYAN DELITOS DE FUNCIÓN, GARANTIZANDO EL DERECHO AL JUEZ NATURAL Y EL CARÁCTER EXCEPCIONAL DE LA JURISDICCIÓN MILITAR POLICIAL, DE CONFORMIDAD CON LA CONSTITUCIÓN POLÍTICA. PARA ELLO, SE DEJAN SIN EFECTO LAS DISPOSICIONES DE LA LEY 32735 QUE PERMITEN EL DESPLAZAMIENTO DE LA JURISDICCIÓN ORDINARIA Y EL ARCHIVO DE LOS PROCESOS PENALES TRAMITADOS ANTE ELLA",
+  "titulo": "PROYECTO DE LEY QUE RESTITUYE LA COMPETENCIA DE LA JURISDICCIÓN ORDINARIA SOBRE LOS PROCESOS PENALES SEGUIDOS CONTRA MILITARES Y POLICÍAS",
+  "todos_los_adjuntos": [
+    {
+      "descripcion": "PL 14864",
+      "nombre": "PL 14864.pdf",
+      "tipo": "pdf",
+      "url": "https://api.congreso.gob.pe/spley-portal-service/expediente/archivo/PL%2014864.pdf"
+    }
+  ]
+}

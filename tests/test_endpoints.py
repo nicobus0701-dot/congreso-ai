@@ -54,7 +54,7 @@ async def test_congreso_proyectos_shape(client):
             }
         ]
     }
-    with patch("server.fetch_proyectos", new=AsyncMock(return_value=fake_data)):
+    with patch("routers.pdfs.fetch_proyectos", new=AsyncMock(return_value=fake_data)):
         r = await client.get("/congreso-proyectos")
     assert r.status_code == 200
     data = r.json()
@@ -73,7 +73,7 @@ async def test_congreso_pdfs_shape(client):
         ],
         "citaciones": [],
     }
-    with patch("server.fetch_destacados", new=AsyncMock(return_value=fake_destacados)):
+    with patch("routers.pdfs.fetch_destacados", new=AsyncMock(return_value=fake_destacados)):
         r = await client.get("/congreso-pdfs")
     assert r.status_code == 200
     data = r.json()
