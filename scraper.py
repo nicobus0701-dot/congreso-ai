@@ -3,15 +3,17 @@ Scrapers for Congreso de la República del Perú.
 - Proyectos de ley: SPLEY API (api.congreso.gob.pe/spley-portal-service)
 - Sesiones / Agenda / Destacados: DuckDuckGo news + fallback HTML
 """
-import os
 import logging
-import httpx
+import os
 import re
 import urllib.parse
 
+import httpx
+
 logger = logging.getLogger("congreso-ai.scraper")
-from bs4 import BeautifulSoup
 from datetime import datetime
+
+from bs4 import BeautifulSoup
 
 TIMEOUT = 25
 HEADERS = {
@@ -41,8 +43,8 @@ def _fmt_date(s):
         try:
             dt = datetime.strptime(str(s)[:25], fmt)
             return dt.strftime("%d/%m/%Y")
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("scraper silenced: %s", _e)
     return str(s)[:10] if s else ""
 
 
@@ -82,7 +84,8 @@ async def _google_news(query: str, max_results: int = 15):
                         "enlace":  link,
                     })
             return results
-    except Exception:
+    except Exception as _e:
+        logger.debug("scraper silenced: %s", _e)
         return []
 
 
@@ -106,7 +109,8 @@ async def _fetch_spley_por_materia(materia: str, limit: int = 20):
             if r.status_code != 200:
                 return None
             all_items = r.json().get("data", {}).get("proyectos", [])
-    except Exception:
+    except Exception as _e:
+        logger.debug("scraper → None: %s", _e)
         return None
 
     matches = [
@@ -155,7 +159,8 @@ async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
                         payload["comisionId"] = match["comisionId"]
                     else:
                         payload["strBusqueda"] = comision
-            except Exception:
+            except Exception as _e:
+                logger.debug("comision lookup failed, fallback to text: %s", _e)
                 payload["strBusqueda"] = comision
 
         try:
@@ -172,15 +177,15 @@ async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
                             for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
                                 try:
                                     return datetime.strptime(str(s)[:19], fmt)
-                                except Exception:
-                                    pass
+                                except Exception as _e:
+                                    logger.debug("scraper silenced: %s", _e)
                             return None
                         items = [p for p in items
                                  if _parse_raw(p.get("fecPresentacion") or "") is not None
                                  and _parse_raw(p.get("fecPresentacion")) >= cutoff]
                     return _format_proyectos(items[:limit])
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("scraper silenced: %s", _e)
 
         return {
             "error": "No se pudo conectar con el sistema SPLEY del Congreso. "
@@ -244,8 +249,8 @@ async def fetch_sesiones(comision=None, fecha=None, limit=20):
             if items:
                 return {"fuente": "congreso.gob.pe/comisiones2020 (HTML)",
                         "total": len(items), "items": items}
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("scraper silenced: %s", _e)
 
     return {
         "error": "No se pudo obtener información de sesiones. "
@@ -279,8 +284,8 @@ async def fetch_agenda():
             if lines:
                 return {"fuente": "congreso.gob.pe",
                         "contenido": "\n".join(lines[:60])}
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("scraper silenced: %s", _e)
 
     return {
         "error": "No se pudo obtener la agenda parlamentaria. "
@@ -327,7 +332,8 @@ async def fetch_destacados():
             "citaciones": citaciones,
         }
 
-    except Exception:
+    except Exception as _e:
+        logger.warning("Congreso scrape failed, fallback Google News: %s", _e)
         # Fallback: Google News RSS
         query = "congreso perú noticias destacados sesión pleno ley 2026"
         noticias = await _google_news(query, max_results=15)
@@ -401,8 +407,8 @@ async def fetch_estado_proyecto(numero: str):
                         "enlace":        f"{SPLEY_PORTAL}/{PER_PAR_ID}/{num}" if num else "",
                         "fuente":        "SPLEY — api.congreso.gob.pe",
                     }
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("scraper silenced: %s", _e)
 
     return {"error": f"No se encontró el proyecto '{numero}'. Verifica el número e intenta de nuevo."}
 
@@ -413,7 +419,9 @@ YT_CHANNEL = "https://www.youtube.com/@congresodelarepublicaperu/streams"
 
 async def fetch_videos_youtube(limit=20):
     """Lista los videos más recientes del canal oficial del Congreso."""
-    import asyncio, yt_dlp
+    import asyncio
+
+    import yt_dlp
 
     def _extract():
         opts = {
@@ -515,7 +523,8 @@ def _ydl_cookie_opts():
                 if jar is not None:
                     _cookie_opts_cache = {"cookiesfrombrowser": (browser,)}
                     return _cookie_opts_cache
-            except Exception:
+            except Exception as _e:
+                logger.debug("cookie extract failed for browser: %s", _e)
                 continue
 
     _cookie_opts_cache = {}
@@ -561,7 +570,8 @@ def get_yt_captions(video_id: str):
 
     try:
         info = _resolve_yt_info(video_id)
-    except Exception:
+    except Exception as _e:
+        logger.debug("scraper → None: %s", _e)
         return None
 
     # Buscar en subtítulos manuales primero, luego automáticos
@@ -579,7 +589,8 @@ def get_yt_captions(video_id: str):
                 text = _parse_vtt(resp.text)
                 if text.strip():
                     return {"ok": True, "text": text[:40000], "source": "subtitulos"}
-            except Exception:
+            except Exception as _e:
+                logger.debug("VTT fetch failed: %s", _e)
                 continue
 
     return None
@@ -590,8 +601,9 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
     Captura hasta `minutes` minutos de audio via ffmpeg+HLS y transcribe con Groq Whisper.
     Usa el mismo enfoque que el live transcriber: resolve URL con yt-dlp, captura con ffmpeg.
     """
-    import tempfile
     import subprocess
+    import tempfile
+
     from groq import Groq
 
     seconds = minutes * 60
@@ -660,6 +672,7 @@ _SPLEY_KEY = "ProdALg5ZrAsxBMD"
 
 def _spley_encrypt(value: str) -> str:
     import base64
+
     from Crypto.Cipher import AES
     from Crypto.Util.Padding import pad
     key = _SPLEY_KEY.encode("utf-8")
@@ -705,8 +718,8 @@ async def fetch_expediente(numero: str):
             r = await c.get(f"{base_url}{path}")
             if r.status_code == 200:
                 return r.json().get("data", {})
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("scraper silenced: %s", _e)
         return {}
 
     async with _client() as c:
@@ -945,7 +958,8 @@ async def fetch_agenda_comisiones(dias: int = 2, comision: str = None):
                     "enlace": e["enlace"],
                     "contenido": contenido,
                 })
-            except Exception:
+            except Exception as _e:
+                logger.debug("sintesis item failed: %s", _e)
                 continue
 
     if not sintesis:
@@ -1001,7 +1015,8 @@ async def fetch_agenda_pleno():
         import fitz
         doc = fitz.open(stream=rd.content, filetype="pdf")
         texto = "\n".join(page.get_text() for page in doc).strip()
-    except Exception:
+    except Exception as _e:
+        logger.debug("PDF parse failed, fallback to HTML text: %s", _e)
         texto = BeautifulSoup(rd.text, "html.parser").get_text(separator="\n", strip=True)
 
     low = texto.lower()
@@ -1063,8 +1078,8 @@ async def fetch_interpelaciones(ministro: str = None):
                                 "comision":  p.get("desComision") or "",
                                 "enlace":    f"{SPLEY_PORTAL}/{PER_PAR_ID}/{num}" if num else "",
                             })
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("scraper silenced: %s", _e)
 
     # ── 2. Noticias recientes (prensa) ────────────────────────────
     base = f"interpelación {ministro} " if ministro else "interpelación ministro "
@@ -1170,7 +1185,8 @@ async def fetch_agenda_camaras(dias: int = 2, camara: str = None):
                         i += 1
 
                 sesiones_total.extend(sesiones_dia)
-            except Exception:
+            except Exception as _e:
+                logger.debug("sesiones day parse failed: %s", _e)
                 continue
 
     if camara:

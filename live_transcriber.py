@@ -3,11 +3,11 @@ Pipeline de transcripción en vivo para streams de YouTube.
 Extrae audio en chunks de 10s con ffmpeg y transcribe con Groq Whisper.
 """
 import asyncio
-import os
-import time
 import json
+import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 # NOTE: Using YouTube streams via yt-dlp + ffmpeg may conflict with YouTube ToS
@@ -20,6 +20,7 @@ def get_stream_url(video_id: str) -> tuple:
     Uses yt-dlp to resolve the best audio HLS URL.
     """
     import yt_dlp
+
     from scraper import _ydl_cookie_opts
 
     url = f"https://www.youtube.com/watch?v={video_id}"

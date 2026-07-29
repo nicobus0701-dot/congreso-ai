@@ -779,80 +779,17 @@ ${table.outerHTML}
 
 
   // ── Markdown parser ───────────────────────────────
+  // marked + DOMPurify: más robusto que el parser manual y XSS-safe
+  marked.setOptions({ breaks: true, gfm: true });
   function parseMarkdown(md) {
-    // Extraer bloques de código antes de procesar para no escaparlos ni tocarlos
-    const codeBlocks = [];
-    let h = md.replace(/```[\s\S]*?```/g, m => {
-      codeBlocks.push(m);
-      return `\x00CODE${codeBlocks.length - 1}\x00`;
+    const raw = marked.parse(md);
+    return DOMPurify.sanitize(raw, {
+      ADD_ATTR: ['target', 'rel'],
+      ALLOWED_TAGS: ['p','br','h1','h2','h3','h4','h5','h6',
+        'strong','em','code','pre','blockquote',
+        'table','thead','tbody','tr','th','td',
+        'ul','ol','li','a','hr','span'],
     });
-
-    // Escapar HTML del texto plano antes de aplicar markdown
-    // (previene XSS si el modelo emite tags en su respuesta)
-    h = h.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-    // Tables (opera sobre texto ya escapado)
-    h = h.replace(
-      /^\|(.+)\|\s*\n\|[-| :]+\|\s*\n((?:\|.+\|\s*\n?)*)/gm,
-      (_, header, body) => {
-        const ths = header.split('|').filter(s => s.trim())
-          .map(s => `<th>${s.trim()}</th>`).join('');
-        const rows = body.trim().split('\n').filter(Boolean).map(row => {
-          const cells = row.split('|').slice(1, -1)
-            .map(s => `<td>${s.trim()}</td>`).join('');
-          return `<tr>${cells}</tr>`;
-        }).join('');
-        return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
-      }
-    );
-
-    // Headings
-    h = h.replace(/^### (.+)$/gm, (_, t) => `<h3>${t}</h3>`);
-    h = h.replace(/^## (.+)$/gm,  (_, t) => `<h2>${t}</h2>`);
-    h = h.replace(/^# (.+)$/gm,   (_, t) => `<h1>${t}</h1>`);
-
-    // Links — solo schemes http/https permitidos
-    h = h.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-      (_, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
-    h = h.replace(/(^|[\s>])(https?:\/\/[^\s<]+)/g,
-      (_, pre, url) => `${pre}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
-
-    // Bold / italic
-    h = h.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    h = h.replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>');
-    h = h.replace(/\*(.+?)\*/g,         '<em>$1</em>');
-
-    // Inline code
-    h = h.replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`);
-
-    // Lists
-    h = h.replace(/(^[-*] .+$(\n^[-*] .+$)*)/gm, block => {
-      const items = block.split('\n').map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('');
-      return `<ul>${items}</ul>`;
-    });
-    h = h.replace(/(^\d+\. .+$(\n^\d+\. .+$)*)/gm, block => {
-      const items = block.split('\n').map(l => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('');
-      return `<ol>${items}</ol>`;
-    });
-
-    // Paragraphs
-    h = h.replace(/\n{2,}/g, '</p><p>');
-    h = h.replace(/\n/g, '<br>');
-    h = `<p>${h}</p>`;
-
-    // Clean up blocks wrapped in <p>
-    h = h.replace(/<p>(<(?:table|ul|ol|h[1-6])[^>]*>)/g, '$1');
-    h = h.replace(/(<\/(?:table|ul|ol|h[1-6])>)<\/p>/g, '$1');
-    h = h.replace(/<p><\/p>/g, '').replace(/<p><br><\/p>/g, '');
-
-    // Restaurar bloques de código
-    h = h.replace(/\x00CODE(\d+)\x00/g, (_, i) => {
-      const block = codeBlocks[+i];
-      const inner = block.slice(3, -3).replace(/^[^\n]*\n?/, '');
-      return `<pre><code>${escHtml(inner)}</code></pre>`;
-    });
-
-    return h;
   }
 
   function escHtml(s) {

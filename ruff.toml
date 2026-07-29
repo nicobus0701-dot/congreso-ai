@@ -1,0 +1,25 @@
+[lint]
+# Solo reglas de calidad crítica — D (docstrings), E501 (longitud) y S110/S112
+# se ignoran en este proyecto por el estilo actual del código.
+select = ["E", "F", "I", "S"]
+ignore = [
+  "E501",   # line too long — muchas líneas largas heredadas
+  "E702",   # multiple statements on one line
+  "E731",   # lambda assignment — usado para helpers inline
+  "E741",   # ambiguous variable name 'l' — variables heredadas
+  "F401",   # imported but unused — hay imports que se usan dinámicamente
+  "F841",   # local variable assigned but never used — pre-existing
+  "S110",   # try-except-pass — silenciado voluntariamente con logger.debug
+  "S112",   # try-except-continue — idem
+  "S314",   # xml.etree — Google News RSS, datos no de usuarios
+  "S501",   # httpx verify=False — Congreso tiene certs autofirmados (ver comentario)
+  "S603",   # subprocess — uso legítimo para captura de audio
+  "S607",   # start process with partial path — idem
+  "S311",   # random — no se usa para criptografía
+  "S301",   # pickle — no aplica
+  "S324",   # hashlib — no aplica
+  "E402",   # module level import not at top — imports condicionales intencionales
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["S101"]  # assert es válido en tests
