@@ -4,9 +4,12 @@ Scrapers for Congreso de la República del Perú.
 - Sesiones / Agenda / Destacados: DuckDuckGo news + fallback HTML
 """
 import os
+import logging
 import httpx
 import re
 import urllib.parse
+
+logger = logging.getLogger("congreso-ai.scraper")
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -27,6 +30,8 @@ PER_PAR_ID = 2021   # periodo parlamentario actual 2021-2026
 # ── Helpers ────────────────────────────────────────────────────
 
 def _client():
+    # verify=False: los servidores del Congreso (api.congreso.gob.pe, wb2server, comunicaciones)
+    # presentan certs autofirmados o caducados — sin esto fallan todas las llamadas.
     return httpx.AsyncClient(timeout=TIMEOUT, verify=False,
                              follow_redirects=True, headers=HEADERS)
 
@@ -117,24 +122,26 @@ async def _fetch_spley_por_materia(materia: str, limit: int = 20):
 
 
 async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
-                          legislatura="2021-2026", limit=20):
+                          legislatura="2021-2026", limit=20, dias=None):
+    from datetime import timedelta
+
     async with _client() as c:
 
         # Materia: SPLEY ignores strBusqueda for topic searches — use client-side filter
-        if materia:
+        if materia and not dias:
             result = await _fetch_spley_por_materia(materia, limit)
             if result is not None:
                 return result
 
-        # Build payload for SPLEY API
-        payload: dict = {"perParId": PER_PAR_ID, "page": 0, "size": limit}
+        # Con dias: traer más items para filtrar por fecha luego
+        fetch_size = min(100, limit * 5) if dias else limit
+        payload: dict = {"perParId": PER_PAR_ID, "page": 0, "size": fetch_size}
 
         if numero:
             payload["strBusqueda"] = numero.split("/")[0].strip()
         elif autor:
             payload["strBusqueda"] = autor
         elif comision:
-            # Try to resolve commission name to ID
             try:
                 rc = await c.get(f"{SPLEY_API}/comisiones")
                 if rc.status_code == 200:
@@ -158,6 +165,19 @@ async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
                 data = r.json().get("data", {})
                 items = data.get("proyectos", [])
                 if items:
+                    # Filtrar por fecha si se pidió
+                    if dias:
+                        cutoff = datetime.utcnow() - timedelta(days=int(dias))
+                        def _parse_raw(s):
+                            for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+                                try:
+                                    return datetime.strptime(str(s)[:19], fmt)
+                                except Exception:
+                                    pass
+                            return None
+                        items = [p for p in items
+                                 if _parse_raw(p.get("fecPresentacion") or "") is not None
+                                 and _parse_raw(p.get("fecPresentacion")) >= cutoff]
                     return _format_proyectos(items[:limit])
         except Exception:
             pass

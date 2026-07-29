@@ -1,106 +1,19 @@
 (() => {
-  // ── Canvas — grid gris que se ilumina con el cursor ──
-  const canvas = document.getElementById('bg-canvas');
-  const ctx    = canvas.getContext('2d');
-
-  const GRID = 48;
-  let W = 0, H = 0;
-  let mx = -9999, my = -9999;
-  let tx = -9999, ty = -9999;
-  let sidebarW = 260; // se actualiza dinámicamente
-
-  function resizeCanvas() {
-    W = canvas.width  = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-  }
-
-  function drawGrid(sw) {
-    ctx.beginPath();
-    for (let x = sw; x <= W + GRID; x += GRID) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, H);
-    }
-    for (let y = 0; y <= H + GRID; y += GRID) {
-      ctx.moveTo(sw, y);
-      ctx.lineTo(W, y);
-    }
-    ctx.stroke();
-  }
-
-  function frame() {
-    // Leer ancho real del sidebar en cada frame
-    const sidebarEl = document.querySelector('.sidebar');
-    sidebarW = sidebarEl ? sidebarEl.getBoundingClientRect().width : 260;
-
-    mx += (tx - mx) * 0.14;
-    my += (ty - my) * 0.14;
-
-    ctx.clearRect(0, 0, W, H);
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(sidebarW, 0, W - sidebarW, H);
-    ctx.clip();
-    ctx.lineWidth = 1;
-
-    const g = typeof GRID_DARK !== 'undefined' && GRID_DARK;
-    ctx.strokeStyle = g ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
-    drawGrid(sidebarW);
-
-    if (mx > sidebarW) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(mx, my, 28, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.strokeStyle = g ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.30)';
-      drawGrid(sidebarW);
-      ctx.restore();
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(mx, my, 14, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.strokeStyle = g ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.60)';
-      drawGrid(sidebarW);
-      ctx.restore();
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(mx, my, 6, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.strokeStyle = g ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.90)';
-      drawGrid(sidebarW);
-      ctx.restore();
-    }
-
-    ctx.restore();
-    requestAnimationFrame(frame);
-  }
-
-  window.addEventListener('resize',    resizeCanvas);
-  window.addEventListener('mousemove', e => { tx = e.clientX; ty = e.clientY; });
-  resizeCanvas();
-  requestAnimationFrame(frame);
-
   // ── Modo oscuro ───────────────────────────────────
   const DARK_KEY = 'congreso_dark';
   const html     = document.documentElement;
 
   function applyTheme(dark) {
     html.dataset.theme = dark ? 'dark' : 'light';
-    document.getElementById('dark-icon-moon').style.display = dark ? 'none'  : '';
-    document.getElementById('dark-icon-sun').style.display  = dark ? ''      : 'none';
+    document.getElementById('dark-icon-moon').style.display = dark ? 'none' : '';
+    document.getElementById('dark-icon-sun').style.display  = dark ? ''     : 'none';
     localStorage.setItem(DARK_KEY, dark ? '1' : '0');
-    // Actualizar colores del canvas de grid
-    GRID_DARK = dark;
   }
 
-  let GRID_DARK = localStorage.getItem(DARK_KEY) === '1';
-  applyTheme(GRID_DARK);
+  applyTheme(localStorage.getItem(DARK_KEY) === '1');
 
   document.getElementById('dark-toggle').addEventListener('click', () => {
-    GRID_DARK = html.dataset.theme !== 'dark';
-    applyTheme(GRID_DARK);
+    applyTheme(html.dataset.theme !== 'dark');
   });
 
   // ── DOM refs ─────────────────────────────────────
@@ -672,15 +585,14 @@ ${table.outerHTML}
 
   // ── Typewriter decoration ─────────────────────────
   const TW_PHRASES = [
-    "¿Cuáles son los proyectos de ley de esta semana?",
-    "Busca proyectos sobre educación superior",
-    "¿Qué sesiones hay programadas hoy?",
-    "Muéstrame la agenda parlamentaria",
-    "Proyectos presentados por el congresista García",
-    "¿Qué comisiones sesionan esta semana?",
-    "Organiza los destacados en tabla",
-    "¿Cuáles son los últimos dictámenes aprobados?",
-    "Resumen de sesiones de la comisión de salud",
+    "Novedades de agendas de comisiones de Diputados",
+    "Novedades de agendas de comisiones del Senado",
+    "Proyectos de ley recientes en Diputados",
+    "¿Cuál es el estatus del proyecto de ley N° [número]?",
+    "Resumen de noticias de Senado, Diputados y Congreso",
+    "Destacados y citaciones de Diputados, Senado y Congreso",
+    "Proyectos de ley de los últimos 15 días por tema",
+    "Comisiones y miembros de la Comisión Permanente",
   ];
 
   let _twTimer = null;
@@ -868,17 +780,26 @@ ${table.outerHTML}
 
   // ── Markdown parser ───────────────────────────────
   function parseMarkdown(md) {
-    let h = md;
+    // Extraer bloques de código antes de procesar para no escaparlos ni tocarlos
+    const codeBlocks = [];
+    let h = md.replace(/```[\s\S]*?```/g, m => {
+      codeBlocks.push(m);
+      return `\x00CODE${codeBlocks.length - 1}\x00`;
+    });
 
-    // Tables
+    // Escapar HTML del texto plano antes de aplicar markdown
+    // (previene XSS si el modelo emite tags en su respuesta)
+    h = h.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    // Tables (opera sobre texto ya escapado)
     h = h.replace(
       /^\|(.+)\|\s*\n\|[-| :]+\|\s*\n((?:\|.+\|\s*\n?)*)/gm,
       (_, header, body) => {
         const ths = header.split('|').filter(s => s.trim())
-          .map(s => `<th>${escHtml(s.trim())}</th>`).join('');
+          .map(s => `<th>${s.trim()}</th>`).join('');
         const rows = body.trim().split('\n').filter(Boolean).map(row => {
           const cells = row.split('|').slice(1, -1)
-            .map(s => `<td>${escHtml(s.trim())}</td>`).join('');
+            .map(s => `<td>${s.trim()}</td>`).join('');
           return `<tr>${cells}</tr>`;
         }).join('');
         return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
@@ -886,16 +807,15 @@ ${table.outerHTML}
     );
 
     // Headings
-    h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-    h = h.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
-    h = h.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+    h = h.replace(/^### (.+)$/gm, (_, t) => `<h3>${t}</h3>`);
+    h = h.replace(/^## (.+)$/gm,  (_, t) => `<h2>${t}</h2>`);
+    h = h.replace(/^# (.+)$/gm,   (_, t) => `<h1>${t}</h1>`);
 
-    // Links
+    // Links — solo schemes http/https permitidos
     h = h.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener">$1</a>');
-    // Plain URLs
+      (_, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
     h = h.replace(/(^|[\s>])(https?:\/\/[^\s<]+)/g,
-      '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+      (_, pre, url) => `${pre}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
 
     // Bold / italic
     h = h.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
@@ -903,7 +823,7 @@ ${table.outerHTML}
     h = h.replace(/\*(.+?)\*/g,         '<em>$1</em>');
 
     // Inline code
-    h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+    h = h.replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`);
 
     // Lists
     h = h.replace(/(^[-*] .+$(\n^[-*] .+$)*)/gm, block => {
@@ -924,6 +844,13 @@ ${table.outerHTML}
     h = h.replace(/<p>(<(?:table|ul|ol|h[1-6])[^>]*>)/g, '$1');
     h = h.replace(/(<\/(?:table|ul|ol|h[1-6])>)<\/p>/g, '$1');
     h = h.replace(/<p><\/p>/g, '').replace(/<p><br><\/p>/g, '');
+
+    // Restaurar bloques de código
+    h = h.replace(/\x00CODE(\d+)\x00/g, (_, i) => {
+      const block = codeBlocks[+i];
+      const inner = block.slice(3, -3).replace(/^[^\n]*\n?/, '');
+      return `<pre><code>${escHtml(inner)}</code></pre>`;
+    });
 
     return h;
   }

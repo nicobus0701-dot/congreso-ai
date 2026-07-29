@@ -1,3 +1,7 @@
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger("congreso-ai")
+
 from fastapi import FastAPI, Request, Query, UploadFile, File
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -18,10 +22,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 BASE_DIR = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"],
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:8732"],
                    allow_methods=["*"], allow_headers=["*"])
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
@@ -72,7 +77,7 @@ ROUTER_PROMPT = """Eres el enrutador de Lex. Tu única tarea: decidir si el mens
 ## Usa herramientas solo cuando necesita datos actualizados:
 | Pedido | Herramienta |
 |---|---|
-| Proyectos por tema, autor o comisión | buscar_proyectos |
+| Proyectos por tema, autor, comisión o últimos N días | buscar_proyectos (usar dias=N para rango de fechas) |
 | Estado de un proyecto específico (tiene N°) | rastrear_proyecto |
 | Expediente completo de un proyecto (primera vez) | fetch_expediente |
 | Sesiones de comisiones pasadas | buscar_sesiones |
@@ -149,6 +154,10 @@ Perú pasó de un Congreso unicameral a uno **bicameral** al inicio del nuevo go
 - En expedientes: siempre cierra con **"Mi lectura"** de criterio propio.
 - La extensión la decide el contenido, nunca el relleno. Una respuesta de una línea puede ser perfecta."""
 
+
+# System prompt compacto para Phase 3 con tool results — ahorra ~800 tokens vs SYSTEM_BASE
+SYSTEM_MINI = """Eres Lex, asistente parlamentario de Julio César en Perú. Fecha actual: {hoy}.
+Reglas: datos exactos de la herramienta, nunca inventar URLs ni números. Tablas para datos comparables. Español directo, sin relleno. Negritas solo para lo crítico."""
 
 # Bloques de formato inyectados en Fase 3 según la herramienta usada.
 WORKFLOWS = {
@@ -406,7 +415,7 @@ Distingue SIEMPRE lo formal (dato del sistema del Congreso) de lo periodístico 
     "fetch_agenda_camaras": """
 ## Formato para AGENDA BICAMERAL (Senado / Diputados / Pleno)
 
-⚠️ REGLA ABSOLUTA: Muestra SOLO las sesiones que están en los datos devueltos. Si sin_datos=true → "No hay sesiones programadas para los próximos días en el Congreso bicameral." JAMÁS inventes sesiones, horas ni lugares.
+⚠️ REGLA ABSOLUTA: Muestra SOLO las sesiones que están en los datos devueltos. JAMÁS inventes sesiones, horas ni lugares. Si sin_datos=true → explica el posible motivo (feriado, receso, fin de semana) y sugiere alternativas concretas (agenda semanal, proyectos en trámite, destacados y citaciones).
 
 Si hay datos:
 ## Agenda del Congreso — [fechas cubiertas]
@@ -499,8 +508,9 @@ TOOLS = [
             "description": (
                 "Obtiene proyectos de ley del Congreso del Perú desde el sistema SPLEY. "
                 "Úsala cuando el usuario pida proyectos, leyes, expedientes o quiera buscar "
-                "por tema/materia, autor/congresista, comisión o número de proyecto. "
-                "Para búsquedas por TEMA usa el parámetro 'materia' (ej: 'educacion', 'salud', 'mineria'). "
+                "por tema/materia, autor/congresista, comisión, número de proyecto o rango de fechas. "
+                "Para búsquedas por TEMA usa el parámetro 'materia'. "
+                "Para los ÚLTIMOS N DÍAS usa el parámetro 'dias' (ej: dias=15 para últimos 15 días). "
                 "Para un número específico usa 'numero'. Para un autor usa 'autor'."
             ),
             "parameters": {
@@ -508,7 +518,7 @@ TOOLS = [
                 "properties": {
                     "materia": {
                         "type": "string",
-                        "description": "Tema o materia a buscar (ej: 'educacion', 'salud', 'transporte', 'mineria'). Usar para preguntas del tipo '¿cuáles son los proyectos sobre X?'"
+                        "description": "Tema o materia a buscar (ej: 'educacion', 'salud', 'transporte', 'mineria')"
                     },
                     "autor": {
                         "type": "string",
@@ -525,6 +535,10 @@ TOOLS = [
                     "legislatura": {
                         "type": "string",
                         "description": "Período legislativo (default: '2021-2026')"
+                    },
+                    "dias": {
+                        "type": "integer",
+                        "description": "Filtrar proyectos presentados en los últimos N días calendario (ej: 15 para los últimos 15 días)"
                     },
                 }
             }
@@ -986,7 +1000,7 @@ async def upload_pdf(file: UploadFile = File(...)):
 async def chat(request: Request):
     body     = await request.json()
     messages = body.get("messages", [])
-    api_key  = os.getenv("GROQ_API_KEY", "")
+    api_key  = GROQ_API_KEY
 
     if not api_key:
         async def err():
@@ -998,7 +1012,22 @@ async def chat(request: Request):
     async def generate():
         # Inyectar fecha actual en el system prompt para evitar alucinaciones temporales
         hoy = datetime.now().strftime("%d/%m/%Y")
-        system_con_fecha = SYSTEM_BASE + f"\n\n**Fecha actual: {hoy}** — Solo muestra sesiones o eventos a partir de hoy. Si una herramienta no devuelve sesiones reales, di exactamente: \"No hay sesiones programadas para los próximos días.\""
+        system_con_fecha = SYSTEM_BASE + f"\n\n**Fecha actual: {hoy}** — Solo muestra sesiones o eventos a partir de hoy. Si una herramienta no devuelve sesiones reales, NO digas simplemente 'no hay sesiones'. En cambio: (1) explica brevemente el posible motivo (feriado, receso parlamentario, fin de semana, etc. según la fecha), (2) sugiere alternativas concretas como revisar la agenda de la semana siguiente, consultar proyectos de ley en trámite, o revisar los destacados y citaciones. Sé directo y útil, no te limites a dar una negativa seca."
+
+        def _parse_retry_seconds(e) -> float:
+            """Extrae los segundos de espera del error de rate limit de Groq."""
+            s = str(e)
+            # "Please try again in 2.5s" o "try again in 750ms"
+            m = re.search(r"try again in ([0-9.]+)s", s, re.IGNORECASE)
+            if m:
+                return float(m.group(1)) + 0.5
+            m = re.search(r"try again in ([0-9.]+)ms", s, re.IGNORECASE)
+            if m:
+                return float(m.group(1)) / 1000 + 0.5
+            m = re.search(r"try again in (\d+)m(\d+(?:\.\d+)?)s", s, re.IGNORECASE)
+            if m:
+                return int(m.group(1)) * 60 + float(m.group(2)) + 0.5
+            return 12.0  # fallback conservador
 
         def _friendly_error(e):
             s = str(e).lower()
@@ -1246,10 +1275,10 @@ async def chat(request: Request):
                     except Exception as tool_err:
                         result = {"sin_datos": True, "mensaje": f"Error al consultar {name}: {str(tool_err)[:100]}"}
 
-                    # Cap tool result: 12k chars ≈ ~3400 tokens
+                    # Cap tool result: 7k chars ≈ ~2000 tokens — protege TPM del 8B
                     result_str = json.dumps(result, ensure_ascii=False)
-                    if len(result_str) > 12000:
-                        result_str = result_str[:12000] + '... [recortado]"}'
+                    if len(result_str) > 7000:
+                        result_str = result_str[:7000] + '... [recortado]"}'
                     tool_msgs.append({
                         "role": "tool",
                         "tool_call_id": tc.id,
@@ -1261,15 +1290,24 @@ async def chat(request: Request):
             system_p3 = RESUMEN_PROMPT
         elif solo_responder_directo:
             system_p3 = system_con_fecha
+        elif tool_msgs:
+            # Con tool results: usar SYSTEM_MINI para ahorrar tokens (~800 menos)
+            # fetch_expediente y PDF necesitan sus workflows completos igual
+            mini = SYSTEM_MINI.format(hoy=hoy)
+            has_heavy_workflow = any(t in WORKFLOWS for t in tools_usados) or has_pdf or has_sesion
+            if has_heavy_workflow:
+                system_p3 = system_con_fecha
+                for t in tools_usados:
+                    if t in WORKFLOWS:
+                        system_p3 += "\n" + WORKFLOWS[t]
+                if has_pdf:
+                    system_p3 += "\n" + WORKFLOW_PDF_FORMULA
+                if has_sesion:
+                    system_p3 += "\n" + WORKFLOW_SESION
+            else:
+                system_p3 = mini
         else:
             system_p3 = system_con_fecha
-            for t in tools_usados:
-                if t in WORKFLOWS:
-                    system_p3 += "\n" + WORKFLOWS[t]
-            if has_pdf:
-                system_p3 += "\n" + WORKFLOW_PDF_FORMULA
-            if has_sesion:
-                system_p3 += "\n" + WORKFLOW_SESION
 
         # Cuando hay tool results, recortar el historial enviado a Phase 3.
         # El tool result ya aporta el contexto; mandar 20 mensajes adicionales
@@ -1281,8 +1319,13 @@ async def chat(request: Request):
         # ── Phase 3: stream final answer ───────────────────────
         # Con tool results el request es pesado (>6k tokens) — usar 8B (20k TPM).
         # Sin tools (solo conversación) el request es ligero — usar 70B.
-        _p3_model   = ROUTER_MODEL if tool_msgs else MAIN_MODEL
-        _max_tokens = 4000 if "fetch_expediente" in tools_usados else 2500
+        _p3_model   = MAIN_MODEL  # 70B: 12k TPM vs 6k del 8B — siempre usar el de mayor límite
+        if "fetch_expediente" in tools_usados:
+            _max_tokens = 4000
+        elif tools_usados:
+            _max_tokens = 1800  # queries de proyectos/agenda: respuesta más corta, menos TPM
+        else:
+            _max_tokens = 2500
 
         import asyncio as _asyncio
 
@@ -1299,25 +1342,26 @@ async def chat(request: Request):
                 if delta:
                     yield delta
 
-        try:
-            async for delta in _stream_p3(msgs, _max_tokens):
-                yield f"data: {json.dumps({'text': delta})}\n\n"
-            yield "data: [DONE]\n\n"
-        except Exception as e:
-            s = str(e).lower()
-            is_rate = "rate limit" in s or "429" in s or "tokens per" in s or "quota" in s or "per day" in s
-            if is_rate:
-                # Reintentar una vez tras 4 segundos antes de rendirse
-                yield f"data: {json.dumps({'status': 'Límite de Groq alcanzado, reintentando en 4s...'})}\n\n"
-                await _asyncio.sleep(4)
-                try:
-                    async for delta in _stream_p3(msgs, _max_tokens):
-                        yield f"data: {json.dumps({'text': delta})}\n\n"
-                    yield "data: [DONE]\n\n"
-                except Exception as e2:
-                    yield f"data: {json.dumps({'error': _friendly_error(e2)})}\n\n"
-            else:
-                yield f"data: {json.dumps({'error': _friendly_error(e)})}\n\n"
+        _is_rate = lambda e: any(x in str(e).lower() for x in ("rate limit","429","tokens per","quota","per day"))
+
+        last_exc = None
+        for attempt in range(3):
+            try:
+                async for delta in _stream_p3(msgs, _max_tokens):
+                    yield f"data: {json.dumps({'text': delta})}\n\n"
+                yield "data: [DONE]\n\n"
+                last_exc = None
+                break
+            except Exception as e:
+                last_exc = e
+                if _is_rate(e) and attempt < 2:
+                    wait = _parse_retry_seconds(e)
+                    yield f"data: {json.dumps({'status': f'Límite de Groq, reintentando en {wait:.0f}s...'})}\n\n"
+                    await _asyncio.sleep(wait)
+                else:
+                    break
+        if last_exc:
+            yield f"data: {json.dumps({'error': _friendly_error(last_exc)})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -1506,13 +1550,37 @@ async def sesiones_videos():
     return result
 
 
+def _build_sesion_prompt(titulo: str, texto: str) -> str:
+    return f"""Analiza este transcript de la sesión del Congreso del Perú titulada: "{titulo}".
+
+Genera un resumen estructurado con este formato EXACTO:
+
+## Resumen — {titulo}
+
+### Temas tratados
+[Tabla: Tema | Descripción | Resultado/Estado]
+
+### Proyectos o normas mencionados
+[Tabla: Número/Nombre | Tema | Posición mayoritaria]
+
+### Votaciones o acuerdos
+[Tabla: Asunto | A favor | En contra | Resultado]
+
+### Puntos destacados
+[Lista de los 3-5 momentos más relevantes de la sesión]
+
+---
+Transcript de la sesión:
+{texto[:40000]}"""
+
+
 @app.post("/sesiones/resumir")
 async def sesiones_resumir(request: Request):
     body     = await request.json()
     video_id = body.get("video_id", "")
     titulo   = body.get("titulo", "este video")
     en_vivo  = body.get("en_vivo", False)
-    api_key  = os.getenv("GROQ_API_KEY", "")
+    api_key  = GROQ_API_KEY
 
     async def generate():
         if not video_id:
@@ -1550,28 +1618,7 @@ async def sesiones_resumir(request: Request):
         yt_url = f"https://www.youtube.com/watch?v={video_id}"
         yield f"data: {json.dumps({'transcript_raw': tr['text'], 'video_url': yt_url, 'video_titulo': titulo})}\n\n"
 
-        prompt = f"""Analiza este transcript de la sesión del Congreso del Perú titulada: "{titulo}".
-
-Genera un resumen estructurado con este formato EXACTO:
-
-## Resumen — {titulo}
-
-### Temas tratados
-[Tabla: Tema | Descripción | Resultado/Estado]
-
-### Proyectos o normas mencionados
-[Tabla: Número/Nombre | Tema | Posición mayoritaria]
-
-### Votaciones o acuerdos
-[Tabla: Asunto | A favor | En contra | Resultado]
-
-### Puntos destacados
-[Lista de los 3-5 momentos más relevantes de la sesión]
-
----
-Transcript de la sesión:
-{tr['text']}"""
-
+        prompt = _build_sesion_prompt(titulo, tr['text'])
         client = Groq(api_key=api_key)
         try:
             stream = client.chat.completions.create(
@@ -1590,6 +1637,7 @@ Transcript de la sesión:
                     yield f"data: {json.dumps({'text': delta})}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as e:
+            logger.error("sesiones_resumir LLM error: %s", e)
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
@@ -1601,7 +1649,7 @@ async def sesiones_resumir_texto(request: Request):
     body    = await request.json()
     texto   = body.get("texto", "").strip()
     titulo  = body.get("titulo", "esta sesión")
-    api_key = os.getenv("GROQ_API_KEY", "")
+    api_key = GROQ_API_KEY
 
     async def generate():
         if not texto:
@@ -1613,28 +1661,7 @@ async def sesiones_resumir_texto(request: Request):
 
         yield f"data: {json.dumps({'status': 'Analizando transcripción...'})}\n\n"
 
-        prompt = f"""Analiza este transcript de la sesión del Congreso del Perú titulada: "{titulo}".
-
-Genera un resumen estructurado con este formato EXACTO:
-
-## Resumen — {titulo}
-
-### Temas tratados
-[Tabla: Tema | Descripción | Resultado/Estado]
-
-### Proyectos o normas mencionados
-[Tabla: Número/Nombre | Tema | Posición mayoritaria]
-
-### Votaciones o acuerdos
-[Tabla: Asunto | A favor | En contra | Resultado]
-
-### Puntos destacados
-[Lista de los 3-5 momentos más relevantes de la sesión]
-
----
-Transcript de la sesión:
-{texto[:40000]}"""
-
+        prompt = _build_sesion_prompt(titulo, texto)
         client = Groq(api_key=api_key)
         try:
             stream = client.chat.completions.create(
@@ -1653,6 +1680,7 @@ Transcript de la sesión:
                     yield f"data: {json.dumps({'text': delta})}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as e:
+            logger.error("sesiones_resumir_texto LLM error: %s", e)
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
@@ -1673,7 +1701,7 @@ Sé conciso (máximo 150 palabras). Tono analítico, no descriptivo."""
 @app.get("/live/transcribe")
 async def live_transcribe(video_id: str = Query(..., description="ID del video de YouTube")):
     """SSE stream que emite líneas de transcripción en tiempo real."""
-    api_key = os.getenv("GROQ_API_KEY", "")
+    api_key = GROQ_API_KEY
 
     async def generate():
         if not api_key:
@@ -1743,4 +1771,4 @@ async def live_page():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8732))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="127.0.0.1", port=port)

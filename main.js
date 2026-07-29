@@ -80,7 +80,10 @@ function createWindow() {
 
   waitReady(40, ok => {
     if (ok) {
-      win.loadURL(`http://localhost:${PORT}`);
+      // Limpiar caché HTTP para que siempre cargue los estáticos frescos
+      win.webContents.session.clearCache().then(() => {
+        win.loadURL(`http://localhost:${PORT}?_=${Date.now()}`);
+      });
     } else {
       win.loadURL(`data:text/html,
         <html><body style="font-family:system-ui;padding:40px;font-weight:700">
@@ -105,7 +108,11 @@ function createWindow() {
 }
 
 // ── IPC: abrir enlace externo ────────────────────────────────
-ipcMain.handle('open-external', (e, url) => shell.openExternal(url));
+ipcMain.handle('open-external', (e, url) => {
+  if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+    shell.openExternal(url);
+  }
+});
 
 // ── IPC: ventana de Sesiones ─────────────────────────────────
 let sessionsWin = null;
