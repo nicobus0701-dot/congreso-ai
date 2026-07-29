@@ -4,10 +4,12 @@ Tests del ChatOrchestrator.
 Toda la lógica de decisión (qué fase correr, qué historial mandar, qué system
 prompt armar) es pura y se testea sin tocar Groq ni la red.
 """
+from datetime import datetime
+
 import pytest
 
-from services.orchestrator import ChatOrchestrator
-from services.prompt_registry import RESUMEN_PROMPT, SYSTEM_MINI
+from services.orchestrator import RESUMEN_DIAS, ChatOrchestrator
+from services.prompt_registry import SYSTEM_MINI, resumen_con_fechas
 
 
 def make(messages, **kwargs):
@@ -147,7 +149,33 @@ def test_clean_args(raw, esperado):
 
 def test_phase3_usa_prompt_de_resumen():
     orch = make([user("__RESUMEN_SEMANAL__: general")])
-    assert orch._phase3_system() == RESUMEN_PROMPT
+    assert orch._phase3_system() == resumen_con_fechas(orch.hoy, orch.desde)
+
+
+def test_prompt_de_resumen_lleva_la_ventana_de_fechas():
+    """Sin fechas reales el modelo no puede descartar material viejo."""
+    orch = make([user("__RESUMEN_SEMANAL__: general")])
+    system = orch._phase3_system()
+    assert "[fecha actual]" not in system
+    assert orch.hoy in system
+    assert orch.desde in system
+    assert orch.desde != orch.hoy
+
+
+def test_ventana_del_resumen_son_siete_dias():
+    orch = make([user("__RESUMEN_SEMANAL__: general")])
+    fmt = "%d/%m/%Y"
+    delta = datetime.strptime(orch.hoy, fmt) - datetime.strptime(orch.desde, fmt)
+    assert delta.days == RESUMEN_DIAS
+
+
+def test_router_del_resumen_recibe_la_instruccion_no_el_centinela():
+    """El centinela crudo no le dice nada al router de Fase 1."""
+    orch = make([user("__RESUMEN_SEMANAL__: general")])
+    msgs = orch._router_messages()
+    contenido = " ".join(m["content"] for m in msgs)
+    assert "__RESUMEN_SEMANAL__" not in contenido
+    assert orch.desde in contenido
 
 
 def test_phase3_usa_mini_con_tools_sin_workflow():

@@ -28,6 +28,10 @@ SPLEY_API  = "https://api.congreso.gob.pe/spley-portal-service"
 CONGRESO   = "https://www.congreso.gob.pe"
 PER_PAR_ID = 2021   # periodo parlamentario actual 2021-2026
 
+# Ventana de "noticia reciente". Coincide con la del resumen semanal
+# (services.orchestrator.RESUMEN_DIAS).
+DIAS_NOTICIAS_RECIENTES = 7
+
 
 # ── Helpers ────────────────────────────────────────────────────
 
@@ -48,8 +52,35 @@ def _fmt_date(s):
     return str(s)[:10] if s else ""
 
 
-async def _google_news(query: str, max_results: int = 15):
-    """Fetch news from Google News RSS — results from Google's index."""
+def _antiguedad_dias(pubdate_raw: str):
+    """
+    Días transcurridos desde un pubDate de RSS ("Mon, 23 Jun 2026 10:00:00 GMT").
+
+    Devuelve None si la fecha no se puede parsear — quien filtre decide qué
+    hacer con eso.
+    """
+    from email.utils import parsedate_to_datetime
+
+    if not pubdate_raw:
+        return None
+    try:
+        dt = parsedate_to_datetime(pubdate_raw)
+    except (TypeError, ValueError):
+        return None
+    ahora = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+    return (ahora - dt).days
+
+
+async def _google_news(query: str, max_results: int = 15, dias: int | None = None):
+    """
+    Fetch news from Google News RSS — results from Google's index.
+
+    `dias` limita a noticias publicadas en los últimos N días. El índice de
+    Google devuelve resultados de meses atrás para consultas de temas amplios;
+    sin este filtro el resumen semanal las presentaba como si fueran de la
+    semana en curso. Una noticia sin pubDate parseable se descarta cuando hay
+    filtro: no se puede afirmar que esté dentro de la ventana.
+    """
     import xml.etree.ElementTree as ET
 
     q = urllib.parse.quote(query)
@@ -66,23 +97,38 @@ async def _google_news(query: str, max_results: int = 15):
             if r.status_code != 200:
                 return []
             root = ET.fromstring(r.text)
-            items = root.findall(".//item")[:max_results]
             results = []
-            for item in items:
+            descartadas = 0
+            # El filtro va antes del recorte: si cortáramos a max_results primero,
+            # una tanda de noticias viejas dejaría el resultado casi vacío.
+            for item in root.findall(".//item"):
                 title  = item.findtext("title", "").strip()
+                if not title:
+                    continue
+                pubdate_raw = item.findtext("pubDate", "")
+                if dias is not None:
+                    antiguedad = _antiguedad_dias(pubdate_raw)
+                    if antiguedad is None or antiguedad > dias:
+                        descartadas += 1
+                        continue
                 link   = item.findtext("link",  "").strip()
                 source = item.findtext("source", "").strip()
-                pubdate = item.findtext("pubDate", "")[:16]
                 desc   = item.findtext("description", "")
                 desc = re.sub(r'<[^>]+>', '', desc).strip()[:300]
-                if title:
-                    results.append({
-                        "titulo":  title,
-                        "fecha":   pubdate,
-                        "fuente":  source,
-                        "resumen": desc,
-                        "enlace":  link,
-                    })
+                results.append({
+                    "titulo":  title,
+                    "fecha":   pubdate_raw[:16],
+                    "fuente":  source,
+                    "resumen": desc,
+                    "enlace":  link,
+                })
+                if len(results) >= max_results:
+                    break
+            if descartadas:
+                logger.info(
+                    "_google_news(%r): %d noticias descartadas por antigüedad (>%d días)",
+                    query, descartadas, dias,
+                )
             return results
     except Exception as _e:
         logger.debug("scraper silenced: %s", _e)
@@ -351,10 +397,14 @@ async def fetch_destacados():
 
     except Exception as _e:
         logger.warning("Congreso scrape falló: %s", _e)
+        # Solo la última semana: el índice de Google devuelve noticias de meses
+        # atrás y terminaban citadas como actividad de la semana en curso.
         noticias = await _google_news(
-            "congreso perú noticias destacados sesión pleno ley 2026", max_results=10
+            "congreso perú noticias destacados sesión pleno ley",
+            max_results=10,
+            dias=DIAS_NOTICIAS_RECIENTES,
         )
-        return {
+        resultado = {
             "fuente": CONGRESO + "/home/",
             "sin_datos": True,
             "mensaje": f"No se pudo leer las secciones DESTACADO y CITACIONES ({_e}).",
@@ -362,6 +412,14 @@ async def fetch_destacados():
             # Etiquetado aparte: son noticias, no documentos oficiales.
             "noticias_relacionadas": noticias,
         }
+        if not noticias:
+            resultado["estado_noticias"] = (
+                f"No hay noticias de prensa sobre el Congreso en los últimos "
+                f"{DIAS_NOTICIAS_RECIENTES} días. Los documentos listados en "
+                "documentos_disponibles son material histórico descargable, NO "
+                "actividad de esta semana."
+            )
+        return resultado
 
 
 async def _documentos_disponibles():

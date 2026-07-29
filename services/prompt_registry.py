@@ -49,6 +49,18 @@ def system_con_fecha(hoy: str) -> str:
     return SYSTEM_BASE + FECHA_NOTA.format(hoy=hoy)
 
 
+def resumen_con_fechas(hoy: str, desde: str) -> str:
+    """
+    RESUMEN_PROMPT con la ventana semanal resuelta.
+
+    Sin esto el prompt llegaba con un literal "[fecha actual]" y el modelo no
+    tenía forma de saber qué era "esta semana": las noticias indexadas y las
+    agendas anteriores que devuelven las herramientas entraban al informe como
+    si fueran de la semana en curso.
+    """
+    return RESUMEN_PROMPT.format(hoy=hoy, desde=desde)
+
+
 def build_sesion_prompt(titulo: str, texto: str) -> str:
     """Prompt de resumen de sesión — compartido por /sesiones/resumir y resumir-texto."""
     return f"""Analiza este transcript de la sesión del Congreso del Perú titulada: "{titulo}".

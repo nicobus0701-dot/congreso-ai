@@ -13,25 +13,28 @@ ya formateados (ver services/sse.py).
 """
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from config import MAIN_MODEL, ROUTER_MODEL, logger
 from scraper import fetch_transcript_youtube
 from services import groq as groq_service
 from services import sse
 from services.prompt_registry import (
-    RESUMEN_PROMPT,
     ROUTER_PROMPT,
     SYSTEM_MINI,
     WORKFLOW_PDF_FORMULA,
     WORKFLOW_SESION,
     WORKFLOWS,
+    resumen_con_fechas,
     system_con_fecha,
 )
 from services.tools import STATUS_LABELS, TOOL_MAP, TOOLS
 
 # Un tool result de 7k chars ≈ 2000 tokens. Más que eso dispara el TPM.
 MAX_TOOL_RESULT_CHARS = 7000
+
+# Ventana del resumen semanal, en días hacia atrás desde hoy.
+RESUMEN_DIAS = 7
 
 # Marcadores que indican que ya se mostró un expediente completo en el hilo.
 EXPEDIENTE_MARKERS = (
@@ -58,7 +61,10 @@ class ChatOrchestrator:
     def __init__(self, messages: list, client=None):
         self.messages = messages or []
         self.client = client or groq_service.get_client()
-        self.hoy = datetime.now().strftime("%d/%m/%Y")
+        ahora = datetime.now()
+        self.hoy = ahora.strftime("%d/%m/%Y")
+        # Ventana del resumen semanal: los 7 días que terminan hoy.
+        self.desde = (ahora - timedelta(days=RESUMEN_DIAS)).strftime("%d/%m/%Y")
         self.system_base = system_con_fecha(self.hoy)
 
         # Estado que rellena _analyze()
@@ -115,7 +121,11 @@ class ChatOrchestrator:
         )
 
         if self.is_resumen:
-            base = "Genera el resumen ejecutivo semanal completo del Congreso del Perú."
+            base = (
+                "Genera el resumen ejecutivo semanal completo del Congreso del Perú "
+                f"cubriendo únicamente del {self.desde} al {self.hoy} "
+                f"(últimos {RESUMEN_DIAS} días)."
+            )
             if self.sector and self.sector != "general":
                 base += (
                     f" Enfoca el análisis especialmente en el sector {self.sector} y los "
@@ -199,6 +209,12 @@ class ChatOrchestrator:
         expediente en contexto son miles de tokens que no aportan nada a la
         elección de herramienta y revientan el TPM ya en la Fase 1.
         """
+        # El centinela __RESUMEN_SEMANAL__ no le dice nada al router: mandarle la
+        # instrucción sintética, que además lleva la ventana de días para que
+        # buscar_proyectos salga con dias=7 y no traiga la legislatura entera.
+        if self.is_resumen:
+            return [{"role": "system", "content": ROUTER_PROMPT}] + self.conversation
+
         if self.doc_en_contexto:
             return [{"role": "system", "content": ROUTER_PROMPT},
                     {"role": "user", "content": self.last_msg}]
@@ -342,7 +358,7 @@ class ChatOrchestrator:
     def _phase3_system(self) -> str:
         """Arma el system prompt: base compacta + solo los flujos que aplican."""
         if self.is_resumen:
-            return RESUMEN_PROMPT
+            return resumen_con_fechas(self.hoy, self.desde)
         if self.solo_responder_directo or not self.tool_msgs:
             return self.system_base
 
