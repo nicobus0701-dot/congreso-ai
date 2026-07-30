@@ -19,20 +19,8 @@ function startServer() {
   const args    = isDev ? [path.join(__dirname, 'server.py')]               : [];
   const cwd     = isDev ? __dirname                                          : path.join(process.resourcesPath, 'server');
 
-  // Config del LLM guardada por el usuario en un lanzamiento anterior (o
-  // vacía en el primer arranque — el backend detecta esto vía /status y el
-  // frontend pide el onboarding).
-  const llm = readStoredLlmSettings() || {};
   py = spawn(exe, args, {
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      LLM_PROVIDER:     llm.provider     || '',
-      LLM_API_KEY:      llm.apiKey       || process.env.GROQ_API_KEY || '',
-      LLM_BASE_URL:     llm.baseUrl      || '',
-      LLM_MAIN_MODEL:   llm.mainModel    || '',
-      LLM_ROUTER_MODEL: llm.routerModel  || '',
-    },
+    env: { ...process.env, PORT: String(PORT) },
     cwd,
   });
   py.stdout.on('data', d => process.stdout.write('[py] ' + d));
@@ -216,37 +204,7 @@ ipcMain.handle('load-history', () => {
   }
 });
 
-// ── IPC: configuración del LLM (proveedor + API key del usuario) ────
-const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');
-
-function readStoredLlmSettings() {
-  try {
-    if (!fs.existsSync(SETTINGS_FILE)) return null;
-    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-ipcMain.handle('save-llm-settings', (event, settings) => {
-  try {
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings), 'utf8');
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
-});
-
-ipcMain.handle('load-llm-settings', () => readStoredLlmSettings());
-
 // ── Auto-update ──────────────────────────────────────────────
-// package.json "publish" apunta al repo privado congreso-ai: funciona para
-// vos como dueño del repo, pero una copia distribuida a otra persona (sin
-// credenciales de GitHub) no va a poder chequear versiones nuevas — falla en
-// silencio, checkForUpdates() no tira una excepción no controlada. Decisión
-// deliberada: publicar los instaladores en un repo público para que
-// cualquiera reciba auto-update expondría el código de forma equivalente a
-// hacer público el repo (los binarios compilados se pueden desempaquetar).
 function setupAutoUpdater() {
   if (!app.isPackaged) return;
 

@@ -11,23 +11,15 @@ import re
 
 from groq import Groq
 
-import config
-from config import logger
+from config import GROQ_API_KEY, MAIN_MODEL, logger
 
 RETRY_FALLBACK_SECONDS = 12.0
 MAX_ATTEMPTS = 3
 
 
-def get_client(api_key: str | None = None, base_url: str | None = None) -> Groq:
-    """
-    Cliente para el proveedor configurado. Sin argumentos usa lo que haya en
-    config (Groq por defecto, u otro proveedor OpenAI-compatible si el
-    usuario cargó su propia key en el onboarding).
-    """
-    return Groq(
-        api_key=api_key or config.LLM_API_KEY,
-        base_url=base_url or (config.LLM_BASE_URL or None),
-    )
+def get_client(api_key: str | None = None) -> Groq:
+    """Cliente de Groq. Sin argumento usa la key del entorno."""
+    return Groq(api_key=api_key or GROQ_API_KEY)
 
 
 # ── Clasificación de errores ─────────────────────────────────────────────────
@@ -78,11 +70,11 @@ def friendly_error(e) -> str:
 
 # ── Streaming ────────────────────────────────────────────────────────────────
 
-async def stream_deltas(client, messages, *, model=None, max_tokens=2048,
+async def stream_deltas(client, messages, *, model=MAIN_MODEL, max_tokens=2048,
                         temperature=0.4):
     """Itera los fragmentos de texto de una respuesta en streaming."""
     stream = client.chat.completions.create(
-        model=model or config.MAIN_MODEL,
+        model=model,
         messages=messages,
         max_tokens=max_tokens,
         temperature=temperature,
@@ -94,11 +86,11 @@ async def stream_deltas(client, messages, *, model=None, max_tokens=2048,
             yield delta
 
 
-async def stream_with_retry(client, messages, *, model=None, max_tokens=2048,
+async def stream_with_retry(client, messages, *, model=MAIN_MODEL, max_tokens=2048,
                             temperature=0.4, on_retry=None):
     """
     Igual que stream_deltas pero reintenta ante rate limit, esperando el tiempo
-    exacto que indica el proveedor en el error.
+    exacto que indica Groq en el error.
 
     Emite tuplas ("text", delta) o ("status", mensaje). Si tras MAX_ATTEMPTS
     sigue fallando, emite ("error", mensaje_amigable).
@@ -115,9 +107,9 @@ async def stream_with_retry(client, messages, *, model=None, max_tokens=2048,
             last_exc = e
             if is_rate_limit(e) and attempt < MAX_ATTEMPTS - 1:
                 wait = parse_retry_seconds(e)
-                logger.warning("Rate limit del proveedor (intento %d/%d), esperando %.1fs",
+                logger.warning("Groq rate limit (intento %d/%d), esperando %.1fs",
                                attempt + 1, MAX_ATTEMPTS, wait)
-                msg = f"Límite de la API, reintentando en {wait:.0f}s..."
+                msg = f"Límite de Groq, reintentando en {wait:.0f}s..."
                 if on_retry:
                     on_retry(wait)
                 yield ("status", msg)
@@ -126,5 +118,5 @@ async def stream_with_retry(client, messages, *, model=None, max_tokens=2048,
                 break
 
     if last_exc:
-        logger.error("Stream del LLM falló definitivamente: %s", last_exc)
+        logger.error("Groq stream falló definitivamente: %s", last_exc)
         yield ("error", friendly_error(last_exc))

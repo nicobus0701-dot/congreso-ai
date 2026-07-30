@@ -1,22 +1,13 @@
-name: Build & Release
+name: Build Mac DMG
 
-# Publica en Releases de ESTE MISMO repo (privado) — solo vos, como dueño del
-# repo, podés bajar los instaladores desde ahí. Vos los reenviás a mano a
-# quien quieras compartir la app. GH_TOKEN es el token automático de Actions,
-# no requiere ningún secret nuevo.
 on:
   push:
     tags:
       - 'v*'
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-
-    runs-on: ${{ matrix.os }}
+  build-mac:
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -43,15 +34,12 @@ jobs:
       - name: Install Node dependencies
         run: npm install
 
-      - name: Build app
+      - name: Build DMG
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build
 
-      - name: Upload installer as Release asset
+      - name: Upload DMG as Release asset
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release/*.dmg
-            release/*.exe
-            release/*.AppImage
+          files: release/*.dmg

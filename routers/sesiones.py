@@ -4,8 +4,7 @@ import asyncio
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-import config
-from config import logger, static_file
+from config import GROQ_API_KEY, MAIN_MODEL, logger, static_file
 from scraper import fetch_videos_youtube, get_yt_captions, transcribe_with_whisper
 from services import groq as groq_service
 from services import sse
@@ -46,7 +45,7 @@ async def _stream_resumen(titulo: str, texto: str):
     ]
     try:
         async for delta in groq_service.stream_deltas(
-            client, messages, model=config.MAIN_MODEL, max_tokens=3000, temperature=0.3
+            client, messages, model=MAIN_MODEL, max_tokens=3000, temperature=0.3
         ):
             yield sse.text(delta)
         yield sse.DONE
@@ -74,17 +73,8 @@ async def sesiones_resumir(request: Request):
 
         # ── Fase 2: Whisper si no hay subtítulos ──────────────────
         if not tr:
-            if not config.LLM_API_KEY:
+            if not GROQ_API_KEY:
                 yield sse.error("No hay subtítulos disponibles para este video.")
-                return
-            # transcribe_with_whisper llama al endpoint de Whisper de Groq
-            # específicamente — no tiene equivalente genérico en otros
-            # proveedores OpenAI-compatibles.
-            if config.LLM_PROVIDER != "groq":
-                yield sse.error(
-                    "No hay subtítulos disponibles y transcribir audio requiere "
-                    "un proveedor Groq configurado (Configuración → API key)."
-                )
                 return
 
             minutes = 5 if en_vivo else 10
@@ -95,7 +85,7 @@ async def sesiones_resumir(request: Request):
             )
 
             tr = await loop.run_in_executor(
-                None, transcribe_with_whisper, video_id, config.LLM_API_KEY, minutes
+                None, transcribe_with_whisper, video_id, GROQ_API_KEY, minutes
             )
             if not tr.get("ok"):
                 yield sse.error(tr.get("error", "No se pudo transcribir el audio."))
@@ -128,8 +118,8 @@ async def sesiones_resumir_texto(request: Request):
         if not texto:
             yield sse.error("No hay texto para resumir.")
             return
-        if not config.LLM_API_KEY:
-            yield sse.error("Falta configurar la API key.")
+        if not GROQ_API_KEY:
+            yield sse.error("Falta la API key de Groq.")
             return
 
         yield sse.status("Analizando transcripción...")

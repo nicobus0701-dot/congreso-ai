@@ -7,6 +7,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal:  (url)     => ipcRenderer.invoke('open-external', url),
   saveHistory:   (data)    => ipcRenderer.invoke('save-history',  data),
   loadHistory:   ()        => ipcRenderer.invoke('load-history'),
-  saveLlmSettings: (s)     => ipcRenderer.invoke('save-llm-settings', s),
-  loadLlmSettings: ()      => ipcRenderer.invoke('load-llm-settings'),
 });

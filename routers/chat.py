@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
-import config
+from config import GROQ_API_KEY
 from services import sse
 from services.orchestrator import ChatOrchestrator
 
@@ -14,9 +14,9 @@ async def chat(request: Request):
     body = await request.json()
     messages = body.get("messages", [])
 
-    if not config.LLM_API_KEY:
+    if not GROQ_API_KEY:
         async def err():
-            yield sse.error("Falta configurar la API key")
+            yield sse.error("Falta la API key de Groq")
         return StreamingResponse(err(), media_type="text/event-stream")
 
     orchestrator = ChatOrchestrator(messages)
