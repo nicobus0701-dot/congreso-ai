@@ -926,17 +926,11 @@ ${table.outerHTML}
       loadConvs();
     }
 
-    // Seleccionar automáticamente la conversación más reciente
-    if (convs.length > 0) {
-      activeId = convs[0].id;
-    }
-
+    // Arrancar siempre en la pantalla principal: no reabrir la última
+    // conversación automáticamente. El historial sigue en el sidebar, un
+    // clic la reabre.
     renderSidebar();
-    if (activeId && getActive()?.messages?.length) {
-      renderMessages();
-    } else {
-      showWelcome();
-    }
+    showWelcome();
   }
 
   init();
