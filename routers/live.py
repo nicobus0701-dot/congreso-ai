@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from config import GROQ_API_KEY, MAIN_MODEL, logger, static_file
+import config
+from config import logger, static_file
 from live_transcriber import stream_transcription
 from services import groq as groq_service
 from services import sse
@@ -26,14 +27,21 @@ async def live_page():
 async def live_transcribe(video_id: str = Query(..., description="ID del video de YouTube")):
     """SSE que emite líneas de transcripción en tiempo real."""
     async def generate():
-        if not GROQ_API_KEY:
-            yield sse.error("Falta la GROQ_API_KEY")
+        if not config.LLM_API_KEY:
+            yield sse.error("Falta configurar la API key")
+            return
+        # stream_transcription usa el Whisper de Groq específicamente.
+        if config.LLM_PROVIDER != "groq":
+            yield sse.error(
+                "La transcripción en vivo requiere un proveedor Groq configurado "
+                "(Configuración → API key)."
+            )
             return
         if not video_id:
             yield sse.error("Falta el parámetro video_id")
             return
         try:
-            async for item in stream_transcription(video_id, GROQ_API_KEY):
+            async for item in stream_transcription(video_id, config.LLM_API_KEY):
                 yield sse.event(item)
         except Exception as e:
             logger.error("live_transcribe falló para %s: %s", video_id, e)
@@ -64,7 +72,7 @@ async def live_analyze(request: Request):
         try:
             async for delta in groq_service.stream_deltas(
                 groq_service.get_client(), messages,
-                model=MAIN_MODEL, max_tokens=400, temperature=0.3,
+                model=config.MAIN_MODEL, max_tokens=400, temperature=0.3,
             ):
                 yield sse.text(delta)
             yield sse.DONE

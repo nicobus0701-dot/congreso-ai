@@ -15,7 +15,8 @@ import json
 import re
 from datetime import datetime, timedelta
 
-from config import MAIN_MODEL, ROUTER_MODEL, logger
+import config
+from config import logger
 from scraper import fetch_transcript_youtube
 from services import groq as groq_service
 from services import sse
@@ -237,7 +238,7 @@ class ChatOrchestrator:
         """Devuelve el choice del router, o None si ya se emitió una respuesta."""
         try:
             resp = self.client.chat.completions.create(
-                model=ROUTER_MODEL,
+                model=config.ROUTER_MODEL,
                 messages=self._router_messages(),
                 tools=TOOLS,
                 tool_choice="required",
@@ -262,7 +263,7 @@ class ChatOrchestrator:
         msgs = [{"role": "system", "content": self.system_base}] + self.conversation
         try:
             async for delta in groq_service.stream_deltas(
-                self.client, msgs, model=MAIN_MODEL, max_tokens=2048
+                self.client, msgs, model=config.MAIN_MODEL, max_tokens=2048
             ):
                 yield sse.text(delta)
             yield sse.DONE
@@ -385,7 +386,7 @@ class ChatOrchestrator:
     async def _stream_final(self, msgs, max_tokens):
         """Streaming de Fase 3 con reintento sobre rate limit."""
         async for kind, payload in groq_service.stream_with_retry(
-            self.client, msgs, model=MAIN_MODEL, max_tokens=max_tokens
+            self.client, msgs, model=config.MAIN_MODEL, max_tokens=max_tokens
         ):
             if kind == "text":
                 yield sse.text(payload)
