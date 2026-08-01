@@ -36,6 +36,19 @@ MAX_TOOL_RESULT_CHARS = 7000
 # Ventana del resumen semanal, en días hacia atrás desde hoy.
 RESUMEN_DIAS = 7
 
+# Herramientas fijas del resumen semanal — no se le deja la elección al
+# router (8B). Dejado a su criterio con tool_choice="required" terminaba
+# llamando 7-8 herramientas de golpe (fetch_interpelaciones, fetch_comisiones,
+# buscar_en_web, buscar_agenda...) y reventaba el TPM de Groq, tumbando la
+# función entera. Estas 4 cubren proyectos, destacados (ya scrapea Congreso,
+# Senado y Diputados) y agenda — es lo que el resumen necesita, ni más.
+RESUMEN_TOOLS = (
+    ("buscar_proyectos",    {"dias": RESUMEN_DIAS}),
+    ("buscar_destacados",   {}),
+    ("fetch_agenda_pleno",  {}),
+    ("fetch_agenda_camaras", {"dias": RESUMEN_DIAS}),
+)
+
 # Marcadores que indican que ya se mostró un expediente completo en el hilo.
 EXPEDIENTE_MARKERS = (
     "FICHA DEL PROYECTO",
@@ -209,12 +222,8 @@ class ChatOrchestrator:
         expediente en contexto son miles de tokens que no aportan nada a la
         elección de herramienta y revientan el TPM ya en la Fase 1.
         """
-        # El centinela __RESUMEN_SEMANAL__ no le dice nada al router: mandarle la
-        # instrucción sintética, que además lleva la ventana de días para que
-        # buscar_proyectos salga con dias=7 y no traiga la legislatura entera.
-        if self.is_resumen:
-            return [{"role": "system", "content": ROUTER_PROMPT}] + self.conversation
-
+        # is_resumen ni pasa por acá — run() lo desvía a _phase2_resumen()
+        # directo, sin Fase 1 (ver RESUMEN_TOOLS).
         if self.doc_en_contexto:
             return [{"role": "system", "content": ROUTER_PROMPT},
                     {"role": "user", "content": self.last_msg}]
@@ -335,6 +344,38 @@ class ChatOrchestrator:
                 "content": result_str,
             })
 
+    async def _phase2_resumen(self):
+        """
+        Corre RESUMEN_TOOLS directamente, sin pasar por el router — mismo
+        formato de tool_calls que arma _phase2, pero con ids sintéticos en
+        vez de los que devolvería el modelo.
+        """
+        tool_calls = [
+            {
+                "id": f"resumen-{i}",
+                "type": "function",
+                "function": {"name": name, "arguments": json.dumps(args)},
+            }
+            for i, (name, args) in enumerate(RESUMEN_TOOLS)
+        ]
+        self.tool_msgs.append({"role": "assistant", "content": "", "tool_calls": tool_calls})
+
+        for (name, args), tc in zip(RESUMEN_TOOLS, tool_calls):
+            self.tools_usados.append(name)
+            yield sse.status(STATUS_LABELS.get(name, "Consultando el Congreso..."))
+
+            result = await self._run_tool(name, args)
+
+            result_str = json.dumps(result, ensure_ascii=False)
+            if len(result_str) > MAX_TOOL_RESULT_CHARS:
+                result_str = result_str[:MAX_TOOL_RESULT_CHARS] + '... [recortado]"}'
+
+            self.tool_msgs.append({
+                "role": "tool",
+                "tool_call_id": tc["id"],
+                "content": result_str,
+            })
+
     @staticmethod
     async def _run_tool(name: str, args: dict) -> dict:
         """Ejecuta una herramienta y normaliza cualquier fallo a 'sin_datos'."""
@@ -375,6 +416,11 @@ class ChatOrchestrator:
         return system_p3
 
     def _phase3_max_tokens(self) -> int:
+        if self.is_resumen:
+            # Reporte multi-tema con links — necesita más espacio que una
+            # respuesta de una sola herramienta. Alcanza el presupuesto porque
+            # ahora entra con 4 tool results, no 7-8 (ver RESUMEN_TOOLS).
+            return 3000
         if "fetch_expediente" in self.tools_usados:
             return 4000
         if self.tools_usados:
@@ -407,15 +453,20 @@ class ChatOrchestrator:
                 yield ev
             return
 
-        try:
-            choice = await self._phase1()
-        except Exception as e:
-            async for ev in self._phase1_fallback(e):
+        if self.is_resumen:
+            # Herramientas fijas — nada de router acá (ver RESUMEN_TOOLS).
+            async for ev in self._phase2_resumen():
                 yield ev
-            return
+        else:
+            try:
+                choice = await self._phase1()
+            except Exception as e:
+                async for ev in self._phase1_fallback(e):
+                    yield ev
+                return
 
-        async for ev in self._phase2(choice):
-            yield ev
+            async for ev in self._phase2(choice):
+                yield ev
 
         # Con tool results el contexto ya viene del resultado; mandar 20 mensajes
         # extra dispara el TPM. Con herramientas: solo los últimos 4.

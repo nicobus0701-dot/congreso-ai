@@ -1,4 +1,8 @@
-Genera un RESUMEN EJECUTIVO SEMANAL del Congreso del Perú usando las herramientas disponibles.
+Genera un RESUMEN EJECUTIVO SEMANAL del Congreso del Perú usando SOLO lo que
+devolvieron las herramientas: proyectos de ley recientes, destacados/citaciones
+(cubre Congreso, Senado y Diputados), Agenda del Pleno y agenda de sesiones de
+las cámaras. Nunca tu conocimiento general — si una herramienta no trajo algo,
+no existe para este informe.
 
 **Hoy es {hoy}. La semana que debes resumir va del {desde} al {hoy}.**
 
@@ -22,32 +26,37 @@ Este informe cubre ÚNICAMENTE hechos ocurridos entre el {desde} y el {hoy}.
 Es normal: el Congreso tiene recesos, cambios de legislatura y semanas de
 representación. No rellenes el informe con material viejo para que parezca lleno.
 
-- Sección vacía → escribe una sola línea: "Sin novedades en esta sección entre el
-  {desde} y el {hoy}."
-- **Si NINGUNA sección tiene datos dentro de la ventana**, no armes la estructura
-  completa. Responde solo esto:
+**Si NINGÚN tema tiene datos dentro de la ventana**, no armes la estructura
+completa. Responde solo esto:
 
-  > **Sin actividad parlamentaria registrada entre el {desde} y el {hoy}.**
-  >
-  > Las fuentes oficiales consultadas no reportan proyectos presentados, sesiones
-  > ni publicaciones nuevas en esta semana. [Explica en 1-2 líneas el motivo
-  > probable según la fecha: receso parlamentario, cambio de legislatura, semana
-  > de representación, feriados.] [Sugiere 2 alternativas concretas: revisar la
-  > agenda de la semana siguiente, consultar proyectos en trámite en comisiones,
-  > o pedir el expediente de un proyecto puntual.]
+> **Sin actividad parlamentaria registrada entre el {desde} y el {hoy}.**
+>
+> Las fuentes oficiales consultadas (Congreso, Senado, Diputados, Agenda del
+> Pleno, agenda de sesiones) no reportan proyectos presentados, sesiones ni
+> publicaciones nuevas en esta semana. [Explica en 1-2 líneas el motivo
+> probable según la fecha: receso parlamentario, cambio de legislatura, semana
+> de representación, feriados.] [Sugiere 2 alternativas concretas: revisar la
+> agenda de la semana siguiente, consultar proyectos en trámite en comisiones,
+> o pedir el expediente de un proyecto puntual.]
 
-  Y cierra con la lista de fuentes consultadas. Nada más.
+Y cierra con la lista de fuentes consultadas. Nada más.
 
-## Consulta
+## Estructura: por TEMA, no por herramienta
 
-En este orden: 1) proyectos de ley recientes (buscar_proyectos), 2) noticias
-destacadas (buscar_destacados), 3) agenda de comisiones próximas
-(fetch_agenda_comisiones) y Agenda del Pleno (fetch_agenda_pleno).
+**No** armes el informe como "1. proyectos, 2. destacados, 3. agenda"
+separados por de dónde salió cada dato. En cambio, **agrupá todo por tema de
+política pública** — justicia y seguridad, economía y finanzas, salud,
+educación, infraestructura, minería y energía, relaciones exteriores, lo que
+corresponda — combinando en cada tema lo que venga de proyectos de ley,
+destacados/citaciones (de cualquiera de las 3 cámaras) y sesiones agendadas
+que toquen ese tema, sin importar de qué herramienta salió cada dato.
 
-## Estructura
+Los temas los definís vos según lo que **realmente** haya esa semana — no uses
+una lista fija de categorías si no hay contenido real para llenarlas. Si toda
+la actividad de la semana cae en 2 temas, el informe tiene 2 secciones, no 5
+vacías rellenadas para parecer completo.
 
-Si SÍ hay datos dentro de la ventana, estructura el resumen EXACTAMENTE así
-(usa estos encabezados):
+Formato exacto:
 
 # RESUMEN EJECUTIVO — CONGRESO DEL PERÚ
 **Semana del {desde} al {hoy}**
@@ -55,35 +64,37 @@ Preparado por: Lex — Sistema de Monitoreo Parlamentario
 
 ---
 
-## 1. PANORAMA DE LA SEMANA
-[2-3 párrafos sobre el contexto político y los temas que dominaron la agenda,
-basados SOLO en hechos de la ventana. Si no hay hechos en la ventana, una línea
-diciéndolo — no escribas párrafos de relleno con historia anterior.]
+## Panorama
+[2-3 líneas de contexto general de la semana, basadas solo en los temas que
+vas a desarrollar abajo — no un párrafo genérico de relleno.]
 
-## 2. PROYECTOS DE LEY DESTACADOS
-[Tabla solo con proyectos presentados dentro de la ventana: Número | Fecha | Estado | Materia | Autores]
-[Breve análisis de los 2-3 más importantes]
+## [Nombre del tema 1]
+- [Hallazgo, con la cámara de origen entre paréntesis cuando aplique —
+  (Congreso) / (Senado) / (Diputados) / (Pleno) — y la fecha si es un
+  proyecto o noticia] — [Ver fuente](URL exacta devuelta por la herramienta)
+- [Otro hallazgo del mismo tema] — [Ver fuente](URL exacta)
 
-## 3. AGENDA Y SESIONES
-⚠️ Usa SOLO los datos reales devueltos por fetch_agenda_comisiones y
-fetch_agenda_pleno, y solo sesiones desde hoy ({hoy}) hacia adelante. Si
-devuelven vacío, sin datos, o el Congreso está en receso, escribe literalmente:
-"El Congreso no tiene sesiones programadas para los próximos días." NUNCA
-inventes números de proyectos, fechas, comisiones ni sesiones. Si no hay datos
-reales = no hay agenda.
+[Si el tema tiene 2+ elementos relacionados, una línea de lectura: qué patrón
+sugieren juntos — no solo los listes.]
 
-## 4. NOTICIAS Y COYUNTURA
-[Las 3-5 noticias más importantes con su impacto. Cada una debe tener fecha
-dentro de la ventana. Indica la fecha de cada noticia entre paréntesis para que
-se pueda verificar.]
+## [Nombre del tema 2]
+[repetir el mismo formato]
 
-## 5. PUNTOS DE ATENCIÓN
-[Temas que requieren seguimiento la próxima semana, derivados de lo anterior]
+## Agenda de sesiones
+⚠️ Usa SOLO lo que devolvieron fetch_agenda_pleno y la agenda de sesiones de
+cámaras, y solo sesiones desde hoy ({hoy}) hacia adelante. Si no hay datos,
+escribe literalmente: "No hay sesiones programadas para los próximos días."
+NUNCA inventes números de proyectos, fechas, comisiones ni sesiones.
+
+## Puntos de atención
+[Temas que requieren seguimiento la próxima semana, derivados de las
+secciones de arriba — no nuevos temas sin base en lo ya presentado.]
 
 ---
 **Fuentes verificadas:**
-[Lista de links a las fuentes consultadas]
+[Lista de links reales a las fuentes consultadas — Congreso, Senado,
+Diputados, Agenda del Pleno, agenda de sesiones, según cuáles trajeron datos]
 
-Sé analítico, no solo descriptivo. Incluye tu criterio sobre qué es relevante y
-por qué. Pero un informe corto y honesto es mejor que uno largo con datos de
-otro mes.
+Sé analítico, no solo descriptivo: si un tema tiene varios elementos, decí qué
+patrón sugieren juntos. Pero un informe corto y honesto, con pocos temas
+reales, es mejor que uno largo con temas forzados o datos de otro mes.

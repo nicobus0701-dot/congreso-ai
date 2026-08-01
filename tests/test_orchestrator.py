@@ -5,10 +5,11 @@ Toda la lógica de decisión (qué fase correr, qué historial mandar, qué syst
 prompt armar) es pura y se testea sin tocar Groq ni la red.
 """
 from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from services.orchestrator import RESUMEN_DIAS, ChatOrchestrator
+from services.orchestrator import RESUMEN_DIAS, RESUMEN_TOOLS, ChatOrchestrator
 from services.prompt_registry import SYSTEM_MINI, resumen_con_fechas
 
 
@@ -169,13 +170,44 @@ def test_ventana_del_resumen_son_siete_dias():
     assert delta.days == RESUMEN_DIAS
 
 
-def test_router_del_resumen_recibe_la_instruccion_no_el_centinela():
-    """El centinela crudo no le dice nada al router de Fase 1."""
+@pytest.mark.asyncio
+async def test_resumen_usa_herramientas_fijas_no_el_router():
+    """
+    El resumen semanal no le deja la elección de herramientas al router (8B):
+    dejado a su criterio terminaba llamando 7-8 de golpe y reventaba el TPM
+    de Groq. _phase2_resumen corre exactamente RESUMEN_TOOLS, en orden.
+    """
     orch = make([user("__RESUMEN_SEMANAL__: general")])
-    msgs = orch._router_messages()
-    contenido = " ".join(m["content"] for m in msgs)
-    assert "__RESUMEN_SEMANAL__" not in contenido
-    assert orch.desde in contenido
+    with patch.object(ChatOrchestrator, "_run_tool", new=AsyncMock(return_value={"ok": True})):
+        events = [ev async for ev in orch._phase2_resumen()]
+
+    assert orch.tools_usados == [name for name, _ in RESUMEN_TOOLS]
+    assert len(events) == len(RESUMEN_TOOLS)  # un sse.status por herramienta
+
+    # El mensaje "assistant" con tool_calls trae las 4 llamadas de una, y cada
+    # una tiene un tool_call_id único que matchea con su mensaje "tool".
+    assistant_msg = orch.tool_msgs[0]
+    assert len(assistant_msg["tool_calls"]) == len(RESUMEN_TOOLS)
+    tool_msgs = [m for m in orch.tool_msgs if m["role"] == "tool"]
+    assert len(tool_msgs) == len(RESUMEN_TOOLS)
+    ids_assistant = {tc["id"] for tc in assistant_msg["tool_calls"]}
+    ids_tool = {m["tool_call_id"] for m in tool_msgs}
+    assert ids_assistant == ids_tool
+
+
+@pytest.mark.asyncio
+async def test_run_no_llama_a_fase1_para_resumen():
+    """run() desvía is_resumen a _phase2_resumen directo, sin pasar por Fase 1."""
+    orch = make([user("__RESUMEN_SEMANAL__: general")])
+    with patch.object(ChatOrchestrator, "_phase1", new=AsyncMock(side_effect=AssertionError("no debería llamarse"))), \
+         patch.object(ChatOrchestrator, "_run_tool", new=AsyncMock(return_value={"ok": True})), \
+         patch.object(ChatOrchestrator, "_stream_final") as mock_stream:
+        async def fake_stream(*a, **k):
+            yield "data: [DONE]\n\n"
+        mock_stream.side_effect = fake_stream
+        events = [ev async for ev in orch.run()]
+
+    assert events  # llegó hasta el final sin explotar en Fase 1
 
 
 def test_phase3_usa_mini_con_tools_sin_workflow():
@@ -216,3 +248,10 @@ def test_phase3_responder_directo_usa_base():
 def test_phase3_max_tokens(tools, esperado):
     orch = make([user("x")], tools_usados=tools)
     assert orch._phase3_max_tokens() == esperado
+
+
+def test_phase3_max_tokens_resumen_tiene_prioridad():
+    """is_resumen manda su propio presupuesto aunque tools_usados matchee otro caso."""
+    orch = make([user("__RESUMEN_SEMANAL__: general")],
+                tools_usados=["fetch_expediente"])
+    assert orch._phase3_max_tokens() == 3000
