@@ -34,17 +34,19 @@ async def pdfs_page():
 
 @router.get("/congreso-pdfs")
 async def congreso_pdfs():
-    """PDFs rápidos: destacados del homepage + referencias fijas."""
+    """PDFs rápidos: destacados/citaciones de Congreso, Senado y Diputados + referencias fijas."""
     pdfs = []
     try:
         data = await fetch_destacados()
-        for clave, tipo in (("destacados", "Destacado"), ("citaciones", "Citación")):
-            for item in data.get(clave, []):
-                url = item.get("enlace", "")
-                if url.lower().endswith(".pdf"):
-                    pdfs.append({"titulo": item["titulo"], "enlace": url, "tipo": tipo})
+        for camara, info in data.get("camaras", {}).items():
+            for clave, tipo in (("destacados", "Destacado"), ("citaciones", "Citación")):
+                for item in info.get(clave, []):
+                    url = item.get("enlace", "")
+                    if url.lower().endswith(".pdf"):
+                        pdfs.append({"titulo": item["titulo"], "enlace": url,
+                                     "tipo": f"{tipo} — {camara}"})
 
-        # Cuando el Congreso no publica destacados ni citaciones, el scraper
+        # Cuando ninguna cámara publica destacados ni citaciones, el scraper
         # devuelve los documentos que sí están disponibles (agendas del Pleno).
         # Sin esto el panel se quedaba solo con las 3 referencias fijas.
         for item in data.get("documentos_disponibles", []):

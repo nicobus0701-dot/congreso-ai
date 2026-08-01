@@ -26,6 +26,13 @@ HEADERS = {
 
 SPLEY_API  = "https://api.congreso.gob.pe/spley-portal-service"
 CONGRESO   = "https://www.congreso.gob.pe"
+# bicameral.congreso.gob.pe todavía no existe del lado del Congreso (404 ->
+# wp-signup.php, típico de un subdominio de WordPress Multisite reservado
+# pero no creado) — mientras tanto CONGRESO sigue siendo el sitio anterior,
+# que está vivo. SENADO y DIPUTADOS sí están publicados y usan el mismo
+# WordPress/plugin que CONGRESO (mismas clases widget_wc_widget_*).
+SENADO     = "https://senado.congreso.gob.pe"
+DIPUTADOS  = "https://diputados.congreso.gob.pe"
 PER_PAR_ID = 2021   # periodo parlamentario actual 2021-2026
 
 # Ventana de "noticia reciente". Coincide con la del resumen semanal
@@ -341,75 +348,102 @@ async def fetch_agenda():
 
 # ── Destacados ─────────────────────────────────────────────────
 
+def _extract_widget_items(soup, widget_class):
+    items = []
+    widget = soup.find("div", class_=widget_class)
+    if not widget:
+        return items
+    for a in widget.find_all("a", href=True):
+        titulo = a.get_text(strip=True)
+        enlace = a["href"].strip()
+        if titulo and enlace:
+            items.append({"titulo": titulo, "enlace": enlace})
+    return items
+
+
+async def _scrape_destacados_camara(url: str):
+    """
+    Scrapea la portada de una cámara (Congreso/Senado/Diputados) — todas
+    corren el mismo WordPress y las mismas clases widget_wc_widget_feature_article
+    / widget_wc_widget_citation_article, así que un solo parser sirve para las 3.
+
+    `url` ya viene con la ruta correcta incluida: a diferencia de
+    www.congreso.gob.pe (que sirve la portada en /home/ y también en /),
+    senado.congreso.gob.pe y diputados.congreso.gob.pe solo responden 200 en
+    la raíz — /home/ ahí da 404.
+    """
+    async with _client() as c:
+        r = await c.get(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0",
+        })
+        if r.status_code != 200:
+            raise Exception(f"HTTP {r.status_code}")
+
+    soup = BeautifulSoup(r.text, "html.parser")
+    destacados = _extract_widget_items(soup, "widget_wc_widget_feature_article")
+    citaciones = _extract_widget_items(soup, "widget_wc_widget_citation_article")
+
+    # Distinguir "esta cámara no publicó nada" de "el scraping se rompió". Los
+    # widgets se renderizan en el servidor con el literal "No hay publicaciones
+    # para mostrar" cuando están vacíos — antes eso se trataba como fallo y se
+    # devolvían noticias de Google News como si fueran documentos oficiales.
+    vacio_declarado = "No hay publicaciones para mostrar" in r.text
+    if not destacados and not citaciones and not vacio_declarado:
+        raise Exception("sin items y sin aviso de vacío — el HTML cambió")
+
+    return {"fuente": url, "destacados": destacados, "citaciones": citaciones}
+
+
 async def fetch_destacados():
-    """Scrapea congreso.gob.pe/home — secciones DESTACADO y CITACIONES con links de descarga."""
-    try:
-        async with _client() as c:
-            r = await c.get(f"{CONGRESO}/home/", headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0",
-            })
-            if r.status_code != 200:
-                raise Exception(f"HTTP {r.status_code}")
+    """
+    Scrapea /home de Congreso, Senado y Diputados — secciones DESTACADO y
+    CITACIONES con links de descarga de cada cámara.
 
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(r.text, "html.parser")
+    bicameral.congreso.gob.pe todavía no existe (ver nota junto a la
+    constante CONGRESO) — se usa www.congreso.gob.pe como fuente "Congreso"
+    hasta que el sitio nuevo esté publicado.
+    """
+    import asyncio
 
-        def _extract_items(widget_class):
-            items = []
-            widget = soup.find("div", class_=widget_class)
-            if not widget:
-                return items
-            for a in widget.find_all("a", href=True):
-                titulo = a.get_text(strip=True)
-                enlace = a["href"].strip()
-                if titulo and enlace:
-                    items.append({"titulo": titulo, "enlace": enlace})
-            return items
+    fuentes = {
+        "Congreso": f"{CONGRESO}/home/",
+        "Senado": f"{SENADO}/",
+        "Diputados": f"{DIPUTADOS}/",
+    }
+    resultados = await asyncio.gather(
+        *(_scrape_destacados_camara(url) for url in fuentes.values()),
+        return_exceptions=True,
+    )
 
-        destacados = _extract_items("widget_wc_widget_feature_article")
-        citaciones  = _extract_items("widget_wc_widget_citation_article")
-
-        # Distinguir "el Congreso no publicó nada" de "el scraping se rompió".
-        # Los widgets se renderizan en el servidor con el literal
-        # "No hay publicaciones para mostrar" cuando están vacíos; antes eso se
-        # trataba como fallo y se devolvían noticias de Google News como si
-        # fueran documentos, lo que llevaba al modelo a decir que no tenía
-        # acceso a descargas.
-        vacio_declarado = "No hay publicaciones para mostrar" in r.text
-
-        resultado = {
-            "fuente": CONGRESO + "/home/",
-            "destacados": destacados,
-            "citaciones": citaciones,
-        }
-
-        if not destacados and not citaciones:
-            if not vacio_declarado:
-                raise Exception("sin items y sin aviso de vacío — el HTML cambió")
-            resultado["estado_fuente"] = (
-                "El portal del Congreso no tiene publicaciones en DESTACADO ni en "
-                "CITACIONES en este momento (sus widgets muestran 'No hay publicaciones "
+    camaras = {}
+    fallidas = []
+    for nombre, resultado in zip(fuentes.keys(), resultados):
+        if isinstance(resultado, Exception):
+            fallidas.append(nombre)
+            logger.warning("%s: scrape de destacados falló: %s", nombre, resultado)
+            continue
+        camaras[nombre] = resultado
+        if not resultado["destacados"] and not resultado["citaciones"]:
+            camaras[nombre]["estado_fuente"] = (
+                f"{nombre} no tiene publicaciones en DESTACADO ni en CITACIONES "
+                "en este momento (sus widgets muestran 'No hay publicaciones "
                 "para mostrar'). No es un fallo de conexión."
             )
-            resultado["documentos_disponibles"] = await _documentos_disponibles()
 
-        return resultado
-
-    except Exception as _e:
-        logger.warning("Congreso scrape falló: %s", _e)
-        # Solo la última semana: el índice de Google devuelve noticias de meses
-        # atrás y terminaban citadas como actividad de la semana en curso.
+    if not camaras:
+        # Las 3 cámaras fallaron: fallback a noticias de prensa, solo de la
+        # última semana (el índice de Google devuelve resultados de meses
+        # atrás que terminaban citados como actividad de la semana en curso).
+        logger.warning("Scrape de destacados falló en las 3 cámaras: %s", fallidas)
         noticias = await _google_news(
             "congreso perú noticias destacados sesión pleno ley",
             max_results=10,
             dias=DIAS_NOTICIAS_RECIENTES,
         )
         resultado = {
-            "fuente": CONGRESO + "/home/",
             "sin_datos": True,
-            "mensaje": f"No se pudo leer las secciones DESTACADO y CITACIONES ({_e}).",
+            "mensaje": "No se pudo leer DESTACADO ni CITACIONES en Congreso, Senado ni Diputados.",
             "documentos_disponibles": await _documentos_disponibles(),
-            # Etiquetado aparte: son noticias, no documentos oficiales.
             "noticias_relacionadas": noticias,
         }
         if not noticias:
@@ -420,6 +454,13 @@ async def fetch_destacados():
                 "actividad de esta semana."
             )
         return resultado
+
+    resultado = {"camaras": camaras}
+    if fallidas:
+        resultado["camaras_no_disponibles"] = fallidas
+    if all(not c["destacados"] and not c["citaciones"] for c in camaras.values()):
+        resultado["documentos_disponibles"] = await _documentos_disponibles()
+    return resultado
 
 
 async def _documentos_disponibles():

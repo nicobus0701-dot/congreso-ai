@@ -68,10 +68,14 @@ async def test_congreso_proyectos_shape(client):
 @pytest.mark.asyncio
 async def test_congreso_pdfs_shape(client):
     fake_destacados = {
-        "destacados": [
-            {"titulo": "Informe PDF", "enlace": "https://example.com/doc.pdf"},
-        ],
-        "citaciones": [],
+        "camaras": {
+            "Congreso": {
+                "destacados": [
+                    {"titulo": "Informe PDF", "enlace": "https://example.com/doc.pdf"},
+                ],
+                "citaciones": [],
+            },
+        },
     }
     with patch("routers.pdfs.fetch_destacados", new=AsyncMock(return_value=fake_destacados)):
         r = await client.get("/congreso-pdfs")
