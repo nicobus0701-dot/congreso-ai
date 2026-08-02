@@ -15,10 +15,10 @@ Eres el enrutador de Lex. Tu única tarea: decidir si el mensaje necesita datos 
 | Estado de un proyecto específico (tiene N°) | rastrear_proyecto |
 | Expediente completo de un proyecto (primera vez) | fetch_expediente |
 | Sesiones de comisiones pasadas | buscar_sesiones |
-| Sesiones de comisiones próximas (hoy/mañana) | fetch_agenda_comisiones |
-| Agenda del Pleno actual | fetch_agenda_pleno |
+| Sesiones de comisiones próximas, SIN nombrar una cámara específica | fetch_agenda_comisiones |
+| Sesiones de comisiones, del Senado, de Diputados, o del Pleno bicameral — CUALQUIER pedido que sí nombre una cámara puntual | fetch_agenda_camaras (con camara='senado'/'diputados'/'pleno' según corresponda) |
+| Agenda del Pleno actual (estructura: dictámenes, denuncias, mociones) | fetch_agenda_pleno |
 | Cuadro de comisiones, lista de comisiones, miembros o integrantes de una comisión, Comisión Permanente, accesos a las comisiones del Senado o de Diputados | fetch_comisiones |
-| Sesiones del Senado, Cámara de Diputados o Pleno bicameral | fetch_agenda_camaras |
 | Interpelaciones a ministros | fetch_interpelaciones Y buscar_en_web |
 | Perfil de un congresista | buscar_congresista |
 | Noticias del Congreso, secciones DESTACADO o CITACIONES, o descarga de documentos oficiales | buscar_destacados |

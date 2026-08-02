@@ -231,9 +231,13 @@ TOOLS = [
             "name": "fetch_agenda_comisiones",
             "description": (
                 "Obtiene las sesiones de comisiones programadas para los próximos días desde "
-                "la web del Congreso. Devuelve por cada sesión: fecha, hora, comisión, lugar o "
-                "modalidad, y link a la agenda. Usar cuando el usuario pregunte qué sesiones de "
-                "comisiones hay hoy, mañana o en los próximos días."
+                "la web del Congreso. Fuente única (Departamento de Comisiones), NO distingue "
+                "cámara — junta Senado y Diputados sin diferenciarlos. Devuelve por cada sesión: "
+                "fecha, hora, comisión, lugar o modalidad, y link a la agenda. Usar SOLO cuando "
+                "el usuario pregunte por sesiones de comisiones EN GENERAL, sin nombrar una "
+                "cámara. Si el usuario menciona Senado, Diputados o Pleno, usar "
+                "fetch_agenda_camaras en su lugar — esta herramienta no puede filtrar por cámara "
+                "y daría el mismo resultado sin importar cuál se pida."
             ),
             "parameters": {
                 "type": "object",
@@ -312,10 +316,15 @@ TOOLS = [
         "function": {
             "name": "fetch_agenda_camaras",
             "description": (
-                "Obtiene las sesiones programadas del Senado, Cámara de Diputados y Pleno del "
-                "Congreso bicameral desde comunicaciones.congreso.gob.pe/agenda. "
-                "Usar cuando el usuario pregunte por sesiones del Senado, Diputados, Pleno "
-                "bicameral, o la agenda general del nuevo Congreso."
+                "Obtiene las sesiones programadas del Senado, Cámara de Diputados, Pleno del "
+                "Congreso bicameral Y también sesiones de comisiones, desde "
+                "comunicaciones.congreso.gob.pe/agenda — la fuente oficial post-separación "
+                "bicameral, que SÍ distingue de qué cámara es cada sesión. "
+                "Úsala SIEMPRE que el usuario nombre una cámara específica (Senado, Diputados, "
+                "Pleno) al preguntar por sesiones o agenda de comisiones — con "
+                "camara='senado'/'diputados'/'pleno' — en vez de fetch_agenda_comisiones, que "
+                "no puede distinguir cámaras. También sirve para sesiones de comisiones sin "
+                "cámara puntual, con camara='comision'."
             ),
             "parameters": {
                 "type": "object",
