@@ -9,7 +9,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from services.orchestrator import RESUMEN_DIAS, RESUMEN_TOOLS, ChatOrchestrator
+from services.orchestrator import (
+    RESUMEN_DIAS,
+    RESUMEN_TOOLS,
+    ChatOrchestrator,
+    _detecta_proyectos_por_dias,
+)
 from services.prompt_registry import SYSTEM_MINI, resumen_con_fechas
 
 
@@ -175,11 +180,11 @@ async def test_resumen_usa_herramientas_fijas_no_el_router():
     """
     El resumen semanal no le deja la elección de herramientas al router (8B):
     dejado a su criterio terminaba llamando 7-8 de golpe y reventaba el TPM
-    de Groq. _phase2_resumen corre exactamente RESUMEN_TOOLS, en orden.
+    de Groq. _phase2_tools_fijas corre exactamente RESUMEN_TOOLS, en orden.
     """
     orch = make([user("__RESUMEN_SEMANAL__: general")])
     with patch.object(ChatOrchestrator, "_run_tool", new=AsyncMock(return_value={"ok": True})):
-        events = [ev async for ev in orch._phase2_resumen()]
+        events = [ev async for ev in orch._phase2_tools_fijas(RESUMEN_TOOLS)]
 
     assert orch.tools_usados == [name for name, _ in RESUMEN_TOOLS]
     assert len(events) == len(RESUMEN_TOOLS)  # un sse.status por herramienta
@@ -197,7 +202,7 @@ async def test_resumen_usa_herramientas_fijas_no_el_router():
 
 @pytest.mark.asyncio
 async def test_run_no_llama_a_fase1_para_resumen():
-    """run() desvía is_resumen a _phase2_resumen directo, sin pasar por Fase 1."""
+    """run() desvía is_resumen a _phase2_tools_fijas directo, sin pasar por Fase 1."""
     orch = make([user("__RESUMEN_SEMANAL__: general")])
     with patch.object(ChatOrchestrator, "_phase1", new=AsyncMock(side_effect=AssertionError("no debería llamarse"))), \
          patch.object(ChatOrchestrator, "_run_tool", new=AsyncMock(return_value={"ok": True})), \
@@ -208,6 +213,58 @@ async def test_run_no_llama_a_fase1_para_resumen():
         events = [ev async for ev in orch.run()]
 
     assert events  # llegó hasta el final sin explotar en Fase 1
+
+
+# ── _detecta_proyectos_por_dias ───────────────────────────────────────────────
+
+@pytest.mark.parametrize("texto,esperado", [
+    ("Revisa los proyectos de ley de los últimos 15 días calendario, y "
+     "entrégame un cuadro resumen dividido por temas", 15),
+    ("qué proyectos de ley se presentaron en los últimos 7 días sobre minería", 7),
+    ("dame los proyectos de ley de hoy", None),                    # sin número de días
+    ("explícame qué es un proyecto de ley", None),                 # conceptual, sin "días"
+    ("qué sesiones hay en los próximos 2 días", None),              # "días" sin "proyecto"+"ley"
+    ("busca proyectos de autor Chirinos", None),                    # sin ventana de tiempo
+])
+def test_detecta_proyectos_por_dias(texto, esperado):
+    assert _detecta_proyectos_por_dias(texto) == esperado
+
+
+def test_analyze_setea_forzar_dias_proyectos():
+    orch = make([user("Revisa los proyectos de ley de los últimos 15 días calendario, "
+                       "y entrégame un cuadro resumen dividido por temas")])
+    assert orch.forzar_dias_proyectos == 15
+
+
+def test_resumen_no_activa_forzar_dias_proyectos():
+    """is_resumen tiene su propio set de herramientas — no debe pisarse con esto."""
+    orch = make([user("__RESUMEN_SEMANAL__: general, con proyectos de ley de 15 días")])
+    assert orch.forzar_dias_proyectos is None
+
+
+@pytest.mark.asyncio
+async def test_run_fuerza_buscar_proyectos_sin_pasar_por_router():
+    """
+    Bug real encontrado en producción: para esta frase el router (8B) elegía
+    responder_directo con demasiada frecuencia (~4 de 7 intentos en pruebas
+    en vivo) y el modelo grande terminaba inventando una tabla de proyectos
+    falsos. forzar_dias_proyectos bypasea el router por completo acá.
+    """
+    orch = make([user("Revisa los proyectos de ley de los últimos 15 días calendario, "
+                       "y entrégame un cuadro resumen dividido por temas")])
+    assert orch.forzar_dias_proyectos == 15
+
+    with patch.object(ChatOrchestrator, "_phase1", new=AsyncMock(side_effect=AssertionError("no debería llamarse"))), \
+         patch.object(ChatOrchestrator, "_run_tool", new=AsyncMock(return_value={"ok": True})) as mock_run_tool, \
+         patch.object(ChatOrchestrator, "_stream_final") as mock_stream:
+        async def fake_stream(*a, **k):
+            yield "data: [DONE]\n\n"
+        mock_stream.side_effect = fake_stream
+        events = [ev async for ev in orch.run()]
+
+    assert events
+    assert orch.tools_usados == ["buscar_proyectos"]
+    mock_run_tool.assert_awaited_once_with("buscar_proyectos", {"dias": 15})
 
 
 def test_phase3_usa_mini_con_tools_sin_workflow():

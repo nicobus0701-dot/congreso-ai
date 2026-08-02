@@ -282,14 +282,18 @@ TOOLS = [
                 "y visores oficiales. Úsala SIEMPRE que el usuario pida el cuadro de "
                 "comisiones, la lista de comisiones, los miembros o integrantes de una "
                 "comisión, o los accesos a la Comisión Permanente del Senado o Diputados. "
-                "NO respondas que no tienes acceso: llama a esta herramienta."
+                "NO respondas que no tienes acceso: llama a esta herramienta. "
+                "LLAMALA UNA SOLA VEZ por turno: sin el parámetro 'camara' (o con camara "
+                "vacío) ya devuelve los enlaces de AMBAS cámaras juntas — no hace falta "
+                "invocarla de nuevo con camara='senado' y otra vez con camara='diputados', "
+                "eso devuelve exactamente los mismos datos dos veces."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "camara": {
                         "type": "string",
-                        "description": "Opcional. 'senado' o 'diputados' para priorizar los enlaces de esa cámara. Omitir para incluir ambas."
+                        "description": "Opcional. 'senado' o 'diputados' para priorizar los enlaces de esa cámara en la respuesta. Omitir para incluir ambas — no combines esto con múltiples llamadas."
                     }
                 }
             }
@@ -347,11 +351,10 @@ TOOLS = [
             "name": "fetch_interpelaciones",
             "description": (
                 "Obtiene las mociones de interpelación a ministros presentadas formalmente ante "
-                "el Congreso y noticias sobre mociones en gestación (recolección de firmas). "
+                "el Congreso Y noticias sobre mociones en gestación (recolección de firmas) — ya "
+                "busca ambas cosas internamente, no hace falta llamar a buscar_en_web aparte. "
                 "Devuelve por cada moción: ministro, cartera, fecha, estado y motivo. "
-                "Usar cuando el usuario pregunte por interpelaciones o mociones contra ministros. "
-                "IMPORTANTE: complementar siempre con buscar_en_web para detectar mociones en "
-                "recolección de firmas que aún no aparecen en el sistema."
+                "Usar cuando el usuario pregunte por interpelaciones o mociones contra ministros."
             ),
             "parameters": {
                 "type": "object",

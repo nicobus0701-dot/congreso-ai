@@ -67,6 +67,23 @@ YT_ID_RE = re.compile(
     r"(?:youtube\.com/(?:watch\?v=|live/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})"
 )
 
+# "proyectos de ley de los últimos N días" — override determinístico del
+# router. Probado en vivo: el router (8B) fallaba en elegir buscar_proyectos
+# para esta frase en ~4 de cada 7 intentos, y sin la herramienta el modelo
+# grande terminaba inventando una tabla completa de proyectos falsos pese a
+# la regla anti-invención del prompt (que ayuda, pero no es 100% confiable).
+# Acotado a "proyecto"+"ley"+"N días" explícito para evitar falsos positivos
+# con pedidos que sí necesitan materia/autor (esos el router los resuelve bien).
+DIAS_PROYECTOS_RE = re.compile(r"(\d+)\s*d[ií]as", re.IGNORECASE)
+
+
+def _detecta_proyectos_por_dias(texto: str) -> int | None:
+    t = texto.lower()
+    if "proyecto" not in t or "ley" not in t:
+        return None
+    m = DIAS_PROYECTOS_RE.search(t)
+    return int(m.group(1)) if m else None
+
 
 class ChatOrchestrator:
     """Ejecuta una vuelta completa de conversación sobre el historial dado."""
@@ -83,6 +100,7 @@ class ChatOrchestrator:
         # Estado que rellena _analyze()
         self.last_msg = ""
         self.is_resumen = False
+        self.forzar_dias_proyectos: int | None = None
         self.sector = None
         self.analizar_documento = False
         self.has_sesion = False
@@ -107,6 +125,11 @@ class ChatOrchestrator:
         self.is_resumen = self.last_msg.strip().startswith("__RESUMEN_SEMANAL__")
         if self.is_resumen and ":" in self.last_msg:
             self.sector = self.last_msg.strip().split(":", 1)[1].strip()
+
+        # "proyectos de ley de los últimos N días" — no is_resumen (que ya
+        # tiene su propio set fijo de herramientas).
+        if not self.is_resumen:
+            self.forzar_dias_proyectos = _detecta_proyectos_por_dias(self.last_msg)
 
         # ¿Hay un PDF cargado? El frontend lo inyecta como mensaje de usuario.
         recientes = msgs[-6:]
@@ -344,23 +367,26 @@ class ChatOrchestrator:
                 "content": result_str,
             })
 
-    async def _phase2_resumen(self):
+    async def _phase2_tools_fijas(self, tools: tuple):
         """
-        Corre RESUMEN_TOOLS directamente, sin pasar por el router — mismo
-        formato de tool_calls que arma _phase2, pero con ids sintéticos en
-        vez de los que devolvería el modelo.
+        Corre una lista fija de herramientas directamente, sin pasar por el
+        router — mismo formato de tool_calls que arma _phase2, pero con ids
+        sintéticos en vez de los que devolvería el modelo. Usado cuando ya
+        sabemos con certeza qué herramienta hace falta y no vale la pena
+        (o es riesgoso) dejárselo a la elección del router de 8B — ver
+        RESUMEN_TOOLS y _detecta_proyectos_por_dias.
         """
         tool_calls = [
             {
-                "id": f"resumen-{i}",
+                "id": f"forzado-{i}",
                 "type": "function",
                 "function": {"name": name, "arguments": json.dumps(args)},
             }
-            for i, (name, args) in enumerate(RESUMEN_TOOLS)
+            for i, (name, args) in enumerate(tools)
         ]
         self.tool_msgs.append({"role": "assistant", "content": "", "tool_calls": tool_calls})
 
-        for (name, args), tc in zip(RESUMEN_TOOLS, tool_calls):
+        for (name, args), tc in zip(tools, tool_calls):
             self.tools_usados.append(name)
             yield sse.status(STATUS_LABELS.get(name, "Consultando el Congreso..."))
 
@@ -455,7 +481,15 @@ class ChatOrchestrator:
 
         if self.is_resumen:
             # Herramientas fijas — nada de router acá (ver RESUMEN_TOOLS).
-            async for ev in self._phase2_resumen():
+            async for ev in self._phase2_tools_fijas(RESUMEN_TOOLS):
+                yield ev
+        elif self.forzar_dias_proyectos is not None:
+            # "proyectos de ley de los últimos N días" — el router fallaba en
+            # elegir buscar_proyectos acá con demasiada frecuencia (ver
+            # _detecta_proyectos_por_dias). Forzarlo evita que el modelo
+            # grande termine inventando una tabla de proyectos falsos.
+            tools = (("buscar_proyectos", {"dias": self.forzar_dias_proyectos}),)
+            async for ev in self._phase2_tools_fijas(tools):
                 yield ev
         else:
             try:

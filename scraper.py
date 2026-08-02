@@ -1224,7 +1224,13 @@ async def fetch_interpelaciones(ministro: str = None):
                 for p in all_items:
                     titulo = (p.get("titulo") or "").upper()
                     sumilla = (p.get("sumilla") or "").upper()
-                    if "INTERPELAC" in titulo or "INTERPELAC" in sumilla or "MOCIÓN" in titulo:
+                    # Antes también matcheaba "MOCIÓN" in titulo — como substring,
+                    # eso matchea "PROMOCIÓN" (ej. "PROMOCIÓN TURÍSTICA") y traía
+                    # proyectos sin ninguna relación con interpelaciones. Cualquier
+                    # moción de interpelación real ya cae en el chequeo de
+                    # "INTERPELAC" (título o sumilla), así que sacarlo no pierde
+                    # cobertura real.
+                    if "INTERPELAC" in titulo or "INTERPELAC" in sumilla:
                         if not kw_filter or kw_filter in titulo or kw_filter in sumilla:
                             num = p.get("pleyNum") or ""
                             mociones_spley.append({
