@@ -40,6 +40,17 @@
 
 **Etapa actual: [inferir de campo estado]** — [una línea explicando qué significa en la práctica: si está en comisiones, cuánto falta para el pleno; si está dormido, decirlo]
 
+⚠️ REGLA: Si el usuario preguntó algo condicional sobre otra cámara (ej. "si
+ya fue elevado al Senado, revisalo ahí y dame el estatus") — **respondé esa
+parte explícitamente, nunca la ignores en silencio**, incluso si la respuesta
+es "todavía no aplica". Este mismo expediente de SPLEY es la fuente única
+para todo el trámite bicameral del proyecto (no hay un sistema separado del
+Senado para consultar aparte): basate en los campos `estado` y `fases` para
+decidir. Si no hay ningún indicio de tránsito a otra cámara en esos campos,
+decilo así: "Todavía no fue elevado al Senado — sigue en [cámara/fase actual]
+según SPLEY." Si SÍ hay indicios de que pasó a otra cámara, decilo y aclará
+que el estado de esa etapa ya está reflejado arriba en este mismo expediente.
+
 ---
 
 ### COMISIONES A LAS QUE FUE DERIVADO

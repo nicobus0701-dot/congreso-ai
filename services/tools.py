@@ -205,9 +205,15 @@ TOOLS = [
                 "(3) Documentación Anexa — oficios, opiniones de ministerios, informes; "
                 "(4) Secciones — texto del proyecto, fórmula legal, dictámenes, autógrafas; "
                 "(5) Opinión Ciudadana. Usar cuando el usuario pida el expediente, el seguimiento, "
-                "el trámite en comisiones, los actos de trabajo, los adjuntos o el predictamen de "
-                "un proyecto específico. Si el usuario solo dio el tema, primero identificar el "
-                "número con buscar_proyectos."
+                "el trámite en comisiones, los actos de trabajo, los adjuntos, el estatus o el "
+                "predictamen de un proyecto específico. Si el usuario YA DIO el número del "
+                "proyecto (ej. '14864/2025-CR' o '14864'), llamá DIRECTO a esta herramienta con "
+                "ese número — no hace falta buscar_proyectos ni rastrear_proyecto antes, esos son "
+                "solo para cuando el usuario dio el tema pero no el número. "
+                "Es UN SOLO expediente por proyecto que cubre todo su trámite bicameral completo "
+                "(Diputados y Senado): si el usuario nombra ambas cámaras o pregunta 'si ya pasó a "
+                "la otra cámara', llamala UNA SOLA VEZ igual — el mismo expediente ya trae el "
+                "estado de las dos, no hay un expediente separado por cámara."
             ),
             "parameters": {
                 "type": "object",

@@ -11,6 +11,7 @@ necesita scraping, así que va directo a Fase 3 con el workflow correspondiente.
 Todos los métodos públicos son generadores asíncronos que emiten strings SSE
 ya formateados (ver services/sse.py).
 """
+import asyncio
 import json
 import re
 from datetime import datetime, timedelta
@@ -404,16 +405,34 @@ class ChatOrchestrator:
 
     @staticmethod
     async def _run_tool(name: str, args: dict) -> dict:
-        """Ejecuta una herramienta y normaliza cualquier fallo a 'sin_datos'."""
+        """
+        Ejecuta una herramienta y normaliza cualquier fallo a 'sin_datos'.
+
+        Un reintento corto ante excepción: los servidores del Congreso tienen
+        hipos transitorios (timeout puntual, conexión caída) que no vuelven a
+        pasar un segundo después — confirmado en vivo con buscar_proyectos,
+        que falló una vez y funcionó perfecto al tiro siguiente contra la
+        misma consulta. Sin esto, un hipo de 1 request tumbaba toda la
+        respuesta con un "no puedo buscar ahora mismo".
+        """
         if name not in TOOL_MAP:
             logger.warning("El modelo pidió una herramienta inexistente: %s", name)
             return {"sin_datos": True, "mensaje": f"Herramienta '{name}' no disponible."}
-        try:
-            result = await TOOL_MAP[name](args)
-        except Exception as e:
-            logger.error("Herramienta %s falló con args=%s: %s", name, args, e)
+
+        last_exc = None
+        for intento in range(2):
+            try:
+                result = await TOOL_MAP[name](args)
+                break
+            except Exception as e:
+                last_exc = e
+                if intento == 0:
+                    logger.warning("Herramienta %s falló (intento 1/2), reintentando: %s", name, e)
+                    await asyncio.sleep(1.5)
+        else:
+            logger.error("Herramienta %s falló con args=%s tras reintentar: %s", name, args, last_exc)
             return {"sin_datos": True,
-                    "mensaje": f"Error al consultar {name}: {str(e)[:100]}"}
+                    "mensaje": f"Error al consultar {name}: {str(last_exc)[:100]}"}
 
         if isinstance(result, dict) and "error" in result:
             return {"sin_datos": True,

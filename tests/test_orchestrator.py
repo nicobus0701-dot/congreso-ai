@@ -267,6 +267,36 @@ async def test_run_fuerza_buscar_proyectos_sin_pasar_por_router():
     mock_run_tool.assert_awaited_once_with("buscar_proyectos", {"dias": 15})
 
 
+# ── _run_tool: reintento ante falla transitoria ───────────────────────────────
+
+@pytest.mark.asyncio
+async def test_run_tool_reintenta_una_vez_y_se_recupera():
+    """
+    Bug real: SPLEY tuvo un hipo puntual, buscar_proyectos falló, y Lex
+    respondió "no puedo buscar ahora" en vez de reintentar — pese a que la
+    misma consulta funcionaba perfecto al segundo intento.
+    """
+    fake_tool = AsyncMock(side_effect=[TimeoutError("boom"), {"items": [1, 2, 3]}])
+    with patch("services.orchestrator.TOOL_MAP", {"buscar_proyectos": fake_tool}), \
+         patch("services.orchestrator.asyncio.sleep", new=AsyncMock()):
+        result = await ChatOrchestrator._run_tool("buscar_proyectos", {"dias": 15})
+
+    assert result == {"items": [1, 2, 3]}
+    assert fake_tool.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_run_tool_solo_reintenta_una_vez():
+    """Si falla dos veces seguidas, se rinde — no reintenta indefinidamente."""
+    fake_tool = AsyncMock(side_effect=TimeoutError("boom"))
+    with patch("services.orchestrator.TOOL_MAP", {"buscar_proyectos": fake_tool}), \
+         patch("services.orchestrator.asyncio.sleep", new=AsyncMock()):
+        result = await ChatOrchestrator._run_tool("buscar_proyectos", {"dias": 15})
+
+    assert result["sin_datos"] is True
+    assert fake_tool.await_count == 2
+
+
 def test_phase3_usa_mini_con_tools_sin_workflow():
     """Sin workflow propio se ahorra ~800 tokens usando SYSTEM_MINI."""
     orch = make([user("busca en internet qué es una moción")],
