@@ -15,6 +15,7 @@ import asyncio
 import json
 import re
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 from config import MAIN_MODEL, ROUTER_MODEL, logger
 from scraper import fetch_transcript_youtube
@@ -68,14 +69,23 @@ YT_ID_RE = re.compile(
     r"(?:youtube\.com/(?:watch\?v=|live/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})"
 )
 
-# "proyectos de ley de los últimos N días" — override determinístico del
-# router. Probado en vivo: el router (8B) fallaba en elegir buscar_proyectos
-# para esta frase en ~4 de cada 7 intentos, y sin la herramienta el modelo
-# grande terminaba inventando una tabla completa de proyectos falsos pese a
-# la regla anti-invención del prompt (que ayuda, pero no es 100% confiable).
-# Acotado a "proyecto"+"ley"+"N días" explícito para evitar falsos positivos
-# con pedidos que sí necesitan materia/autor (esos el router los resuelve bien).
+# "proyectos de ley de los últimos N días" / "novedades de proyectos de
+# ley..." — override determinístico del router. Probado en vivo, dos veces:
+# el router (8B) es no determinístico para pedidos de "proyectos de ley
+# recientes" — a veces sí llama a buscar_proyectos, a veces no llama a NADA
+# y el modelo grande termina inventando una tabla completa de proyectos
+# falsos (números, títulos, fechas, todo). La regla anti-invención del
+# prompt ayuda pero no es 100% confiable — pasó en dos rondas de prueba
+# distintas, con dos frases distintas ("...últimos 15 días..." y
+# "...novedades de proyectos de ley en DIPUTADOS..."). Por eso la detección
+# cubre ambos casos: un número explícito de días, o una palabra que implica
+# "reciente" sin número — en ese caso se usa una ventana por defecto.
+# No intenta preservar materia/autor del pedido original: se prioriza no
+# inventar por sobre la precisión del filtro (SPLEY igual no filtra bien por
+# materia — ver comentario en _fetch_spley_por_materia en scraper.py).
+DEFAULT_DIAS_PROYECTOS = 15
 DIAS_PROYECTOS_RE = re.compile(r"(\d+)\s*d[ií]as", re.IGNORECASE)
+RECIENTE_RE = re.compile(r"\b(novedades|reciente|recientes|últim[oa]s?)\b", re.IGNORECASE)
 
 
 def _detecta_proyectos_por_dias(texto: str) -> int | None:
@@ -83,7 +93,11 @@ def _detecta_proyectos_por_dias(texto: str) -> int | None:
     if "proyecto" not in t or "ley" not in t:
         return None
     m = DIAS_PROYECTOS_RE.search(t)
-    return int(m.group(1)) if m else None
+    if m:
+        return int(m.group(1))
+    if RECIENTE_RE.search(t):
+        return DEFAULT_DIAS_PROYECTOS
+    return None
 
 
 class ChatOrchestrator:
@@ -320,6 +334,38 @@ class ChatOrchestrator:
                 args["limit"] = 20
         return {k: v for k, v in args.items() if v != ""}
 
+    # Herramientas donde repetir la llamada en el mismo turno nunca agrega
+    # cobertura real — con el parámetro por defecto (sin camara) ya traen
+    # todo. El router a veces llama esto una vez por cada cámara que el
+    # usuario nombra (ej. "Senado y Diputados"), pensando que hace falta una
+    # llamada por cámara — confirmado en vivo con fetch_comisiones, dos veces
+    # seguidas en pruebas distintas, incluso después de aclarar la descripción
+    # de la herramienta (el fix de prompt solo no alcanzó).
+    TOOLS_UNA_SOLA_VEZ = {"fetch_comisiones"}
+
+    @classmethod
+    def _deduplicar_tool_calls(cls, real_calls: list) -> list:
+        """
+        Si una herramienta de TOOLS_UNA_SOLA_VEZ aparece más de una vez, se
+        queda solo con la primera — las demás no aportan nada. La llamada que
+        sobrevive se fuerza a args vacíos: si el router la mandó con
+        camara='senado', quedarse con esos args tal cual perdería los enlaces
+        de Diputados (fetch_comisiones con una cámara puntual NO incluye la
+        otra — solo camara=None trae ambas). Sin argumentos garantiza la
+        cobertura completa sin importar qué haya mandado el router.
+        """
+        vistas = set()
+        resultado = []
+        for tc in real_calls:
+            name = tc.function.name
+            if name in cls.TOOLS_UNA_SOLA_VEZ:
+                if name in vistas:
+                    continue
+                vistas.add(name)
+                tc = SimpleNamespace(id=tc.id, function=SimpleNamespace(name=name, arguments="{}"))
+            resultado.append(tc)
+        return resultado
+
     async def _phase2(self, choice):
         """Ejecuta las tool calls del router, emitiendo el estado de cada una."""
         if choice.finish_reason != "tool_calls" or not choice.message.tool_calls:
@@ -329,6 +375,7 @@ class ChatOrchestrator:
         # "contestá con tu conocimiento, sin datos externos".
         real_calls = [tc for tc in choice.message.tool_calls
                       if tc.function.name != "responder_directo"]
+        real_calls = self._deduplicar_tool_calls(real_calls)
         if not real_calls:
             self.solo_responder_directo = True
             return

@@ -4,12 +4,15 @@ Tests del ChatOrchestrator.
 Toda la lógica de decisión (qué fase correr, qué historial mandar, qué system
 prompt armar) es pura y se testea sin tocar Groq ni la red.
 """
+import json
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from services.orchestrator import (
+    DEFAULT_DIAS_PROYECTOS,
     RESUMEN_DIAS,
     RESUMEN_TOOLS,
     ChatOrchestrator,
@@ -221,6 +224,12 @@ async def test_run_no_llama_a_fase1_para_resumen():
     ("Revisa los proyectos de ley de los últimos 15 días calendario, y "
      "entrégame un cuadro resumen dividido por temas", 15),
     ("qué proyectos de ley se presentaron en los últimos 7 días sobre minería", 7),
+    # Recaída real en producción: la misma pregunta que ya se había arreglado
+    # ("...últimos N días...") volvió a fabricar datos con esta otra frase,
+    # sin número de días explícito — "novedades" sola debe alcanzar.
+    ("Busca y entrégame sistematizado en versión editable las novedades de "
+     "proyectos de ley en DIPUTADOS", DEFAULT_DIAS_PROYECTOS),
+    ("cuáles son los proyectos de ley más recientes", DEFAULT_DIAS_PROYECTOS),
     ("dame los proyectos de ley de hoy", None),                    # sin número de días
     ("explícame qué es un proyecto de ley", None),                 # conceptual, sin "días"
     ("qué sesiones hay en los próximos 2 días", None),              # "días" sin "proyecto"+"ley"
@@ -265,6 +274,50 @@ async def test_run_fuerza_buscar_proyectos_sin_pasar_por_router():
     assert events
     assert orch.tools_usados == ["buscar_proyectos"]
     mock_run_tool.assert_awaited_once_with("buscar_proyectos", {"dias": 15})
+
+
+# ── _deduplicar_tool_calls ─────────────────────────────────────────────────────
+
+def tool_call(id_, name, args=None):
+    return SimpleNamespace(id=id_, function=SimpleNamespace(name=name, arguments=json.dumps(args or {})))
+
+
+def test_deduplica_fetch_comisiones_repetido():
+    """
+    Bug real: el router llamaba fetch_comisiones dos veces en el mismo turno
+    cuando el usuario nombraba Senado y Diputados — confirmado en vivo dos
+    veces, incluso después de aclarar la descripción de la herramienta (el
+    fix de prompt solo no fue suficiente).
+    """
+    calls = [
+        tool_call("1", "fetch_comisiones", {"camara": "senado"}),
+        tool_call("2", "fetch_comisiones", {"camara": "diputados"}),
+    ]
+    result = ChatOrchestrator._deduplicar_tool_calls(calls)
+    assert len(result) == 1
+    assert result[0].function.name == "fetch_comisiones"
+    # Sin camara: con una cámara puntual se pierden los enlaces de la otra
+    # (ver fetch_comisiones en scraper.py) — la que sobrevive va sin filtro.
+    assert json.loads(result[0].function.arguments) == {}
+
+
+def test_no_deduplica_herramientas_distintas():
+    calls = [
+        tool_call("1", "fetch_comisiones", {}),
+        tool_call("2", "buscar_proyectos", {"materia": "salud"}),
+    ]
+    result = ChatOrchestrator._deduplicar_tool_calls(calls)
+    assert len(result) == 2
+
+
+def test_no_deduplica_herramientas_fuera_de_la_lista():
+    """buscar_proyectos con distintos filtros SÍ puede repetirse con sentido."""
+    calls = [
+        tool_call("1", "buscar_proyectos", {"materia": "salud"}),
+        tool_call("2", "buscar_proyectos", {"materia": "educacion"}),
+    ]
+    result = ChatOrchestrator._deduplicar_tool_calls(calls)
+    assert len(result) == 2
 
 
 # ── _run_tool: reintento ante falla transitoria ───────────────────────────────
