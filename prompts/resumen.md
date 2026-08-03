@@ -33,9 +33,7 @@ completa. Responde solo esto:
 >
 > Las fuentes oficiales consultadas (Congreso, Senado, Diputados, Agenda del
 > Pleno, agenda de sesiones) no reportan proyectos presentados, sesiones ni
-> publicaciones nuevas en esta semana. [Explica en 1-2 líneas el motivo
-> probable según la fecha: receso parlamentario, cambio de legislatura, semana
-> de representación, feriados.] [Sugiere 2 alternativas concretas: revisar la
+> publicaciones nuevas en esta semana. {estado_legislativo} [Sugiere 2 alternativas concretas: revisar la
 > agenda de la semana siguiente, consultar proyectos en trámite en comisiones,
 > o pedir el expediente de un proyecto puntual.]
 

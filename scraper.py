@@ -11,7 +11,7 @@ import urllib.parse
 import httpx
 
 logger = logging.getLogger("congreso-ai.scraper")
-from datetime import datetime
+from datetime import date, datetime
 
 from bs4 import BeautifulSoup
 
@@ -1470,3 +1470,64 @@ async def fetch_comisiones(camara: str = None):
             "Los enlaces oficiales siguen disponibles."
         )
     return resultado
+
+
+# ── Estado legislativo (calendario de sesiones) ─────────────────
+#
+# No existe una fuente oficial única y siempre actualizada con estas fechas
+# en formato consultable — pedidos.congreso.gob.pe/calendario/ (la candidata
+# obvia) ni siquiera resuelve como dominio. Las fechas de acá salen de
+# comunicados oficiales del Congreso (comunicaciones.congreso.gob.pe/noticias)
+# y coinciden con la regla general del Reglamento:
+#   - Período Anual de Sesiones: 27 de julio → 26 de julio del año siguiente.
+#   - Primera Legislatura Ordinaria: 27 de julio → 15 de diciembre.
+#   - Segunda Legislatura Ordinaria: 1 de marzo → 15 de junio.
+# El Congreso a veces amplía el cierre de una legislatura por resolución —
+# pasó en 2026, la Segunda Legislatura Ordinaria se extendió del 15 al 24 de
+# junio (coincide con la última Agenda del Pleno real que se vio en pruebas).
+# Esta función usa las fechas BASE, no las ampliaciones puntuales — puede
+# quedar unos días desalineada en años con extensión hasta que se actualice
+# a mano.
+def estado_legislativo(hoy: date) -> dict:
+    """Determina si `hoy` cae dentro de una Legislatura Ordinaria o en receso."""
+    year = hoy.year
+    inicio_periodo = year if hoy >= date(year, 7, 27) else year - 1
+
+    primera_ini = date(inicio_periodo, 7, 27)
+    primera_fin = date(inicio_periodo, 12, 15)
+    segunda_ini = date(inicio_periodo + 1, 3, 1)
+    segunda_fin = date(inicio_periodo + 1, 6, 15)
+
+    if primera_ini <= hoy <= primera_fin:
+        return {
+            "en_legislatura": True,
+            "legislatura": "Primera Legislatura Ordinaria",
+            "fin": primera_fin.strftime("%d/%m/%Y"),
+        }
+    if segunda_ini <= hoy <= segunda_fin:
+        return {
+            "en_legislatura": True,
+            "legislatura": "Segunda Legislatura Ordinaria",
+            "fin": segunda_fin.strftime("%d/%m/%Y"),
+        }
+    proxima = segunda_ini if hoy < segunda_ini else date(inicio_periodo + 1, 7, 27)
+    return {
+        "en_legislatura": False,
+        "legislatura": None,
+        "proxima_legislatura": proxima.strftime("%d/%m/%Y"),
+    }
+
+
+def estado_legislativo_texto(hoy: date) -> str:
+    """Versión en una línea de estado_legislativo(), lista para meter en un prompt."""
+    e = estado_legislativo(hoy)
+    if e["en_legislatura"]:
+        return (
+            f"Estado legislativo real: hoy el Congreso está en sesión — "
+            f"{e['legislatura']} (vigente hasta el {e['fin']} salvo ampliación "
+            f"por resolución). Si no hay sesiones/agenda igual, NO es por receso."
+        )
+    return (
+        f"Estado legislativo real: hoy el Congreso está en receso parlamentario "
+        f"— la próxima legislatura ordinaria empieza el {e['proxima_legislatura']}."
+    )
