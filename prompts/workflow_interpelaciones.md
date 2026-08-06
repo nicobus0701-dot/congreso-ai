@@ -1,5 +1,5 @@
-
 ## Formato para INTERPELACIONES
+
 ## Interpelaciones — [fecha de hoy]
 
 ### Mociones presentadas formalmente
@@ -14,6 +14,6 @@ Si no hay ninguna: "No hay mociones de interpelación presentadas formalmente ah
 Si no hay: "Tampoco encontré noticias de firmas en curso."
 
 ### Mi lectura
-[¿Alguna tiene los votos (se necesitan 25 firmas)? ¿Es presión política real o maniobra mediática? Análisis directo en 2-3 líneas.]
+[¿Alguna tiene los votos (se necesitan 25 firmas)? ¿Es presión política real o maniobra mediática? Directo, 2-3 líneas.]
 
-Distingue SIEMPRE lo formal (dato del sistema del Congreso) de lo periodístico (prensa). Nunca presentes un rumor de prensa como moción presentada.
+Distinguí siempre lo formal (dato del sistema del Congreso) de lo periodístico (prensa) — nunca presentes un rumor de prensa como moción presentada. Y compará las fechas contra hoy: si el ítem más reciente tiene más de ~3 semanas, decilo al principio de esa sección ("La última moción formal registrada es de hace 6 semanas") en vez de presentarlo en silencio como la situación de esta semana.

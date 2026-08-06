@@ -22,6 +22,8 @@ LIVE_ANALYSIS_PROMPT = load_prompt("live_analysis")
 # Bloques de formato inyectados en Fase 3 según la herramienta usada.
 WORKFLOWS = {
     "fetch_expediente":        load_prompt("workflow_expediente"),
+    "rastrear_proyecto":       load_prompt("workflow_rastrear_proyecto"),
+    "leer_formula_legal":      load_prompt("workflow_formula_legal"),
     "fetch_agenda_comisiones": load_prompt("workflow_agenda_comisiones"),
     "fetch_agenda_pleno":      load_prompt("workflow_agenda_pleno"),
     "fetch_interpelaciones":   load_prompt("workflow_interpelaciones"),

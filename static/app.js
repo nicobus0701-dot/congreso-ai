@@ -8,6 +8,13 @@
     document.getElementById('dark-icon-moon').style.display = dark ? 'none' : '';
     document.getElementById('dark-icon-sun').style.display  = dark ? ''     : 'none';
     localStorage.setItem(DARK_KEY, dark ? '1' : '0');
+    // Live y PDFs viven en iframes con su propio document: no heredan el
+    // [data-theme] del padre solos. Les avisamos por postMessage para que
+    // el cambio se vea al toque si ya están abiertos (si no, leen el mismo
+    // localStorage al cargar — ver live.html/pdfs.html).
+    for (const id of ['live-iframe', 'pdfs-iframe']) {
+      document.getElementById(id)?.contentWindow?.postMessage({ type: 'theme', dark }, '*');
+    }
   }
 
   applyTheme(localStorage.getItem(DARK_KEY) === '1');
@@ -16,12 +23,155 @@
     applyTheme(html.dataset.theme !== 'dark');
   });
 
+  // ── Color de acento (configurable) ────────────────
+  const ACCENT_KEY     = 'congreso_accent';
+  const ACCENT_DEFAULT = '#e53e3e';
+
+  function hexToRgb(hex) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : { r: 229, g: 62, b: 62 };
+  }
+  function shade(hex, percent) {
+    const { r, g, b } = hexToRgb(hex);
+    const f = v => Math.max(0, Math.min(255, Math.round(v + (percent / 100) * v)));
+    return `rgb(${f(r)}, ${f(g)}, ${f(b)})`;
+  }
+  // shade() multiplica el valor actual, así que con negro puro (0,0,0) no
+  // aclara nada (0 * cualquier % sigue siendo 0). Para eso este otro: mezcla
+  // hacia blanco de forma aditiva, sí funciona con negro.
+  function mixToward(hex, targetRgb, amount) {
+    const { r, g, b } = hexToRgb(hex);
+    const mix = (v, t) => Math.round(v + (t - v) * amount);
+    return { r: mix(r, targetRgb[0]), g: mix(g, targetRgb[1]), b: mix(b, targetRgb[2]) };
+  }
+  function relativeLuminance({ r, g, b }) {
+    const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  }
+
+  function applyAccent(color) {
+    document.documentElement.style.setProperty('--accent', color);
+    const { r, g, b } = hexToRgb(color);
+    document.documentElement.style.setProperty('--accent-rgb', `${r},${g},${b}`);
+    document.documentElement.style.setProperty('--accent-hover', shade(color, -18));
+
+    // El acento se usa como color de ícono/texto sobre tarjetas oscuras
+    // (modo oscuro) y como color de un glow — si el usuario elige negro (o
+    // cualquier color muy oscuro), ese texto/glow se vuelve invisible sobre
+    // un fondo que también es casi negro. --accent-fg es una variante que
+    // se aclara hacia blanco solo cuando hace falta, para que el botón
+    // "Nuevo chat" y los íconos sigan viéndose sin importar el acento
+    // elegido. En modo claro no hace falta (fondo claro, negro se ve bien),
+    // así que el CSS solo la usa dentro de [data-theme="dark"].
+    const lum = relativeLuminance({ r, g, b });
+    const fg = lum < 0.22 ? mixToward(color, [255, 255, 255], 0.7) : { r, g, b };
+    document.documentElement.style.setProperty('--accent-fg-rgb', `${fg.r},${fg.g},${fg.b}`);
+    document.documentElement.style.setProperty('--accent-fg', `rgb(${fg.r},${fg.g},${fg.b})`);
+
+    localStorage.setItem(ACCENT_KEY, color);
+    document.querySelectorAll('.accent-swatch').forEach(sw => {
+      sw.classList.toggle('active', sw.dataset.color.toLowerCase() === color.toLowerCase());
+    });
+    const customInput = document.getElementById('accent-custom-input');
+    if (customInput) customInput.value = color;
+  }
+
+  applyAccent(localStorage.getItem(ACCENT_KEY) || ACCENT_DEFAULT);
+
+  // ── Color de cada tarjeta de métrica (independiente del acento) ───
+  // Antes eran fijos (rosa/violeta/índigo, ver nuevaimagenfront.png) — el
+  // usuario pidió poder cambiarlos, uno por uno, sin que dependan del
+  // selector de acento general.
+  const METRIC_COLOR_DEFAULTS = {
+    sesion:     '#f4425a',
+    proyectos:  '#8b6ef5',
+    comisiones: '#6366f1',
+    citaciones: '#f4425a',
+  };
+  const METRIC_COLOR_KEY = 'congreso_metric_colors';
+
+  function loadMetricColors() {
+    try {
+      return { ...METRIC_COLOR_DEFAULTS, ...JSON.parse(localStorage.getItem(METRIC_COLOR_KEY) || '{}') };
+    } catch {
+      return { ...METRIC_COLOR_DEFAULTS };
+    }
+  }
+
+  function applyMetricColor(key, color) {
+    document.documentElement.style.setProperty(`--c-metric-${key}`, color);
+    const colors = loadMetricColors();
+    colors[key] = color;
+    localStorage.setItem(METRIC_COLOR_KEY, JSON.stringify(colors));
+    const input = document.getElementById(`metric-color-${key}`);
+    if (input) input.value = color;
+  }
+
+  const initialMetricColors = loadMetricColors();
+  for (const key of Object.keys(METRIC_COLOR_DEFAULTS)) {
+    applyMetricColor(key, initialMetricColors[key]);
+    const input = document.getElementById(`metric-color-${key}`);
+    if (input) input.addEventListener('input', (e) => applyMetricColor(key, e.target.value));
+  }
+
+  const settingsBtn    = document.getElementById('settings-btn');
+  const accentPopover  = document.getElementById('accent-popover');
+  const accentMenuBtn  = document.getElementById('accent-menu-btn');
+
+  function toggleAccentPopover(show) {
+    const isOpen = show !== undefined ? show : accentPopover.style.display === 'none';
+    accentPopover.style.display = isOpen ? 'block' : 'none';
+  }
+
+  settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleAccentPopover();
+  });
+  accentMenuBtn.addEventListener('click', () => {
+    closeProfileMenu();
+    toggleAccentPopover(true);
+  });
+  document.querySelectorAll('.accent-swatch').forEach(sw => {
+    sw.addEventListener('click', () => applyAccent(sw.dataset.color));
+  });
+  document.getElementById('accent-custom-input').addEventListener('input', (e) => {
+    applyAccent(e.target.value);
+  });
+  document.addEventListener('click', (e) => {
+    if (!accentPopover.contains(e.target) && e.target !== settingsBtn && !settingsBtn.contains(e.target)) {
+      toggleAccentPopover(false);
+    }
+  });
+
+  // ── Menú de perfil (chevron en el sidebar) ────────
+  const profileMenuBtn  = document.getElementById('profile-menu-btn');
+  const profileMenu     = document.getElementById('profile-menu');
+  const profileChevron  = document.getElementById('profile-chevron-btn');
+
+  function closeProfileMenu() {
+    profileMenu.style.display = 'none';
+    profileChevron.classList.remove('open');
+  }
+  function toggleProfileMenu() {
+    const isOpen = profileMenu.style.display !== 'none';
+    profileMenu.style.display = isOpen ? 'none' : 'block';
+    profileChevron.classList.toggle('open', !isOpen);
+  }
+  profileMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleProfileMenu();
+  });
+  document.addEventListener('click', (e) => {
+    if (!profileMenuBtn.contains(e.target) && !profileMenu.contains(e.target)) closeProfileMenu();
+  });
+
   // ── DOM refs ─────────────────────────────────────
   const chatArea      = document.getElementById('chat-area');
   const msgInput      = document.getElementById('msg-input');
   const sendBtn       = document.getElementById('send-btn');
   const chatList      = document.getElementById('chat-list');
   const newChatBtn    = document.getElementById('new-chat-btn');
+  const newChatWideBtn = document.getElementById('new-chat-wide-btn');
   const cmdChips      = document.getElementById('cmd-chips');
   const mainEl        = document.querySelector('.main');
   const sidebar       = document.querySelector('.sidebar');
@@ -159,6 +309,23 @@
   });
 
   // ── Sidebar render ────────────────────────────────
+  function formatItemTime(ts) {
+    const DAY = 86400000;
+    const age = Date.now() - ts;
+    if (age < DAY) return new Date(ts).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    if (age < 2 * DAY) return 'Ayer';
+    const days = Math.floor(age / DAY);
+    if (days < 7) return `${days} días`;
+    return new Date(ts).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' });
+  }
+
+  function getPreview(conv) {
+    const first = conv.messages.find(m => m.role === 'user');
+    if (!first) return '';
+    const text = first.content.replace(/^__RESUMEN_SEMANAL__:?/, '').replace(/\s+/g, ' ').trim();
+    return text.length > 46 ? text.slice(0, 46) + '…' : text;
+  }
+
   function renderSidebar() {
     chatList.innerHTML = '';
 
@@ -167,71 +334,156 @@
       return;
     }
 
-    const groups = groupByDate(convs);
+    const gl = document.createElement('div');
+    gl.className = 'chat-group-label';
+    gl.textContent = 'Historial';
+    chatList.appendChild(gl);
 
-    for (const [label, items] of groups) {
-      if (!items.length) continue;
-      const gl = document.createElement('div');
-      gl.className = 'chat-group-label';
-      gl.textContent = label;
-      chatList.appendChild(gl);
-
-      for (const c of items) {
-        const el = document.createElement('div');
-        el.className = 'chat-item' + (c.id === activeId ? ' active' : '');
-        el.dataset.id = c.id;
-        el.innerHTML = `
+    for (const c of convs) {
+      const el = document.createElement('div');
+      el.className = 'chat-item' + (c.id === activeId ? ' active' : '');
+      el.dataset.id = c.id;
+      const preview = getPreview(c);
+      el.innerHTML = `
+        <div class="chat-item-row1">
           <span class="chat-item-icon">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 4h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7l-4 2V5a1 1 0 0 1 1-1z"/>
             </svg>
           </span>
           <span class="chat-item-title" title="Doble clic para renombrar">${escHtml(c.title)}</span>
+          <span class="chat-item-time">${formatItemTime(c.ts)}</span>
           <button class="chat-item-del" title="Eliminar conversación" data-del-id="${c.id}">
             <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="pointer-events:none">
               <path d="M2 2l10 10M12 2L2 12"/>
             </svg>
-          </button>`;
-        el.querySelector('.chat-item-del').addEventListener('click', (e) => {
-          e.stopPropagation();
-          deleteConv(c.id);
-        });
-        el.addEventListener('click', (e) => {
-          if (e.target.closest('.chat-item-del')) return;
-          el.classList.add('clicking');
-          el.addEventListener('animationend', () => el.classList.remove('clicking'), { once: true });
-          switchConv(c.id);
-        });
-        chatList.appendChild(el);
-      }
+          </button>
+        </div>
+        ${preview ? `<div class="chat-item-preview">${escHtml(preview)}</div>` : ''}`;
+      el.querySelector('.chat-item-del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteConv(c.id);
+      });
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('.chat-item-del')) return;
+        el.classList.add('clicking');
+        el.addEventListener('animationend', () => el.classList.remove('clicking'), { once: true });
+        switchConv(c.id);
+      });
+      chatList.appendChild(el);
     }
-  }
-
-  function groupByDate(list) {
-    const now   = Date.now();
-    const DAY   = 86400000;
-    const today = []; const yesterday = []; const week = []; const older = [];
-    for (const c of list) {
-      const age = now - c.ts;
-      if (age < DAY)         today.push(c);
-      else if (age < 2*DAY)  yesterday.push(c);
-      else if (age < 7*DAY)  week.push(c);
-      else                   older.push(c);
-    }
-    return [['Hoy', today], ['Ayer', yesterday], ['Últimos 7 días', week], ['Anteriores', older]];
   }
 
   // ── Message rendering ─────────────────────────────
+  const USER_FIRST_NAME = 'Julio César';
+
+  // Íconos de las 4 tarjetas — mismo lenguaje visual que .chip-card-icon.
+  const METRIC_ICONS = {
+    sesion: '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="14" height="12" rx="1.5"/><path d="M6 2v4M12 2v4M2 8h14"/></svg>',
+    proyectos: '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 2a1.5 1.5 0 0 0-1.5 1.5v11A1.5 1.5 0 0 0 4 16h10a1.5 1.5 0 0 0 1.5-1.5V6L11 2z"/><path d="M11 2v4h4"/></svg>',
+    comisiones: '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="2.3"/><circle cx="12" cy="6" r="2.3"/><path d="M2 15c0-2.1 1.8-3.8 4-3.8M12 11.2c2.2 0 4 1.7 4 3.8M9 11v4"/></svg>',
+    citaciones: '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2l1.8 3.7 4 .6-3 2.9.7 4-3.5-1.9-3.5 1.9.7-4-3-2.9 4-.6z"/></svg>',
+  };
+
+  // Comando real que dispara cada tarjeta al hacer clic en "Ver más" — los
+  // mismos textos que usan los chips de Acciones rápidas, para que la
+  // respuesta sea idéntica a la que ya está verificada ahí.
+  const METRIC_CMD = {
+    sesion: 'Dame la agenda de sesiones de comisiones de los próximos 2 días en SENADO y DIPUTADOS, en un cuadro con fecha, hora, lugar y link',
+    proyectos: 'Revisa los proyectos de ley de los últimos 15 días calendario, y entrégame un cuadro resumen dividido por temas',
+    comisiones: 'Dame los accesos al Cuadro de Comisiones y miembros de la Comisión Permanente del SENADO y DIPUTADOS',
+    citaciones: 'Dame el resumen y el acceso a descarga de documentos en DESTACADO y CITACIONES de DIPUTADOS, SENADO y CONGRESO',
+  };
+  const METRIC_VER_LABEL = {
+    sesion: 'Ver agenda', proyectos: 'Ver proyectos',
+    comisiones: 'Ver comisiones', citaciones: 'Ver citaciones',
+  };
+
+  function metricCardHTML(key, label) {
+    return `
+      <div class="metric-card is-loading" data-metric="${key}">
+        <span class="metric-card-icon">${METRIC_ICONS[key]}</span>
+        <span class="metric-card-label">${label}</span>
+        <span class="metric-card-value">…</span>
+      </div>`;
+  }
+
+  async function loadDashboardMetrics() {
+    let data;
+    try {
+      const res = await fetch('/dashboard-metrics');
+      if (!res.ok) throw new Error('bad status');
+      data = await res.json();
+    } catch {
+      // Sin datos reales disponibles: se ocultan las tarjetas en vez de
+      // inventar un número — mismo criterio que el resto de la app.
+      document.querySelector('.welcome-metrics')?.remove();
+      return;
+    }
+
+    const fill = (key, valueHTML, subText) => {
+      const card = document.querySelector(`.metric-card[data-metric="${key}"]`);
+      if (!card) return;
+      card.classList.remove('is-loading');
+      card.querySelector('.metric-card-value').innerHTML = valueHTML;
+      if (subText) {
+        const sub = document.createElement('span');
+        sub.className = 'metric-card-sub';
+        sub.textContent = subText;
+        card.appendChild(sub);
+      }
+      const ver = document.createElement('button');
+      ver.className = 'metric-card-ver';
+      ver.type = 'button';
+      ver.innerHTML = `${METRIC_VER_LABEL[key]} <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 2.5L8 6l-4 3.5"/></svg>`;
+      ver.addEventListener('click', () => { if (!streaming) send(METRIC_CMD[key]); });
+      card.appendChild(ver);
+    };
+
+    if (data.proxima_sesion) {
+      const s = data.proxima_sesion;
+      fill('sesion', `${escHtml(s.etiqueta_fecha)} · ${escHtml(s.hora)}`, s.camara || '');
+    } else {
+      fill('sesion', 'Sin sesiones', 'próximos 14 días');
+    }
+
+    if (data.proyectos_ingresados) {
+      const p = data.proyectos_ingresados;
+      fill('proyectos', String(p.total), `últimos ${p.dias} días`);
+    }
+
+    if (data.comisiones_registradas) {
+      const c = data.comisiones_registradas;
+      fill('comisiones', String(c.total), `${c.senado} Senado · ${c.diputados} Diputados`);
+    }
+
+    if (data.citaciones) {
+      fill('citaciones', String(data.citaciones.total), 'esta semana');
+    }
+  }
+
+  function saludoSegunHora() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Buenos días';
+    if (h < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
+
   function showWelcome() {
     mainEl.classList.remove('chat-mode');
     chatArea.innerHTML = `
       <div class="welcome">
-        <div class="tw-main">
-          <span id="tw-text"></span><span class="tw-cursor"></span>
+        <div class="welcome-heading">${saludoSegunHora()}, ${escHtml(USER_FIRST_NAME)} <span class="wave">👋</span></div>
+        <div class="welcome-subtitle">Tu asistente especializado en información legislativa del Congreso</div>
+        <div class="welcome-metrics">
+          ${metricCardHTML('sesion', 'Próxima sesión')}
+          ${metricCardHTML('proyectos', 'Proyectos ingresados')}
+          ${metricCardHTML('comisiones', 'Comisiones registradas')}
+          ${metricCardHTML('citaciones', 'Citaciones')}
         </div>
       </div>`;
-    startTypewriter();
     cmdChips.style.display = 'flex';
+    loadDashboardMetrics();
   }
 
   function renderMessages() {
@@ -462,14 +714,12 @@
   td{border:1px solid #ccc;padding:6px 10px}
   tr:nth-child(even) td{background:#f7f7f7}
   a{color:#111} hr{border:none;border-top:1px solid #ccc;margin:20px 0}
-  .hdr{border-bottom:3px solid #111;padding-bottom:12px;margin-bottom:24px;font-size:9pt;color:#666}
   .ftr{margin-top:40px;border-top:1px solid #ccc;padding-top:12px;font-size:9pt;color:#666}
   strong{font-weight:bold} em{font-style:italic}
   @media print{body{padding:20px 30px} a{text-decoration:none}}
 </style></head><body>
-<div class="hdr">DOCUMENTO CONFIDENCIAL — GESTIÓN DE ASUNTOS PÚBLICOS</div>
 ${html}
-<div class="ftr">Generado por Lex — Sistema de Monitoreo Parlamentario · ${date}</div>
+<div class="ftr">Generado por Solón — Sistema de Monitoreo Parlamentario · ${date}</div>
 </body></html>`;
   }
 
@@ -607,53 +857,6 @@ ${table.outerHTML}
     ta.remove();
   }
 
-  // ── Typewriter decoration ─────────────────────────
-  const TW_PHRASES = [
-    "Novedades de agendas de comisiones de Diputados",
-    "Novedades de agendas de comisiones del Senado",
-    "Proyectos de ley recientes en Diputados",
-    "¿Cuál es el estatus del proyecto de ley N° [número]?",
-    "Resumen de noticias de Senado, Diputados y Congreso",
-    "Destacados y citaciones de Diputados, Senado y Congreso",
-    "Proyectos de ley de los últimos 15 días por tema",
-    "Comisiones y miembros de la Comisión Permanente",
-  ];
-
-  let _twTimer = null;
-
-  function startTypewriter() {
-    clearTimeout(_twTimer);
-    const el = document.getElementById('tw-text');
-    if (!el) return;
-    let pi = 0, ci = 0, deleting = false;
-
-    function tick() {
-      const live = document.getElementById('tw-text');
-      if (!live) return; // welcome screen gone
-      const phrase = TW_PHRASES[pi];
-      if (!deleting) {
-        ci++;
-        live.textContent = phrase.slice(0, ci);
-        if (ci === phrase.length) {
-          _twTimer = setTimeout(() => { deleting = true; tick(); }, 2200);
-          return;
-        }
-        _twTimer = setTimeout(tick, 42 + Math.random() * 28);
-      } else {
-        ci--;
-        live.textContent = phrase.slice(0, ci);
-        if (ci === 0) {
-          deleting = false;
-          pi = (pi + 1) % TW_PHRASES.length;
-          _twTimer = setTimeout(tick, 380);
-          return;
-        }
-        _twTimer = setTimeout(tick, 22);
-      }
-    }
-    _twTimer = setTimeout(tick, 900);
-  }
-
   // ── Events ────────────────────────────────────────
   // ── Drag & drop PDF ───────────────────────────────
   const dropZone = document.querySelector('.main');
@@ -778,6 +981,7 @@ ${table.outerHTML}
   });
 
   newChatBtn.addEventListener('click', newChat);
+  newChatWideBtn.addEventListener('click', newChat);
 
   sendBtn.addEventListener('click', () => send());
 
@@ -790,6 +994,45 @@ ${table.outerHTML}
   msgInput.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
+
+  // ── Placeholder animado — sugiere preguntas sobre el Congreso ──
+  const TW_PHRASES = [
+    '¿Qué proyectos de ley se presentaron esta semana en Diputados?',
+    '¿Cuál es la agenda de comisiones para mañana en el Senado?',
+    'Resume las sesiones plenarias más recientes del Congreso',
+    '¿Qué dictámenes están agendados en el Pleno esta semana?',
+    '¿Cuál es el estatus del proyecto de ley N° 1234/2024-CR?',
+    'Dame los destacados y citaciones más recientes del Congreso',
+    '¿Qué comisiones sesionan esta semana y quiénes las integran?',
+    'Resume las novedades legislativas de los últimos 7 días',
+  ];
+  let twTimer = null;
+  function startTypewriter() {
+    clearTimeout(twTimer);
+    let pi = 0, ci = 0, deleting = false;
+    function tick() {
+      if (msgInput.value) { twTimer = setTimeout(tick, 600); return; } // pausa si el usuario está escribiendo
+      const phrase = TW_PHRASES[pi];
+      if (!deleting) {
+        ci++;
+        msgInput.placeholder = phrase.slice(0, ci);
+        if (ci === phrase.length) { twTimer = setTimeout(() => { deleting = true; tick(); }, 2200); return; }
+        twTimer = setTimeout(tick, 42 + Math.random() * 28);
+      } else {
+        ci--;
+        msgInput.placeholder = phrase.slice(0, ci);
+        if (ci === 0) {
+          deleting = false;
+          pi = (pi + 1) % TW_PHRASES.length;
+          twTimer = setTimeout(tick, 380);
+          return;
+        }
+        twTimer = setTimeout(tick, 22);
+      }
+    }
+    twTimer = setTimeout(tick, 1200);
+  }
+  startTypewriter();
 
   document.querySelectorAll('.chip').forEach(btn => {
     if (btn.id === 'resumen-btn') return;
@@ -901,6 +1144,46 @@ ${table.outerHTML}
     }
     if (e.data && e.data.type === 'open-external') {
       window.electronAPI?.openExternal(e.data.url);
+    }
+    // Puente de exportación: los iframes (Live, PDFs) no tienen acceso a
+    // window.electronAPI ni pueden abrir ventanas (setWindowOpenHandler las
+    // deniega), así que delegan la exportación a este frame de nivel superior.
+    if (e.data && e.data.type === 'export-pdf') {
+      const { html, reqId } = e.data;
+      if (window.electronAPI) {
+        window.electronAPI.exportPDF(html)
+          .then(() => e.source.postMessage({ type: 'export-done', reqId }, '*'))
+          .catch(err => e.source.postMessage({ type: 'export-error', reqId, message: String(err) }, '*'));
+      } else {
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400); }
+        e.source.postMessage({ type: 'export-done', reqId }, '*');
+      }
+    }
+    if (e.data && e.data.type === 'export-word') {
+      const { content, filename, reqId } = e.data;
+      if (window.electronAPI) {
+        window.electronAPI.exportWord(content)
+          .then(() => e.source.postMessage({ type: 'export-done', reqId }, '*'))
+          .catch(err => e.source.postMessage({ type: 'export-error', reqId, message: String(err) }, '*'));
+      } else {
+        fetch('/export/docx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content }),
+        })
+          .then(r => r.blob())
+          .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a   = document.createElement('a');
+            a.href     = url;
+            a.download = `${filename}.docx`;
+            a.click();
+            URL.revokeObjectURL(url);
+            e.source.postMessage({ type: 'export-done', reqId }, '*');
+          })
+          .catch(err => e.source.postMessage({ type: 'export-error', reqId, message: String(err) }, '*'));
+      }
     }
   });
 

@@ -4,7 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Live — Congreso IA</title>
-  <link rel="stylesheet" href="/static/live.css">
+  <script>
+    // Mismo localStorage que el chat principal (mismo origen) — aplica el
+    // tema antes de pintar para no parpadear en claro. live.js escucha
+    // cambios en vivo vía postMessage desde la ventana padre.
+    if (localStorage.getItem('congreso_dark') === '1') {
+      document.documentElement.dataset.theme = 'dark';
+    }
+  </script>
+  <link rel="stylesheet" href="/static/live.css?v=2">
 </head>
 <body>
 
@@ -61,7 +69,7 @@
           <span id="lv-video-title-label" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Video</span>
         </div>
         <div class="lv-video-wrap">
-          <iframe id="lv-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          <div id="lv-iframe"></div>
         </div>
         <div class="lv-video-indicator">
           <span class="lv-indicator-dot" id="lv-indicator-dot"></span>
@@ -82,15 +90,34 @@
         </div>
       </section>
 
-      <!-- Columna 2: IA Lex -->
+      <!-- Columna 2: IA Solón -->
       <section class="lv-col lv-col-ia">
         <div class="lv-col-head">
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
             <rect x="2" y="2" width="14" height="14" rx="2"/>
             <path d="M5 6h8M5 9h8M5 12h5"/>
           </svg>
-          Lex — Análisis en vivo
+          Solón — Análisis en vivo
           <span class="lv-spinner" id="lv-ia-spinner" style="display:none"></span>
+          <div class="lv-head-actions" id="lv-ia-actions" style="display:none">
+            <button id="lv-ia-menu-btn" class="lv-menu-trigger" title="Copiar o descargar resumen">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 2v8M4.5 6.5L8 10l3.5-3.5"/>
+                <path d="M2.5 12.5h11"/>
+              </svg>
+            </button>
+            <div class="lv-menu-dropdown" id="lv-ia-menu" style="display:none">
+              <button id="lv-ia-copy-btn" class="lv-menu-item">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                  <rect x="5" y="5" width="9" height="9" rx="1.5"/>
+                  <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>
+                </svg>
+                Copiar resumen
+              </button>
+              <button id="lv-ia-pdf-btn" class="lv-menu-item lv-menu-item--pdf">Descargar PDF</button>
+              <button id="lv-ia-word-btn" class="lv-menu-item lv-menu-item--word">Descargar Word</button>
+            </div>
+          </div>
         </div>
         <div class="lv-ia-body" id="lv-ia-body">
           <div class="lv-col-empty" id="lv-ia-empty">
@@ -98,7 +125,7 @@
               <rect x="6" y="6" width="36" height="36" rx="6"/>
               <path d="M13 16h22M13 23h22M13 30h14"/>
             </svg>
-            <p>Lex analizará el debate<br>a medida que llega la transcripción</p>
+            <p>Solón analizará el debate<br>a medida que llega la transcripción</p>
           </div>
           <div class="lv-ia-content" id="lv-ia-content" style="display:none"></div>
         </div>
@@ -115,13 +142,25 @@
             <path d="M3 4h12M3 8h12M3 12h8"/>
           </svg>
           Transcripción en vivo
-          <button id="lv-copy-btn" class="lv-copy-btn" style="display:none">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-              <rect x="5" y="5" width="9" height="9" rx="1.5"/>
-              <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>
-            </svg>
-            Copiar
-          </button>
+          <div class="lv-head-actions" id="lv-transcript-actions" style="display:none">
+            <button id="lv-transcript-menu-btn" class="lv-menu-trigger" title="Copiar o descargar transcripción">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 2v8M4.5 6.5L8 10l3.5-3.5"/>
+                <path d="M2.5 12.5h11"/>
+              </svg>
+            </button>
+            <div class="lv-menu-dropdown" id="lv-transcript-menu" style="display:none">
+              <button id="lv-copy-btn" class="lv-menu-item">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                  <rect x="5" y="5" width="9" height="9" rx="1.5"/>
+                  <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>
+                </svg>
+                Copiar transcripción
+              </button>
+              <button id="lv-pdf-btn-t" class="lv-menu-item lv-menu-item--pdf">Descargar PDF</button>
+              <button id="lv-word-btn-t" class="lv-menu-item lv-menu-item--word">Descargar Word</button>
+            </div>
+          </div>
         </div>
         <div class="lv-transcript-body" id="lv-transcript-body">
           <div class="lv-col-empty" id="lv-transcript-empty">

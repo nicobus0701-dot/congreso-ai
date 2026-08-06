@@ -3,6 +3,8 @@ Scrapers for Congreso de la República del Perú.
 - Proyectos de ley: SPLEY API (api.congreso.gob.pe/spley-portal-service)
 - Sesiones / Agenda / Destacados: DuckDuckGo news + fallback HTML
 """
+import asyncio
+import base64
 import logging
 import os
 import re
@@ -57,6 +59,31 @@ def _fmt_date(s):
         except Exception as _e:
             logger.debug("scraper silenced: %s", _e)
     return str(s)[:10] if s else ""
+
+
+_MESES_ES = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+    "julio": 7, "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10,
+    "noviembre": 11, "diciembre": 12,
+}
+
+
+def _fecha_desde_titulo_es(titulo: str):
+    """
+    Extrae una fecha de un título tipo 'Agenda del Pleno de la sesión del
+    martes 23 de junio de 2026.' — devuelve un date() o None si no matchea.
+    """
+    m = re.search(r"(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})", titulo or "", re.IGNORECASE)
+    if not m:
+        return None
+    dia, mes_txt, anio = m.groups()
+    mes = _MESES_ES.get(mes_txt.lower())
+    if not mes:
+        return None
+    try:
+        return date(int(anio), mes, int(dia))
+    except ValueError:
+        return None
 
 
 def _antiguedad_dias(pubdate_raw: str):
@@ -225,7 +252,14 @@ async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
                 if items:
                     # Filtrar por fecha si se pidió
                     if dias:
-                        cutoff = datetime.utcnow() - timedelta(days=int(dias))
+                        # Normalizado a medianoche: las fechas de SPLEY vienen a
+                        # medianoche (sin hora real), así que comparar contra
+                        # "ahora mismo" (con hora) excluía de forma inconsistente
+                        # ítems del propio día límite según a qué hora se
+                        # corriera la consulta — un proyecto de "hoy 00:00" podía
+                        # quedar afuera de "últimos 15 días" si ya eran las 11pm.
+                        hoy_medianoche = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                        cutoff = hoy_medianoche - timedelta(days=int(dias))
                         def _parse_raw(s):
                             for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
                                 try:
@@ -259,7 +293,7 @@ def _format_proyectos(items):
             "titulo":              p.get("titulo") or "",
             "sumilla":             p.get("sumilla") or p.get("titulo") or "",
             "proponente":          p.get("desProponente") or "",
-            "autor":               p.get("autores") or p.get("desProponente") or "",
+            "autor":               _normalizar_lista_autores(p.get("autores")) or p.get("desProponente") or "",
             "comision":            p.get("desComision") or "",
             "grupo_parlamentario": p.get("desGpar") or "",
             "legislatura":         p.get("desLegis") or "",
@@ -559,7 +593,7 @@ async def fetch_estado_proyecto(numero: str):
                         "titulo":        p.get("titulo") or "",
                         "estado":        p.get("desEstado") or "",
                         "fecha_ingreso": _fmt_date(p.get("fecPresentacion") or ""),
-                        "autor":         p.get("autores") or p.get("desProponente") or "",
+                        "autor":         _normalizar_lista_autores(p.get("autores")) or p.get("desProponente") or "",
                         "comision":      p.get("desComision") or "",
                         "sumilla":       p.get("sumilla") or p.get("titulo") or "",
                         "enlace":        f"{SPLEY_PORTAL}/{PER_PAR_ID}/{num}" if num else "",
@@ -842,6 +876,36 @@ def _spley_encrypt(value: str) -> str:
 
 # ── Expediente completo de un proyecto ────────────────────────
 
+def _nombre_a_formato_natural(nombre_crudo: str) -> str:
+    """
+    SPLEY devuelve los firmantes de un expediente como 'Apellidos, Nombres'
+    (ej. 'Paredes Piqué, Susel Ana María'), mientras que la búsqueda de
+    proyectos (fetch_proyectos) devuelve el mismo tipo de dato ya en
+    'Nombres Apellidos'. Sin normalizar, un mismo congresista aparece con dos
+    formatos distintos según qué herramienta lo trajo — se unifica acá al
+    formato natural para que el informe sea consistente.
+    """
+    nombre_crudo = (nombre_crudo or "").strip()
+    if "," not in nombre_crudo:
+        return nombre_crudo
+    apellidos, _, nombres = nombre_crudo.partition(",")
+    return f"{nombres.strip()} {apellidos.strip()}".strip()
+
+
+def _normalizar_lista_autores(autores_crudo: str) -> str:
+    """
+    Igual que _nombre_a_formato_natural pero para el campo 'autores' de SPLEY,
+    que trae varios firmantes juntos separados por '; ' (ej. 'Luque Ibarra,
+    Ruth; Bazán Narro, Sigrid Tesoro'). Deja intacto cualquier valor que no
+    sea una lista de personas (ej. 'Poder Ejecutivo').
+    """
+    autores_crudo = (autores_crudo or "").strip()
+    if not autores_crudo or "," not in autores_crudo:
+        return autores_crudo
+    partes = [_nombre_a_formato_natural(p) for p in autores_crudo.split(";")]
+    return "; ".join(p for p in partes if p)
+
+
 async def fetch_expediente(numero: str):
     """
     Obtiene el expediente completo de un proyecto: comisiones asignadas,
@@ -905,26 +969,24 @@ async def fetch_expediente(numero: str):
     firmantes    = data.get("firmantes", [])
 
     # tipoFirmanteId 1 = autor principal, 2+ = coautores
-    _autores_principales = [f["nombre"] for f in firmantes if f.get("tipoFirmanteId") == 1]
-    _coautores           = [f["nombre"] for f in firmantes if f.get("tipoFirmanteId") != 1]
+    _autores_principales = [_nombre_a_formato_natural(f["nombre"]) for f in firmantes if f.get("tipoFirmanteId") == 1]
+    _coautores           = [_nombre_a_formato_natural(f["nombre"]) for f in firmantes if f.get("tipoFirmanteId") != 1]
 
-    ARCHIVO_BASE = "https://api.congreso.gob.pe/spley-portal-service/expediente/archivo"
-
+    # OJO: el patrón anterior (expediente/archivo/{nombreArchivo}) nunca
+    # funcionó — el servidor real siempre devolvía 400 "parámetro con formato
+    # incorrecto". Se encontró el formato real inspeccionando el tráfico de
+    # red del portal SPLEY real (wb2server.congreso.gob.pe/spley-portal):
+    # el link que arma el frontend es
+    # spley-portal-service/archivo/{base64(proyectoArchivoId)}/pdf — SIN
+    # "expediente/" en el path, con el ID en base64 plano (no la encriptación
+    # AES de _spley_encrypt, que es para otra cosa). Verificado con una
+    # descarga real: 200 OK, PDF válido.
     def _archivo_url(a):
-        ruta = a.get("rutaArchivo") or a.get("ruta") or ""
-        nombre = a.get("nombreArchivo") or ""
-        raw = ""
-        if ruta and ruta.startswith("http"):
-            raw = ruta
-        elif ruta:
-            raw = f"{ARCHIVO_BASE}/{ruta}"
-        elif nombre:
-            raw = f"{ARCHIVO_BASE}/{nombre}"
-        # URL-encode spaces and special chars in the filename portion
-        if raw and " " in raw:
-            parts = raw.rsplit("/", 1)
-            raw = parts[0] + "/" + urllib.parse.quote(parts[1], safe="") if len(parts) == 2 else raw
-        return raw
+        archivo_id = a.get("proyectoArchivoId")
+        if archivo_id is None:
+            return ""
+        b64_id = base64.b64encode(str(archivo_id).encode()).decode()
+        return f"https://api.congreso.gob.pe/spley-portal-service/archivo/{b64_id}/pdf"
 
     def _fmt_archivo(a):
         return {
@@ -963,7 +1025,7 @@ async def fetch_expediente(numero: str):
             "numero":             p.get("proyectoLey") or p.get("pleyNum") or "",
             "titulo":             p.get("titulo") or "",
             "fecha_presentacion": _fmt_date(p.get("fecPresentacion") or ""),
-            "autor":              p.get("autores") or p.get("desProponente") or "",
+            "autor":              _normalizar_lista_autores(p.get("autores")) or p.get("desProponente") or "",
             "proponente":         p.get("desProponente") or "",
             "estado":             p.get("desEstado") or "",
             "enlace":             f"{SPLEY_PORTAL}/{PER_PAR_ID}/{p.get('pleyNum','')}" if p.get("pleyNum") else "",
@@ -1003,7 +1065,11 @@ async def fetch_expediente(numero: str):
             "comentarios":     len(data_opinion.get("comentarios") or data_opinion.get("opiniones") or []),
         }
 
-    pley_num_str = str(general.get("pleyNum", ""))
+    # OJO: general.get("pleyNum") puede venir vacío en esta sub-respuesta del
+    # expediente (visto en producción) — usamos el pley_num ya resuelto más
+    # arriba (de la búsqueda inicial), que siempre está disponible acá, en vez
+    # de depender de un campo que a veces no viene.
+    pley_num_str = pley_num or str(general.get("pleyNum", ""))
     return {
         "numero":                general.get("proyectoLey", numero),
         "titulo":                general.get("titulo", ""),
@@ -1022,11 +1088,13 @@ async def fetch_expediente(numero: str):
                 "nombre": c.get("nombre") or c.get("desComision") or "",
                 "id":     c.get("comisionId") or c.get("id") or "",
                 "fecha_derivacion": _fmt_date(c.get("fecha") or ""),
-                "enlace": (
-                    f"https://www2.congreso.gob.pe/Sicr/ApoyComisiones/comision2011.nsf/"
-                    f"ComisionesVirtual?OpenForm&comision={c.get('comisionId','')}"
-                    if c.get("comisionId") else ""
-                ),
+                # OJO: antes armaba un link a comision2011.nsf/ComisionesVirtual
+                # — esa plantilla ya no existe en el servidor (404: "Couldn't
+                # find design note"), verificado con un comisionId real. No hay
+                # una URL de reemplazo por-comisión conocida, así que se deja
+                # vacío en vez de mostrar un link muerto (el workflow del
+                # expediente ya omite el link si "enlace" viene vacío).
+                "enlace": "",
             }
             for c in comisiones
         ],
@@ -1049,6 +1117,75 @@ async def fetch_expediente(numero: str):
         } if dictamen else None,
         "enlace_expediente":     f"{SPLEY_PORTAL}/{PER_PAR_ID}/{pley_num_str}" if pley_num_str else "",
         "fuente":                f"SPLEY expediente — {SPLEY_API}",
+    }
+
+
+# ── Texto real del proyecto (fórmula legal) ─────────────────────
+
+async def fetch_formula_legal(numero_proyecto: str):
+    """
+    Devuelve el texto real de un proyecto de ley (fórmula legal, exposición
+    de motivos) para poder resumirlo o analizarlo con precisión.
+
+    Se llama SOLA (sin depender de una llamada previa a fetch_expediente —
+    el router de Fase 1 elige herramientas de una sola vez, sin ver
+    resultados intermedios, así que esta tiene que resolver todo internamente):
+    1. Si el expediente tiene la pestaña "secciones" con texto → la usa.
+    2. Si viene vacía (pasa seguido en proyectos recién presentados, donde
+       SPLEY todavía no publicó el texto estructurado) → descarga el PDF
+       real del proyecto desde "todos_los_adjuntos" y le extrae el texto.
+    """
+    from services import pdf as pdf_service
+
+    exp = await fetch_expediente(numero_proyecto)
+    if isinstance(exp, dict) and exp.get("error"):
+        return exp
+
+    secciones = exp.get("secciones") or []
+    texto_secciones = "\n\n".join(
+        f"### {s.get('titulo', '')}\n{s.get('texto', '')}" for s in secciones if s.get("texto")
+    )
+    if texto_secciones.strip():
+        return {
+            "numero": exp.get("numero", numero_proyecto),
+            "fuente": "secciones estructuradas del expediente (SPLEY)",
+            "texto": texto_secciones,
+        }
+
+    # Sin secciones: buscamos el PDF del proyecto entre los adjuntos.
+    adjuntos = exp.get("todos_los_adjuntos") or []
+    pdf_adjunto = next((a for a in adjuntos if (a.get("tipo") or "").lower() == "pdf"), None)
+    if not pdf_adjunto or not pdf_adjunto.get("url"):
+        return {
+            "sin_datos": True,
+            "mensaje": (
+                "SPLEY no tiene el texto estructurado de este proyecto y tampoco hay "
+                "un PDF del proyecto entre sus adjuntos. No hay forma de leer la "
+                "fórmula legal real todavía."
+            ),
+        }
+
+    # Los servidores del Congreso rechazan pedidos sin sus headers/cookies
+    # esperados (Referer, User-Agent) y con certs autofirmados — por eso se
+    # usa el cliente del scraper (_client(), verify=False) en vez del
+    # cliente genérico de services/pdf.py, que da 400/403 acá.
+    try:
+        async with _client() as c:
+            resp = await c.get(pdf_adjunto["url"])
+    except Exception as e:
+        return {"error": f"No se pudo descargar el PDF del proyecto: {e}"}
+
+    if not pdf_service.looks_like_pdf(resp):
+        return {"error": f"El adjunto no es un PDF válido (código {resp.status_code})."}
+
+    texto = pdf_service.safe_extract_text(resp.content)
+    if not texto:
+        return {"error": "No se pudo extraer texto del PDF del proyecto (puede ser una imagen escaneada sin OCR)."}
+
+    return {
+        "numero": exp.get("numero", numero_proyecto),
+        "fuente": f"texto extraído del PDF del proyecto ({pdf_adjunto['url']})",
+        "texto": texto,
     }
 
 
@@ -1173,32 +1310,134 @@ async def fetch_agenda_pleno():
         import fitz
         doc = fitz.open(stream=rd.content, filetype="pdf")
         texto = "\n".join(page.get_text() for page in doc).strip()
+        estructura = _parse_indice_agenda_pleno(doc)
     except Exception as _e:
         logger.debug("PDF parse failed, fallback to HTML text: %s", _e)
         texto = BeautifulSoup(rd.text, "html.parser").get_text(separator="\n", strip=True)
+        estructura = []
 
-    low = texto.lower()
-    conteo = {
-        "dictámenes":                 low.count("dictamen"),
-        "denuncias_constitucionales": low.count("denuncia constitucional"),
-        "mociones":                   low.count("moción") + low.count("mocion"),
-        "insistencias":               low.count("insistencia"),
-        "interpelaciones":            low.count("interpelac"),
-        "proyectos_ley":              low.count("proyecto de ley"),
-    }
-
-    return {
+    resultado = {
         "fuente": "Relatoría del Congreso — Agenda del Pleno",
         "titulo": titulo,
         "enlace": enlace,
-        "conteo_aproximado": conteo,
-        "nota": ("El conteo es aproximado (menciones en el texto). "
-                 "Usa el texto para el detalle de cada asunto agendado."),
         "texto": texto[:8000],
         "agendas_anteriores": [
             {"titulo": t, "enlace": h} for t, h in docs[1:4]
         ],
     }
+
+    # Esta es la más reciente que el sistema de Relatoría tiene publicada —
+    # pero puede llevar semanas sin actualizarse (pasó con la transición a
+    # bicameralidad: el Pleno "viejo" dejó de tener sesiones nuevas mientras
+    # Senado/Diputados ya operaban por separado). Sin este aviso, el modelo
+    # puede presentar una agenda de hace semanas como si fuera la de "hoy".
+    fecha_doc = _fecha_desde_titulo_es(titulo)
+    if fecha_doc:
+        dias = (date.today() - fecha_doc).days
+        if dias > 14:
+            resultado["advertencia_desactualizado"] = (
+                f"Esta es la Agenda del Pleno MÁS RECIENTE publicada, pero es del "
+                f"{fecha_doc.strftime('%d/%m/%Y')} — hace {dias} días. NO la presentes "
+                f"como la agenda 'actual' o 'de esta semana' sin aclarar la fecha real "
+                f"y que no hay una más nueva publicada."
+            )
+
+    if estructura:
+        resultado["estructura"] = estructura
+        resultado["nota"] = (
+            "\"estructura\" viene del ÍNDICE real del documento (sección → rango de "
+            "páginas), no de un conteo de palabras — es la fuente confiable para "
+            "responder \"cuántos X hay\". NO cuentes menciones de palabras en "
+            "\"texto\" para eso: una palabra como \"dictamen\" puede aparecer muchas "
+            "veces por cada asunto (título, referencias, pie de página), así que "
+            "contarla da un número inflado y falso. Si el usuario pide un número "
+            "exacto de ítems por sección y no está en \"estructura\", decí que el "
+            "índice solo da el rango de páginas, no el conteo exacto de ítems, y "
+            "sugerí revisar el PDF directamente."
+        )
+    else:
+        # Fallback: no se pudo leer el índice — avisamos explícitamente en vez
+        # de devolver un conteo de palabras que parece preciso sin serlo.
+        resultado["nota"] = (
+            "No se pudo extraer el índice estructurado de este documento. NO "
+            "inventes ni calcules conteos de dictámenes/mociones/etc a partir del "
+            "texto — decile al usuario que no hay un conteo confiable disponible "
+            "para esta agenda y dale el link para revisarla directamente."
+        )
+
+    return resultado
+
+
+# Nombres de sección tal como aparecen en el cuerpo del documento (en
+# MAYÚSCULAS, sin tilde) — se usan para ubicar el inicio real de cada
+# sección, distinto de su mención en el índice.
+_SECCIONES_AGENDA_PLENO = [
+    "DICTAMENES", "REFORMAS CONSTITUCIONALES", "INSISTENCIAS", "ALLANAMIENTO",
+    "AUTOGRAFAS OBSERVADAS", "PROYECTOS DE LEY", "PENDIENTES DE SEGUNDA VOTACION",
+    "RECONSIDERACIONES", "MOCIONES DE ORDEN DEL DIA", "INFORMES FINALES",
+]
+
+
+def _parse_indice_agenda_pleno(doc) -> list:
+    """
+    Extrae la tabla real del ÍNDICE (página 2 típicamente): nombre de sección
+    y página donde empieza. A partir de eso calcula cuántas páginas ocupa
+    cada sección — un dato 100% verificable contra el propio documento, a
+    diferencia de contar menciones de palabras en el texto (que sobreestima
+    mucho: "dictamen" aparece varias veces por cada asunto, no una vez).
+
+    Devuelve una lista de dicts: [{"seccion", "pagina_inicio", "paginas"}].
+    Vacía si no logra parsear un índice reconocible (el llamador debe avisar
+    que no hay conteo confiable en vez de inventar uno).
+    """
+    import re
+    import unicodedata
+
+    def _sin_tildes(s: str) -> str:
+        return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+
+    # Busca la página del índice: la que contiene la palabra "ÍNDICE".
+    indice_pagina = None
+    for i in range(min(5, len(doc))):
+        if "INDICE" in _sin_tildes(doc[i].get_text()).upper():
+            indice_pagina = i
+            break
+    if indice_pagina is None:
+        return []
+
+    lineas = [l.strip() for l in doc[indice_pagina].get_text().split("\n") if l.strip()]
+
+    # Reconstruye entradas "nombre → página": cada entrada del índice termina
+    # en una línea que es puramente un número de página; el nombre son las
+    # líneas previas que no son numeral romano ni encabezado de la tabla.
+    entradas = []
+    for i, linea in enumerate(lineas):
+        if not re.match(r"^\d{1,4}$", linea):
+            continue
+        j = i - 1
+        partes = []
+        while j >= 0 and not re.match(r"^\d{1,4}$", lineas[j]):
+            partes.insert(0, lineas[j])
+            j -= 1
+        nombre = " ".join(partes).strip()
+        nombre = re.sub(r"^[IVX]+\.\s*", "", nombre)  # saca el numeral romano pegado
+        nombre_norm = _sin_tildes(nombre).upper()
+        if nombre_norm in _SECCIONES_AGENDA_PLENO:
+            entradas.append((nombre, int(linea)))
+
+    if not entradas:
+        return []
+
+    # Página final = inicio de la siguiente sección menos 1 (o fin del doc).
+    estructura = []
+    for idx, (nombre, inicio) in enumerate(entradas):
+        fin = entradas[idx + 1][1] - 1 if idx + 1 < len(entradas) else len(doc)
+        estructura.append({
+            "seccion": nombre,
+            "pagina_inicio": inicio,
+            "paginas": max(1, fin - inicio + 1),
+        })
+    return estructura
 
 
 # ── Mociones de interpelación ─────────────────────────────────
@@ -1284,74 +1523,112 @@ async def fetch_agenda_camaras(dias: int = 2, camara: str = None):
     Obtiene la agenda parlamentaria bicameral desde comunicaciones.congreso.gob.pe/agenda.
     Cubre Senado, Cámara de Diputados, Pleno del Congreso y Comisiones.
     `camara` filtra opcionalmente: 'senado', 'diputados', 'pleno', 'comision'.
+
+    Un request por día, en paralelo (antes era secuencial: con dias=14 tardaba
+    ~22s porque cada día es un GET aparte a un WordPress que no tiene endpoint
+    de rango — verificado en vivo al armar el dashboard de bienvenida, que
+    necesita una ventana ancha para encontrar la próxima sesión).
     """
     from datetime import timedelta
 
     today = datetime.now().date()
-    sesiones_total = []
+
+    async def _un_dia(c, dia):
+        sesiones_dia = []
+        url = f"{AGENDA_COMUNICACIONES}/{dia.year}/{dia.month}/{dia.day}/"
+        try:
+            r = await c.get(url, headers=HEADERS)
+            # WordPress puede devolver 404 con contenido válido — no saltarse
+            if not r.text or len(r.text) < 500:
+                return sesiones_dia
+            soup = BeautifulSoup(r.text, "html.parser")
+            texto = soup.get_text(separator="\n", strip=True)
+            lineas = [l.strip() for l in texto.split("\n") if l.strip()]
+
+            # Estructura real observada en la página (verificado en varios
+            # días): HORA / hh:mm / AM|PM / TEMA / línea 1 / línea 2
+            # (opcional, ej. "Primera Legislatura Ordinaria...") / "Descargar"
+            # (botón, no es dato) / ORGANIZA / texto / LUGAR / línea 1 / línea 2.
+            # El TEMA puede ocupar 2 líneas y el botón "Descargar" queda
+            # metido justo antes de ORGANIZA — un parser que asuma "1 línea
+            # por campo" descuadra todo lo que sigue y termina metiendo
+            # "Descargar" como si fuera el lugar (bug real, visto en
+            # producción). Por eso acá cada campo se recolecta hasta el
+            # próximo header conocido (no por conteo fijo de líneas), y se
+            # descarta explícitamente "Descargar" por ser ruido de UI.
+            SKIP = {"HORA", "TEMA", "ORGANIZA", "LUGAR"}
+            # "Descargar" es el botón de descarga que queda metido en medio
+            # del texto (ver arriba). El resto son navegación del pie de
+            # página del sitio — solo aparecen pegados al lugar de la ÚLTIMA
+            # sesión del día, que no tiene otro header después para frenar
+            # la recolección (visto en producción: "Portal" se colaba ahí).
+            RUIDO = {"Descargar", "Portal", "Inicio", "Noticias"}
+            # Tope real observado: tema ocupa hasta 2 líneas, organiza 1,
+            # lugar hasta 2. Con 2 alcanza para todo lo real y corta antes
+            # de llegar al pie de página en la última sesión del día.
+            MAX_LINEAS_CAMPO = 2
+
+            def _recolectar(j):
+                partes = []
+                vistas = 0  # cuenta TODAS las líneas revisadas, no solo
+                # las que se guardan — si contara solo las guardadas, al
+                # llegar al tope el corte queda justo ANTES de una línea
+                # de ruido en vez de después, y esa línea (ej. "Descargar")
+                # nunca se saltea, descuadrando el header que sigue.
+                while (j < len(lineas) and lineas[j] not in SKIP
+                       and not re.match(r"^\d{1,2}:\d{2}$", lineas[j])
+                       and vistas < MAX_LINEAS_CAMPO):
+                    if lineas[j] not in RUIDO:
+                        partes.append(lineas[j])
+                    vistas += 1
+                    j += 1
+                # Por si el tope cortó justo sobre una línea de ruido:
+                # saltarla también para no descuadrar el próximo header.
+                while j < len(lineas) and lineas[j] in RUIDO:
+                    j += 1
+                return " ".join(partes), j
+
+            i = 0
+            while i < len(lineas):
+                if re.match(r"^\d{1,2}:\d{2}$", lineas[i]):
+                    hora = lineas[i]
+                    j = i + 1
+                    # AM/PM opcional en la siguiente línea
+                    if j < len(lineas) and lineas[j].upper() in ("AM", "PM"):
+                        hora = f"{hora} {lineas[j]}"
+                        j += 1
+
+                    tema = organiza = lugar = ""
+                    if j < len(lineas) and lineas[j] == "TEMA":
+                        j += 1
+                        tema, j = _recolectar(j)
+                    if j < len(lineas) and lineas[j] == "ORGANIZA":
+                        j += 1
+                        organiza, j = _recolectar(j)
+                    if j < len(lineas) and lineas[j] == "LUGAR":
+                        j += 1
+                        lugar, j = _recolectar(j)
+
+                    sesiones_dia.append({
+                        "fecha": dia.strftime("%d/%m/%Y"),
+                        "hora": hora,
+                        "tema": tema,
+                        "organiza": organiza,
+                        "lugar": lugar,
+                        "camara": _detectar_camara(tema + " " + organiza + " " + lugar),
+                    })
+                    i = j
+                else:
+                    i += 1
+        except Exception as _e:
+            logger.debug("sesiones day parse failed: %s", _e)
+        return sesiones_dia
 
     async with _client() as c:
-        for delta in range(dias):
-            dia = today + timedelta(days=delta)
-            url = f"{AGENDA_COMUNICACIONES}/{dia.year}/{dia.month}/{dia.day}/"
-            try:
-                r = await c.get(url, headers=HEADERS)
-                # WordPress puede devolver 404 con contenido válido — no saltarse
-                if not r.text or len(r.text) < 500:
-                    continue
-                soup = BeautifulSoup(r.text, "html.parser")
-                texto = soup.get_text(separator="\n", strip=True)
-                lineas = [l.strip() for l in texto.split("\n") if l.strip()]
-
-                # Estructura real: HORA / hh:mm / AM|PM / TEMA / texto / organiza / ORGANIZA / LUGAR / lugar1 / lugar2
-                SKIP = {"HORA", "TEMA", "ORGANIZA", "LUGAR"}
-                sesiones_dia = []
-                i = 0
-                while i < len(lineas):
-                    if re.match(r"^\d{1,2}:\d{2}$", lineas[i]):
-                        hora = lineas[i]
-                        j = i + 1
-                        # AM/PM opcional en la siguiente línea
-                        if j < len(lineas) and lineas[j].upper() in ("AM", "PM"):
-                            hora = f"{hora} {lineas[j]}"
-                            j += 1
-                        # Saltar encabezado TEMA
-                        if j < len(lineas) and lineas[j] == "TEMA":
-                            j += 1
-                        # Tema: primera línea no-header
-                        tema = lineas[j] if j < len(lineas) and lineas[j] not in SKIP else ""
-                        if tema:
-                            j += 1
-                        # Organiza: siguiente línea no-header que no sea lugar
-                        organiza = ""
-                        if j < len(lineas) and lineas[j] not in SKIP:
-                            organiza = lineas[j]
-                            j += 1
-                        # Saltar ORGANIZA, LUGAR headers
-                        while j < len(lineas) and lineas[j] in SKIP:
-                            j += 1
-                        # Lugar: máximo 2 líneas hasta el siguiente HORA o header
-                        lugar_partes = []
-                        while j < len(lineas) and lineas[j] not in SKIP and not re.match(r"^\d{1,2}:\d{2}$", lineas[j]) and len(lugar_partes) < 2:
-                            lugar_partes.append(lineas[j])
-                            j += 1
-                        lugar = " ".join(lugar_partes)
-                        sesiones_dia.append({
-                            "fecha": dia.strftime("%d/%m/%Y"),
-                            "hora": hora,
-                            "tema": tema,
-                            "organiza": organiza,
-                            "lugar": lugar,
-                            "camara": _detectar_camara(tema + " " + organiza + " " + lugar),
-                        })
-                        i = j
-                    else:
-                        i += 1
-
-                sesiones_total.extend(sesiones_dia)
-            except Exception as _e:
-                logger.debug("sesiones day parse failed: %s", _e)
-                continue
+        resultados = await asyncio.gather(
+            *[_un_dia(c, today + timedelta(days=delta)) for delta in range(dias)]
+        )
+    sesiones_total = [s for dia_lista in resultados for s in dia_lista]
 
     if camara:
         sesiones_total = [s for s in sesiones_total
@@ -1385,11 +1662,99 @@ def _detectar_camara(texto: str) -> str:
 
 
 # ── Cuadro de comisiones y Comisión Permanente ─────────────────
+#
+# La API SPLEY (/comisiones) es un remanente del Congreso unicameral: devuelve
+# 89 registros que mezclan comisiones ordinarias, especiales, investigadoras,
+# bicamerales-de-transición y hasta comisiones ya disueltas — nunca se depuró
+# tras la instalación del Congreso bicameral (2026) y no separa por cámara.
+# Verificado en vivo: la respuesta actual sigue trayendo esa mezcla.
+#
+# El cuadro real de comisiones ordinarias vive en el Reglamento de cada
+# cámara, no en una API. Se transcribe acá desde fuente primaria oficial:
+#   - Senado: Reglamento del Senado, Art. 48 — "Nómina de las comisiones
+#     ordinarias legislativas" (verificado contra el PDF oficial de la
+#     Agenda del Pleno del Senado del 05/08/2026, que lo cita textual).
+#   - Diputados: Reglamento de la Cámara de Diputados, Art. 45 y 46 —
+#     descargado de https://www.congreso.gob.pe/wp-content/uploads/2026/07/
+#     Reglamento-de-la-Camara-de-Diputados.pdf y verificado (16 legislativas,
+#     coincide con el conteo publicado por prensa).
+# Es una estructura fija por reglamento, no algo que cambie semana a semana;
+# si el Pleno reforma el reglamento y crea o fusiona comisiones, esta lista
+# hay que actualizarla a mano — igual que estado_legislativo() con las fechas
+# de legislatura.
+COMISIONES_SENADO = {
+    "legislativas": [
+        "Constitución, Reglamento y Relaciones Exteriores",
+        "Defensa Nacional y Orden Interno",
+        "Desarrollo Productivo, Energía y Minas, Infraestructura y Trabajo",
+        "Economía, Medio Ambiente y Defensa del Consumidor",
+        "Salud, Educación, Cultura, Mujer y Desarrollo Social y Digital",
+        "Gestión del Estado y Contraloría",
+        "Justicia y Derechos Humanos",
+    ],
+    "no_legislativas": [
+        "Ética Parlamentaria",
+        "Procedimientos Especiales",
+        "Inteligencia",
+        "Control Político sobre Actos Normativos del Ejecutivo",
+    ],
+}
+
+COMISIONES_DIPUTADOS = {
+    "legislativas": [
+        "Constitución, Reglamento y Relaciones Exteriores",
+        "Defensa Nacional y Orden Interno",
+        "Desarrollo Agrario",
+        "Defensa del Consumidor y Regulación de los Servicios Públicos",
+        "Modernización de la Gestión del Estado y Contraloría",
+        "Economía, Banca, Finanzas e Inteligencia Financiera",
+        "Educación, Cultura y Deporte",
+        "Energía y Minas",
+        "Justicia y Derechos Humanos",
+        "Inclusión Social, Familia, Mujer y Pueblos Andinos, Amazónicos y Afroperuanos",
+        "Producción, Comercio Exterior y Turismo",
+        "Medio Ambiente y Sostenibilidad",
+        "Salud",
+        "Trabajo y Seguridad Social",
+        "Infraestructura, Vivienda y Transportes",
+        "Ciencia, Innovación Tecnológica y Sociedad Digital",
+    ],
+    "no_legislativas": [
+        "Ética Parlamentaria",
+        "Ordenamiento y Seguimiento Legislativo",
+        "Acusaciones Constitucionales",
+    ],
+}
+
+# Compartida por ambas cámaras (Art. 38 del Reglamento de la Cámara de
+# Diputados: se rige por el Reglamento del Congreso, no por el de cada
+# cámara por separado).
+COMISION_BICAMERAL_PRESUPUESTO = "Comisión Bicameral de Presupuesto y de la Cuenta General de la República"
+
+# La Comisión Permanente es un órgano aparte de las comisiones ordinarias: no
+# es "una comisión más" ni tampoco lo mismo que la Bicameral de Presupuesto.
+# Descripción verificada contra la página oficial congreso.gob.pe/comision-
+# permanente/ (fetch en vivo, 04/08/2026) — no hay página con la nómina de
+# integrantes vigente, mismo caso que las comisiones ordinarias.
+COMISION_PERMANENTE = {
+    "descripcion": (
+        "Órgano conformado por igual número de senadores y diputados elegidos "
+        "por sus respectivas cámaras, más los miembros de las mesas directivas "
+        "del Senado y la Cámara de Diputados como miembros natos. La preside "
+        "el presidente del Congreso. Funciona durante el receso del Senado y "
+        "la Cámara de Diputados, y no excede el 20% del total de miembros del "
+        "Congreso."
+    ),
+    "enlaces": {
+        "Comisión Permanente": "https://www.congreso.gob.pe/comision-permanente/",
+        "Sesiones de la Comisión Permanente": "https://www.congreso.gob.pe/sesiones-de-la-comision-permanente/",
+    },
+}
 
 # Enlaces oficiales verificados (todos responden 200). El visor de PDF de las
 # páginas /comisiones/ del Senado y Diputados está roto del lado del Congreso
-# —el iframe nunca recibe archivo—, así que el cuadro se arma con la API SPLEY
-# y estos enlaces se ofrecen como acceso directo.
+# —el iframe nunca recibe archivo—, así que no sirve como fuente de datos,
+# pero sigue funcionando como acceso directo para el usuario.
 COMISIONES_ENLACES = {
     "senado": {
         "Comisiones del Senado":        "https://senado.congreso.gob.pe/comisiones/",
@@ -1412,38 +1777,32 @@ COMISIONES_ENLACES = {
 
 async def fetch_comisiones(camara: str = None):
     """
-    Cuadro de comisiones del Congreso y datos de la Comisión Permanente.
+    Cuadro de comisiones ordinarias del Senado y/o la Cámara de Diputados.
 
-    Los nombres salen de la API SPLEY (/comisiones), que es pública y no
-    requiere auth. La composición nominal de cada comisión vive tras
-    service-portal-publico-ext, que exige token, así que no se puede obtener:
-    para eso se devuelven los enlaces oficiales.
+    Estructura fija tomada del Reglamento de cada cámara (ver comentario
+    arriba de COMISIONES_SENADO) — no de la API SPLEY, que quedó desactualizada
+    tras el paso al bicameral. La composición nominal (quiénes integran cada
+    comisión) sí requiere un servicio con autenticación que no está disponible
+    públicamente: para eso se devuelven los enlaces oficiales.
     """
-    comisiones, permanente, error = [], None, None
-
-    try:
-        async with _client() as c:
-            r = await c.get(f"{SPLEY_API}/comisiones")
-        if r.status_code == 200:
-            for item in r.json().get("data", []):
-                nombre = (item.get("nombreComision") or "").strip()
-                if not nombre:
-                    continue
-                # Solo el nombre: el listado completo en dicts supera los 7 000
-                # chars con que el orquestador recorta los tool results.
-                if "permanente" in nombre.lower():
-                    permanente = nombre
-                else:
-                    comisiones.append(nombre)
-        else:
-            error = f"SPLEY respondió {r.status_code}"
-    except Exception as e:
-        logger.warning("fetch_comisiones: SPLEY falló: %s", e)
-        error = str(e)
-
-    comisiones.sort()
-
     cam = (camara or "").lower().strip()
+    incluir_senado = cam in ("", "senado")
+    incluir_diputados = cam in ("", "diputados")
+
+    camaras = {}
+    if incluir_senado:
+        camaras["Senado"] = {
+            "comisiones_legislativas": COMISIONES_SENADO["legislativas"],
+            "comisiones_no_legislativas": COMISIONES_SENADO["no_legislativas"],
+            "total_legislativas": len(COMISIONES_SENADO["legislativas"]),
+        }
+    if incluir_diputados:
+        camaras["Cámara de Diputados"] = {
+            "comisiones_legislativas": COMISIONES_DIPUTADOS["legislativas"],
+            "comisiones_no_legislativas": COMISIONES_DIPUTADOS["no_legislativas"],
+            "total_legislativas": len(COMISIONES_DIPUTADOS["legislativas"]),
+        }
+
     enlaces = dict(COMISIONES_ENLACES["comunes"])
     if cam in ("senado", "diputados"):
         enlaces = {**COMISIONES_ENLACES[cam], **enlaces}
@@ -1451,25 +1810,20 @@ async def fetch_comisiones(camara: str = None):
         enlaces = {**COMISIONES_ENLACES["senado"],
                    **COMISIONES_ENLACES["diputados"], **enlaces}
 
-    resultado = {
-        "fuente": "API SPLEY del Congreso (api.congreso.gob.pe) + portales oficiales",
-        "total_comisiones": len(comisiones),
-        "comisiones": comisiones,
-        "comision_permanente": permanente,
+    return {
+        "fuente": "Reglamento del Senado (Art. 48) y Reglamento de la Cámara de "
+                  "Diputados (Art. 45-46) — estructura fija por reglamento, no una API",
+        "camaras": camaras,
+        "comision_bicameral_presupuesto": COMISION_BICAMERAL_PRESUPUESTO,
+        "comision_permanente": COMISION_PERMANENTE,
         "enlaces_oficiales": enlaces,
         "nota_composicion": (
-            "El Congreso no publica la composición nominal de las comisiones en una "
+            "El Congreso no publica la composición nominal (quiénes integran cada "
+            "comisión, ni tampoco quiénes integran la Comisión Permanente) en una "
             "API abierta: ese dato está detrás de un servicio con autenticación. "
-            "Los enlaces oficiales de arriba son la vía para consultar los miembros."
+            "Los enlaces oficiales de arriba son la vía para consultarla."
         ),
     }
-    if error and not comisiones:
-        resultado["sin_datos"] = True
-        resultado["mensaje"] = (
-            f"No se pudo obtener el cuadro de comisiones desde SPLEY ({error}). "
-            "Los enlaces oficiales siguen disponibles."
-        )
-    return resultado
 
 
 # ── Estado legislativo (calendario de sesiones) ─────────────────

@@ -23,3 +23,9 @@ def error(msg: str) -> str:
 
 
 DONE = "data: [DONE]\n\n"
+
+# Línea de comentario SSE (":" al inicio) — EventSource la ignora, pero al
+# forzar un intento real de escritura al socket ayuda a que el servidor
+# detecte una conexión muerta cuando is_disconnected() no se entera sola
+# (ver routers/live.py).
+PING = ": ping\n\n"

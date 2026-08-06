@@ -309,12 +309,10 @@
   th{background:#111;color:#fff;padding:6px 10px;text-align:left;font-weight:bold}
   td{border:1px solid #ccc;padding:6px 10px}
   tr:nth-child(even) td{background:#f7f7f7}
-  .hdr{border-bottom:3px solid #111;padding-bottom:12px;margin-bottom:24px;font-size:9pt;color:#666}
   .ftr{margin-top:40px;border-top:1px solid #ccc;padding-top:12px;font-size:9pt;color:#666;text-align:center}
 </style></head><body>
-<div class="hdr">DOCUMENTO CONFIDENCIAL — GESTIÓN DE ASUNTOS PÚBLICOS</div>
 ${parseMarkdown(md)}
-<div class="ftr">Lex — Sistema de Monitoreo Parlamentario · ${date}</div>
+<div class="ftr">Solón — Sistema de Monitoreo Parlamentario · ${date}</div>
 </body></html>`;
   }
 

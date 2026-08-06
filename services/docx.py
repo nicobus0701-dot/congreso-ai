@@ -14,7 +14,6 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
-HEADER_TEXT = "DOCUMENTO CONFIDENCIAL — GESTIÓN DE ASUNTOS PÚBLICOS"
 GREY = RGBColor(0x88, 0x88, 0x88)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 HEADER_FILL = "1a1a1a"
@@ -119,9 +118,6 @@ def markdown_to_docx(md: str) -> bytes:
         section.top_margin = Inches(1.0)
         section.bottom_margin = Inches(1.0)
 
-    _add_banner(doc, HEADER_TEXT)
-    doc.add_paragraph()
-
     lines = md.split('\n')
     i = 0
     while i < len(lines):
@@ -160,7 +156,7 @@ def markdown_to_docx(md: str) -> bytes:
     doc.add_paragraph()
     _add_banner(
         doc,
-        f"Generado por Lex — Sistema de Monitoreo Parlamentario · "
+        f"Generado por Solón — Sistema de Monitoreo Parlamentario · "
         f"{datetime.now().strftime('%d/%m/%Y')}",
     )
 

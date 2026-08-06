@@ -20,6 +20,7 @@ from scraper import (
     fetch_destacados,
     fetch_estado_proyecto,
     fetch_expediente,
+    fetch_formula_legal,
     fetch_interpelaciones,
     fetch_proyectos,
     fetch_sesiones,
@@ -31,12 +32,8 @@ TOOLS = [
         "function": {
             "name": "buscar_proyectos",
             "description": (
-                "Obtiene proyectos de ley del Congreso del Perú desde el sistema SPLEY. "
-                "Úsala cuando el usuario pida proyectos, leyes, expedientes o quiera buscar "
-                "por tema/materia, autor/congresista, comisión, número de proyecto o rango de fechas. "
-                "Para búsquedas por TEMA usa el parámetro 'materia'. "
-                "Para los ÚLTIMOS N DÍAS usa el parámetro 'dias' (ej: dias=15 para últimos 15 días). "
-                "Para un número específico usa 'numero'. Para un autor usa 'autor'."
+                "Busca proyectos de ley en SPLEY por tema (materia), autor, comisión, "
+                "número o rango de fechas (dias=N para últimos N días)."
             ),
             "parameters": {
                 "type": "object",
@@ -73,11 +70,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "buscar_sesiones",
-            "description": (
-                "Obtiene sesiones del Congreso del Perú desde el visor oficial. "
-                "Usa esta herramienta cuando el usuario pregunte por sesiones, debates, "
-                "votaciones o reuniones de comisiones."
-            ),
+            "description": "Sesiones PASADAS de comisiones del Congreso (debates, votaciones, reuniones ya ocurridas).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -97,10 +90,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "buscar_agenda",
-            "description": (
-                "Obtiene la agenda parlamentaria actual del Congreso del Perú: "
-                "convocatorias, fechas y horarios de próximas sesiones."
-            ),
+            "description": "Agenda parlamentaria general: convocatorias, fechas y horarios de próximas sesiones.",
             "parameters": {
                 "type": "object",
                 "properties": {}
@@ -112,12 +102,9 @@ TOOLS = [
         "function": {
             "name": "buscar_destacados",
             "description": (
-                "Obtiene las secciones DESTACADO y CITACIONES del portal del Congreso del "
-                "Perú con sus enlaces de descarga, y una lista de documentos oficiales "
-                "descargables en PDF (agenda del Pleno vigente y anteriores, Reglamento del "
-                "Congreso, Constitución). Úsala cuando el usuario pida documentos, "
-                "citaciones, destacados, o acceso a descargas de Diputados, Senado o "
-                "Congreso. NO respondas que no puedes dar descargas: llama a esta herramienta."
+                "Secciones DESTACADO y CITACIONES (con links de descarga) de Congreso/Senado/"
+                "Diputados, más documentos oficiales descargables. Úsala para pedidos de "
+                "documentos, citaciones o descargas — nunca respondas que no puedes darlas."
             ),
             "parameters": {
                 "type": "object",
@@ -129,13 +116,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "buscar_congresista",
-            "description": (
-                "Obtiene el perfil completo de un congresista: todos sus proyectos de ley "
-                "presentados, resumen por estado (aprobado, en comisión, archivado, etc.) "
-                "y noticias recientes sobre esa persona. "
-                "Úsala cuando el usuario pregunte por un congresista específico, "
-                "quiera saber qué ha legislado alguien, o necesite el historial de un parlamentario."
-            ),
+            "description": "Perfil de un congresista: proyectos presentados, estado de cada uno, y noticias recientes.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -152,11 +133,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "buscar_en_web",
-            "description": (
-                "Busca cualquier tema general en internet usando DuckDuckGo. "
-                "Úsala para preguntas que NO son sobre proyectos de ley, sesiones, agenda o congresistas específicos: "
-                "historia, definiciones, noticias generales, conceptos legales, datos del mundo, etc."
-            ),
+            "description": "Búsqueda web general (DuckDuckGo) para lo que no sea proyectos/sesiones/agenda/congresistas del Congreso.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -177,11 +154,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "rastrear_proyecto",
-            "description": (
-                "Obtiene el estado detallado y actual de un proyecto de ley específico "
-                "por su número. Úsala cuando el usuario quiera saber en qué estado está "
-                "un proyecto puntual, si fue aprobado, archivado, o está en comisión."
-            ),
+            "description": "Estado de una línea de un proyecto puntual por número — solo el status, no el trámite detallado (para eso, fetch_expediente).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -199,21 +172,11 @@ TOOLS = [
         "function": {
             "name": "fetch_expediente",
             "description": (
-                "Obtiene el expediente COMPLETO de un proyecto de ley desde el portal SPLEY del "
-                "Congreso, con sus 5 pestañas: (1) Seguimiento — todos los movimientos con fecha, "
-                "estado procesal, comisión, detalle y adjuntos; (2) Proyectos Acumulados; "
-                "(3) Documentación Anexa — oficios, opiniones de ministerios, informes; "
-                "(4) Secciones — texto del proyecto, fórmula legal, dictámenes, autógrafas; "
-                "(5) Opinión Ciudadana. Usar cuando el usuario pida el expediente, el seguimiento, "
-                "el trámite en comisiones, los actos de trabajo, los adjuntos, el estatus o el "
-                "predictamen de un proyecto específico. Si el usuario YA DIO el número del "
-                "proyecto (ej. '14864/2025-CR' o '14864'), llamá DIRECTO a esta herramienta con "
-                "ese número — no hace falta buscar_proyectos ni rastrear_proyecto antes, esos son "
-                "solo para cuando el usuario dio el tema pero no el número. "
-                "Es UN SOLO expediente por proyecto que cubre todo su trámite bicameral completo "
-                "(Diputados y Senado): si el usuario nombra ambas cámaras o pregunta 'si ya pasó a "
-                "la otra cámara', llamala UNA SOLA VEZ igual — el mismo expediente ya trae el "
-                "estado de las dos, no hay un expediente separado por cámara."
+                "Expediente COMPLETO de un proyecto (5 pestañas: seguimiento, acumulados, "
+                "documentación anexa, secciones, opinión ciudadana). Usar para trámite, "
+                "comisiones, adjuntos o predictamen de un proyecto. Si ya viene el número, "
+                "llamar DIRECTO — no hace falta buscar_proyectos/rastrear_proyecto antes. "
+                "Un solo llamado cubre AMBAS cámaras (no repetir por Senado/Diputados)."
             ),
             "parameters": {
                 "type": "object",
@@ -236,14 +199,9 @@ TOOLS = [
         "function": {
             "name": "fetch_agenda_comisiones",
             "description": (
-                "Obtiene las sesiones de comisiones programadas para los próximos días desde "
-                "la web del Congreso. Fuente única (Departamento de Comisiones), NO distingue "
-                "cámara — junta Senado y Diputados sin diferenciarlos. Devuelve por cada sesión: "
-                "fecha, hora, comisión, lugar o modalidad, y link a la agenda. Usar SOLO cuando "
-                "el usuario pregunte por sesiones de comisiones EN GENERAL, sin nombrar una "
-                "cámara. Si el usuario menciona Senado, Diputados o Pleno, usar "
-                "fetch_agenda_camaras en su lugar — esta herramienta no puede filtrar por cámara "
-                "y daría el mismo resultado sin importar cuál se pida."
+                "Sesiones de comisiones próximas SIN distinguir cámara (junta Senado+Diputados). "
+                "Usar SOLO si el usuario no nombra una cámara puntual — si nombra Senado, "
+                "Diputados o Pleno, usar fetch_agenda_camaras en su lugar."
             ),
             "parameters": {
                 "type": "object",
@@ -264,12 +222,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "fetch_agenda_pleno",
-            "description": (
-                "Obtiene la estructura de la Agenda del Pleno vigente desde la web del Congreso: "
-                "cuántos dictámenes, denuncias constitucionales, mociones e insistencias hay "
-                "agendados, con el detalle de cada ítem. Usar cuando el usuario pregunte por la "
-                "Agenda del Pleno, qué se va a debatir en el Pleno, o cuántos dictámenes/denuncias hay."
-            ),
+            "description": "Estructura real (por secciones e ítems) de la Agenda del Pleno vigente: qué se va a debatir.",
             "parameters": {
                 "type": "object",
                 "properties": {}
@@ -281,18 +234,10 @@ TOOLS = [
         "function": {
             "name": "fetch_comisiones",
             "description": (
-                "Obtiene el CUADRO DE COMISIONES del Congreso del Perú (las 89 comisiones "
-                "ordinarias, especiales y de investigación) y los accesos oficiales a la "
-                "COMISIÓN PERMANENTE y a las comisiones del Senado y de la Cámara de "
-                "Diputados. Devuelve además los enlaces directos verificados a los portales "
-                "y visores oficiales. Úsala SIEMPRE que el usuario pida el cuadro de "
-                "comisiones, la lista de comisiones, los miembros o integrantes de una "
-                "comisión, o los accesos a la Comisión Permanente del Senado o Diputados. "
-                "NO respondas que no tienes acceso: llama a esta herramienta. "
-                "LLAMALA UNA SOLA VEZ por turno: sin el parámetro 'camara' (o con camara "
-                "vacío) ya devuelve los enlaces de AMBAS cámaras juntas — no hace falta "
-                "invocarla de nuevo con camara='senado' y otra vez con camara='diputados', "
-                "eso devuelve exactamente los mismos datos dos veces."
+                "Cuadro de comisiones ordinarias del Senado y la Cámara de Diputados "
+                "(cada cámara tiene el suyo, no un total combinado) más accesos "
+                "oficiales. Llamar UNA sola vez por turno (sin 'camara', ya trae "
+                "ambas) — nunca respondas que no tienes acceso."
             ),
             "parameters": {
                 "type": "object",
@@ -308,13 +253,28 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "responder_directo",
+            "name": "leer_formula_legal",
             "description": (
-                "Usar cuando la pregunta NO requiere datos actualizados del Congreso ni "
-                "búsqueda web: saludos ('hola', 'buenos días'), preguntas sobre ti mismo, "
-                "seguimiento de una respuesta anterior ('¿y eso qué implica?', 'explícame eso'), "
-                "conceptos, definiciones o historia que puedes responder con tu conocimiento."
+                "Texto real de un proyecto (fórmula legal, articulado) para resumir o analizar "
+                "el contenido — ej. qué ley modifica. fetch_expediente NO trae este texto."
             ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "numero_proyecto": {
+                        "type": "string",
+                        "description": "Número del proyecto de ley, ej. '14864/2025-CR' o '14864'."
+                    }
+                },
+                "required": ["numero_proyecto"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "responder_directo",
+            "description": "Sin datos externos: saludos, seguimiento de algo ya respondido, o conceptos que ya sabes.",
             "parameters": {
                 "type": "object",
                 "properties": {}
@@ -326,15 +286,9 @@ TOOLS = [
         "function": {
             "name": "fetch_agenda_camaras",
             "description": (
-                "Obtiene las sesiones programadas del Senado, Cámara de Diputados, Pleno del "
-                "Congreso bicameral Y también sesiones de comisiones, desde "
-                "comunicaciones.congreso.gob.pe/agenda — la fuente oficial post-separación "
-                "bicameral, que SÍ distingue de qué cámara es cada sesión. "
-                "Úsala SIEMPRE que el usuario nombre una cámara específica (Senado, Diputados, "
-                "Pleno) al preguntar por sesiones o agenda de comisiones — con "
-                "camara='senado'/'diputados'/'pleno' — en vez de fetch_agenda_comisiones, que "
-                "no puede distinguir cámaras. También sirve para sesiones de comisiones sin "
-                "cámara puntual, con camara='comision'."
+                "Sesiones del Senado, Diputados, Pleno o comisiones — SÍ distingue cámara "
+                "(camara='senado'/'diputados'/'pleno'/'comision'). Usar siempre que el usuario "
+                "nombre una cámara puntual, en vez de fetch_agenda_comisiones."
             ),
             "parameters": {
                 "type": "object",
@@ -356,11 +310,8 @@ TOOLS = [
         "function": {
             "name": "fetch_interpelaciones",
             "description": (
-                "Obtiene las mociones de interpelación a ministros presentadas formalmente ante "
-                "el Congreso Y noticias sobre mociones en gestación (recolección de firmas) — ya "
-                "busca ambas cosas internamente, no hace falta llamar a buscar_en_web aparte. "
-                "Devuelve por cada moción: ministro, cartera, fecha, estado y motivo. "
-                "Usar cuando el usuario pregunte por interpelaciones o mociones contra ministros."
+                "Mociones de interpelación a ministros — formales Y en gestación (firmas). "
+                "Ya busca ambas, no hace falta buscar_en_web aparte."
             ),
             "parameters": {
                 "type": "object",
@@ -423,6 +374,7 @@ TOOL_MAP = {
     "fetch_comisiones":        lambda args: fetch_comisiones(**{k: v for k, v in args.items() if k in ("camara",)}),
     "fetch_agenda_camaras":    lambda args: fetch_agenda_camaras(**{k: v for k, v in args.items() if k in ("dias", "camara")}),
     "fetch_interpelaciones":   lambda args: fetch_interpelaciones(**{k: v for k, v in args.items() if k in ("ministro",)}),
+    "leer_formula_legal":      lambda args: fetch_formula_legal(**{k: v for k, v in args.items() if k in ("numero_proyecto",)}),
     "responder_directo":       lambda args: _responder_directo(),
 }
 
@@ -440,5 +392,6 @@ STATUS_LABELS = {
     "fetch_comisiones":        "Consultando el cuadro de comisiones...",
     "fetch_agenda_camaras":    "Revisando agenda del Congreso bicameral...",
     "fetch_interpelaciones":   "Buscando mociones de interpelación...",
+    "leer_formula_legal":      "Leyendo el texto real del proyecto...",
     "responder_directo":       "Pensando...",
 }

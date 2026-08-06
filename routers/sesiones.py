@@ -4,7 +4,7 @@ import asyncio
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from config import GROQ_API_KEY, MAIN_MODEL, logger, static_file
+from config import GROQ_API_KEY, LLM_API_KEY, MAIN_MODEL, logger, static_file
 from scraper import fetch_videos_youtube, get_yt_captions, transcribe_with_whisper
 from services import groq as groq_service
 from services import sse
@@ -13,7 +13,7 @@ from services.prompt_registry import build_sesion_prompt
 router = APIRouter()
 
 SESION_SYSTEM = (
-    "Eres Lex, experto en análisis parlamentario del Congreso del Perú. "
+    "Eres Solón, experto en análisis parlamentario del Congreso del Perú. "
     "Analizas transcripts de sesiones y los conviertes en resúmenes ejecutivos con tablas."
 )
 
@@ -118,8 +118,8 @@ async def sesiones_resumir_texto(request: Request):
         if not texto:
             yield sse.error("No hay texto para resumir.")
             return
-        if not GROQ_API_KEY:
-            yield sse.error("Falta la API key de Groq.")
+        if not LLM_API_KEY:
+            yield sse.error("Falta la API key del proveedor de chat activo.")
             return
 
         yield sse.status("Analizando transcripción...")

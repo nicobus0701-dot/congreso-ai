@@ -13,6 +13,28 @@
   --sidebar-w: 240px;
 }
 
+/* ── Modo oscuro (sincronizado desde el chat principal — ver live.js) ── */
+[data-theme="dark"] {
+  --border: #2e2e2e;
+  --bg:     #111111;
+  --bg-off: #1a1a1a;
+  --bg-ia:  #161616;
+  --text:   #e8e8e8;
+  --mid:    #999999;
+  --dim:    #666666;
+  --hover:  #1e1e1e;
+}
+[data-theme="dark"] .lv-video-card.active { background: #1c1c1c; border-left-color: #e8e8e8; }
+[data-theme="dark"] .lv-card-thumb { background: #222; }
+[data-theme="dark"] .lv-badge-past { background: #262626; color: #999; }
+[data-theme="dark"] .lv-scroll-btn { background: #e8e8e8; color: #111; }
+[data-theme="dark"] .lv-scroll-btn:hover { background: #fff; }
+[data-theme="dark"] .lv-head-btn--pdf  { border-color: #5c2626; }
+[data-theme="dark"] .lv-head-btn--pdf:hover  { background: rgba(197,48,48,0.16); }
+[data-theme="dark"] .lv-head-btn--word { border-color: #234462; }
+[data-theme="dark"] .lv-head-btn--word:hover { background: rgba(43,108,176,0.16); }
+
+html { transition: background 0.2s, color 0.2s; }
 html, body { height: 100%; font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; overflow: hidden; }
 
 /* ── Root layout ─────────────────────────────────────── */
@@ -265,18 +287,37 @@ html, body { height: 100%; font-family: var(--font); background: var(--bg); colo
   border-top-color: #888;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-  margin-left: auto;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .lv-ia-body { flex: 1; overflow-y: auto; padding: 13px; }
 
 .lv-ia-content { font-size: 13px; line-height: 1.7; color: var(--text); }
-.lv-ia-content strong { font-weight: 800; }
-.lv-ia-content p  { margin-bottom: 9px; }
-.lv-ia-content h3 { font-size: 12px; font-weight: 800; margin: 12px 0 5px; }
-.lv-ia-content ul { padding-left: 16px; margin-bottom: 9px; }
-.lv-ia-content li { margin-bottom: 3px; }
+
+/* Un bloque por tramo analizado — se van agregando, no se reemplazan. */
+.lv-ia-segment {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.lv-ia-segment:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.lv-ia-segment-range {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.lv-ia-segment-range svg { width: 11px; height: 11px; flex-shrink: 0; }
+.lv-ia-segment-body strong { font-weight: 800; }
+.lv-ia-segment-body p  { margin-bottom: 9px; }
+.lv-ia-segment-body h3 { font-size: 12px; font-weight: 800; margin: 12px 0 5px; }
+.lv-ia-segment-body ul { padding-left: 16px; margin-bottom: 9px; }
+.lv-ia-segment-body li { margin-bottom: 3px; }
 
 .lv-ia-footer {
   border-top: 1px solid var(--border);
@@ -305,24 +346,72 @@ html, body { height: 100%; font-family: var(--font); background: var(--bg); colo
 /* ── Col 3: Transcript ───────────────────────────────── */
 .lv-col-transcript { background: var(--bg); }
 
-.lv-copy-btn {
+.lv-head-actions {
   margin-left: auto;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  font-family: var(--font);
-  background: var(--bg-off);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  cursor: pointer;
-  color: var(--mid);
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  transition: background 0.15s;
+  flex-shrink: 0;
 }
-.lv-copy-btn:hover { background: var(--hover); color: var(--text); }
-.lv-copy-btn svg { width: 12px; height: 12px; }
+
+/* Un solo botón compacto en vez de 3 — en la columna angosta de
+   transcripción, "Copiar" + "PDF" + "Word" no cabían junto al título. */
+.lv-menu-trigger {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--mid);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.lv-menu-trigger:hover { background: var(--hover); color: var(--text); }
+.lv-menu-trigger svg { width: 13px; height: 13px; }
+
+.lv-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 168px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lv-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font);
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.12s;
+}
+.lv-menu-item:hover { background: var(--hover); }
+.lv-menu-item:disabled { opacity: 0.5; cursor: default; background: none; }
+.lv-menu-item svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+.lv-menu-item--pdf  { color: #c53030; }
+.lv-menu-item--word { color: #2b6cb0; }
 
 .lv-transcript-body { flex: 1; overflow-y: auto; padding: 11px 13px; }
 
@@ -338,6 +427,19 @@ html, body { height: 100%; font-family: var(--font); background: var(--bg); colo
 
 .lv-line-ts   { font-size: 11px; font-weight: 700; color: var(--dim); white-space: nowrap; padding-top: 2px; min-width: 36px; font-variant-numeric: tabular-nums; }
 .lv-line-text { font-size: 13px; color: var(--text); line-height: 1.6; font-weight: 500; }
+
+/* Línea que corresponde a dónde va el reproductor ahora mismo — ver
+   syncCurrentLine() en live.js. La transcripción llega adelantada al video
+   a propósito; esto es solo para ubicarse, no reordena ni oculta nada. */
+.lv-line-current {
+  padding: 2px 8px;
+  margin: 0 -8px;
+  border-radius: 6px;
+  background: rgba(var(--accent-rgb), 0.08);
+  transition: background 0.3s;
+}
+.lv-line-current .lv-line-ts   { color: var(--accent); font-weight: 800; }
+.lv-line-current .lv-line-text { font-weight: 800; color: var(--black); }
 
 .lv-scroll-btn {
   position: absolute;

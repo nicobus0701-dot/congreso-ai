@@ -325,7 +325,7 @@ def test_no_deduplica_herramientas_fuera_de_la_lista():
 @pytest.mark.asyncio
 async def test_run_tool_reintenta_una_vez_y_se_recupera():
     """
-    Bug real: SPLEY tuvo un hipo puntual, buscar_proyectos falló, y Lex
+    Bug real: SPLEY tuvo un hipo puntual, buscar_proyectos falló, y Solón
     respondió "no puedo buscar ahora" en vez de reintentar — pese a que la
     misma consulta funcionaba perfecto al segundo intento.
     """

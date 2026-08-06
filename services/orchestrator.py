@@ -35,20 +35,38 @@ from services.tools import STATUS_LABELS, TOOL_MAP, TOOLS
 # Un tool result de 7k chars ≈ 2000 tokens. Más que eso dispara el TPM.
 MAX_TOOL_RESULT_CHARS = 7000
 
-# Ventana del resumen semanal, en días hacia atrás desde hoy.
+# Ventana del resumen semanal, en días hacia atrás desde hoy — lo que cuenta
+# como "esta semana" para agenda de sesiones y el corte estricto del informe.
 RESUMEN_DIAS = 7
+
+# Ventana más amplia, SOLO para proyectos de ley: un proyecto presentado hace
+# 10-13 días (fuera de la semana estricta) casi siempre sigue en su mismo
+# estado inicial ("PRESENTADO", sin resolver) — mostrarlo como contexto
+# vigente es de bajo riesgo. No se aplica a interpelaciones/noticias: esas sí
+# pueden quedar obsoletas (resueltas, archivadas) en ese mismo lapso sin forma
+# de saberlo desde los datos, así que ahí se mantiene el corte estricto de 7
+# días (ver REGLA DE FECHA en resumen.md).
+RESUMEN_CONTEXTO_DIAS = 15
 
 # Herramientas fijas del resumen semanal — no se le deja la elección al
 # router (8B). Dejado a su criterio con tool_choice="required" terminaba
 # llamando 7-8 herramientas de golpe (fetch_interpelaciones, fetch_comisiones,
-# buscar_en_web, buscar_agenda...) y reventaba el TPM de Groq, tumbando la
-# función entera. Estas 4 cubren proyectos, destacados (ya scrapea Congreso,
-# Senado y Diputados) y agenda — es lo que el resumen necesita, ni más.
+# buscar_en_web, buscar_agenda...) y reventaba el TPM de Groq (6k), tumbando
+# la función entera.
+#
+# fetch_interpelaciones sí se agregó a la lista fija: es la fuente de la
+# noticia política más caliente de la semana (mociones contra ministros) y
+# sin ella el resumen puede terminar hablando solo de trámite institucional
+# mientras ignora lo más relevante — pasó en producción. Las otras 3
+# (fetch_comisiones, buscar_en_web, buscar_agenda) siguen afuera: no aportan
+# nada nuevo que buscar_destacados/fetch_agenda_pleno no cubran ya para un
+# resumen semanal, así que agregarlas sería puro peso extra sin beneficio.
 RESUMEN_TOOLS = (
-    ("buscar_proyectos",    {"dias": RESUMEN_DIAS}),
-    ("buscar_destacados",   {}),
-    ("fetch_agenda_pleno",  {}),
-    ("fetch_agenda_camaras", {"dias": RESUMEN_DIAS}),
+    ("buscar_proyectos",       {"dias": RESUMEN_CONTEXTO_DIAS}),
+    ("buscar_destacados",      {}),
+    ("fetch_agenda_pleno",     {}),
+    ("fetch_agenda_camaras",   {"dias": RESUMEN_DIAS}),
+    ("fetch_interpelaciones",  {}),
 )
 
 # Marcadores que indican que ya se mostró un expediente completo en el hilo.
@@ -98,6 +116,64 @@ def _detecta_proyectos_por_dias(texto: str) -> int | None:
     if RECIENTE_RE.search(t):
         return DEFAULT_DIAS_PROYECTOS
     return None
+
+
+# ── Corrección de nombres de congresistas en la respuesta final ────────────
+#
+# scraper.py normaliza los nombres de firmantes/autores a "Nombre Apellido"
+# (ver _nombre_a_formato_natural y _normalizar_lista_autores) porque SPLEY
+# los devuelve mezclados: unas veces "Apellido, Nombre", otras ya en orden
+# natural, según qué endpoint respondió. Verificado en vivo (04/08/2026,
+# probado con 3 variantes de instrucción distintas, incluyendo un ejemplo
+# negativo explícito) que el modelo principal reescribe el nombre normalizado
+# de vuelta a "Apellido, Nombre" en su respuesta pese a que el dato ya le
+# llega limpio — es un estilo tan dominante en los documentos del Congreso
+# que ninguna instrucción de prompt lo revirtió. Se corrige acá con un swap
+# determinístico: solo se tocan los nombres que efectivamente trajeron las
+# herramientas en este turno, nunca un patrón genérico de "Apellido, Nombre"
+# que podría coincidir con texto no relacionado a personas.
+_CAMPOS_NOMBRE = {"autor", "autor_principal", "coautores", "autores"}
+
+
+def _extraer_nombres_normalizados(tool_msgs: list[dict]) -> set[str]:
+    nombres: set[str] = set()
+
+    def _recolectar(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k in _CAMPOS_NOMBRE and isinstance(v, str) and v:
+                    for parte in v.split(";"):
+                        parte = parte.strip()
+                        if parte and "," not in parte and " " in parte:
+                            nombres.add(parte)
+                else:
+                    _recolectar(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                _recolectar(item)
+
+    for msg in tool_msgs:
+        contenido = msg.get("content", "")
+        idx = contenido.find("{")
+        if idx == -1:
+            continue
+        try:
+            _recolectar(json.loads(contenido[idx:]))
+        except (json.JSONDecodeError, ValueError):
+            continue
+    return nombres
+
+
+def _fix_nombres_reformateados(texto: str, nombres_normalizados: set[str]) -> str:
+    for nombre in nombres_normalizados:
+        partes = nombre.split()
+        if len(partes) < 2:
+            continue
+        for corte in range(1, len(partes)):
+            variante = f"{' '.join(partes[corte:])}, {' '.join(partes[:corte])}"
+            if variante in texto:
+                texto = texto.replace(variante, nombre)
+    return texto
 
 
 class ChatOrchestrator:
@@ -380,22 +456,15 @@ class ChatOrchestrator:
             self.solo_responder_directo = True
             return
 
-        self.tool_msgs.append({
-            "role": "assistant",
-            "content": choice.message.content or "",
-            "tool_calls": [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    },
-                }
-                for tc in real_calls
-            ],
-        })
-
+        # OJO: acá antes se armaba el intercambio nativo de function-calling de
+        # OpenAI (mensaje "assistant" con tool_calls + mensaje "tool" por cada
+        # resultado). Eso rompe con Gemini: exige un campo interno
+        # ("thought_signature") atado a la respuesta original del modelo que
+        # nosotros no tenemos cómo reconstruir a mano. Fase 3 nunca manda
+        # `tools=` en su propio pedido (no es una llamada nativa real, ver
+        # _stream_final) así que no hace falta ese formato — un mensaje de
+        # texto plano con el resultado le sirve igual al modelo y funciona
+        # con cualquier proveedor.
         for tc in real_calls:
             name = tc.function.name
             self.tools_usados.append(name)
@@ -410,9 +479,8 @@ class ChatOrchestrator:
                 result_str = result_str[:MAX_TOOL_RESULT_CHARS] + '... [recortado]"}'
 
             self.tool_msgs.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": result_str,
+                "role": "user",
+                "content": f"[Resultado de la herramienta {name}]\n{result_str}",
             })
 
     async def _phase2_tools_fijas(self, tools: tuple):
@@ -424,17 +492,10 @@ class ChatOrchestrator:
         (o es riesgoso) dejárselo a la elección del router de 8B — ver
         RESUMEN_TOOLS y _detecta_proyectos_por_dias.
         """
-        tool_calls = [
-            {
-                "id": f"forzado-{i}",
-                "type": "function",
-                "function": {"name": name, "arguments": json.dumps(args)},
-            }
-            for i, (name, args) in enumerate(tools)
-        ]
-        self.tool_msgs.append({"role": "assistant", "content": "", "tool_calls": tool_calls})
-
-        for (name, args), tc in zip(tools, tool_calls):
+        # Mismo motivo que en _phase2: texto plano en vez del formato nativo
+        # de tool_calls, para no depender de metadata específica de un
+        # proveedor (ver comentario ahí).
+        for name, args in tools:
             self.tools_usados.append(name)
             yield sse.status(STATUS_LABELS.get(name, "Consultando el Congreso..."))
 
@@ -445,9 +506,8 @@ class ChatOrchestrator:
                 result_str = result_str[:MAX_TOOL_RESULT_CHARS] + '... [recortado]"}'
 
             self.tool_msgs.append({
-                "role": "tool",
-                "tool_call_id": tc["id"],
-                "content": result_str,
+                "role": "user",
+                "content": f"[Resultado de la herramienta {name}]\n{result_str}",
             })
 
     @staticmethod
@@ -510,9 +570,10 @@ class ChatOrchestrator:
     def _phase3_max_tokens(self) -> int:
         if self.is_resumen:
             # Reporte multi-tema con links — necesita más espacio que una
-            # respuesta de una sola herramienta. Alcanza el presupuesto porque
-            # ahora entra con 4 tool results, no 7-8 (ver RESUMEN_TOOLS).
-            return 3000
+            # respuesta de una sola herramienta. 5 tool results (RESUMEN_TOOLS),
+            # no 7-8: un poco más de margen que antes por la sección de
+            # interpelaciones que se sumó.
+            return 3500
         if "fetch_expediente" in self.tools_usados:
             return 4000
         if self.tools_usados:
@@ -521,17 +582,34 @@ class ChatOrchestrator:
         return 2500
 
     async def _stream_final(self, msgs, max_tokens):
-        """Streaming de Fase 3 con reintento sobre rate limit."""
+        """
+        Streaming de Fase 3 con reintento sobre rate limit.
+
+        Si este turno trajo nombres de congresistas de una herramienta, se
+        buferea el texto para poder corregir el reformateo del modelo antes
+        de mandarlo (ver _fix_nombres_reformateados) — el resto de los turnos
+        sigue transmitiendo en vivo, delta por delta, sin buffer.
+        """
+        nombres = _extraer_nombres_normalizados(self.tool_msgs) if self.tool_msgs else set()
+        buffer = ""
         async for kind, payload in groq_service.stream_with_retry(
             self.client, msgs, model=MAIN_MODEL, max_tokens=max_tokens
         ):
             if kind == "text":
-                yield sse.text(payload)
+                if nombres:
+                    buffer += payload
+                else:
+                    yield sse.text(payload)
             elif kind == "status":
                 yield sse.status(payload)
             elif kind == "error":
                 yield sse.error(payload)
                 return
+        if buffer:
+            buffer = _fix_nombres_reformateados(buffer, nombres)
+            CHUNK = 60
+            for i in range(0, len(buffer), CHUNK):
+                yield sse.text(buffer[i:i + CHUNK])
         yield sse.DONE
 
     # ── Punto de entrada ─────────────────────────────────────────────────────

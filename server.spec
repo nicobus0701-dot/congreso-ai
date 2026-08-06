@@ -29,6 +29,7 @@ a = Analysis(
         'services.prompt_registry',
         'services.sse',
         'services.tools',
+        'openai',
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',

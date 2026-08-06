@@ -21,6 +21,7 @@
     "directories": {
       "output": "release"
     },
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
     "extraResources": [
       {
         "from": "dist/server",

@@ -1,3 +1,10 @@
+/* ── Tema (sincronizado en vivo con el chat principal) ──── */
+window.addEventListener("message", (e) => {
+  if (e.data && e.data.type === "theme") {
+    document.documentElement.dataset.theme = e.data.dark ? "dark" : "light";
+  }
+});
+
 let pdfs = [];
 let selected = null;
 

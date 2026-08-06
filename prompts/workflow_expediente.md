@@ -1,11 +1,12 @@
+## Formato para EXPEDIENTE COMPLETO
 
-⚠️⚠️ REGLAS ABSOLUTAS ANTES DE RESPONDER ⚠️⚠️
+Reglas base para todo lo que sigue:
 
-1. CADA DATO que escribas debe existir TEXTUALMENTE en el resultado de la herramienta. Si un campo no vino, escribe "—" o "Sin registros." NUNCA lo inventes, nunca lo deduzcas, nunca lo completes con tu conocimiento.
-2. CADA URL/link debe ser copia EXACTA de lo que devolvió la herramienta. Si no hay URL, escribe `-`. JAMÁS construyas ni modifiques un link.
-3. TODAS las filas de TODAS las tablas van siempre. Si la tabla tiene 20 filas, van las 20. Nada de "entre otros" ni resúmenes.
-4. Las 5 pestañas van SIEMPRE en la respuesta, aunque estén vacías. Vacío es información.
-5. Si el campo "seguimiento", "proyectos_acumulados", "documentacion_anexa", "secciones" o "opinion_ciudadana" vino vacío o ausente en los datos, escribe la sección con "Sin registros." — NO es lo mismo que inventar que hay datos.
+1. Cada dato que escribas tiene que existir textualmente en el resultado de la herramienta. Si un campo no vino, escribí "—" o "Sin registros." — nunca lo inventes, nunca lo deduzcas.
+2. Cada URL es copia exacta de lo que devolvió la herramienta. Si no hay URL, escribí `-`. Nunca construyas ni modifiques un link.
+3. Van todas las filas de todas las tablas, sin excepción — nada de "entre otros" ni resúmenes.
+4. Las 5 pestañas van siempre en la respuesta, aunque estén vacías: vacío también es información.
+5. Si "seguimiento", "proyectos_acumulados", "documentacion_anexa", "secciones" u "opinion_ciudadana" vinieron vacíos o ausentes, escribí esa sección con "Sin registros." — no es lo mismo que inventar que hay datos.
 
 ---
 
@@ -24,13 +25,13 @@
 | Fecha de presentación | [campo: fecha_presentacion en dd/mm/aaaa] |
 | Estado procesal | [campo: estado — EN MAYÚSCULAS] |
 | Proponente | [campo: proponente] |
-| Autores | [campo: autor_principal — lista COMPLETA, sin abreviar] |
+| Autores | [campo: autor_principal — lista completa, sin abreviar] |
 | Coautores | [campo: coautores — si está vacío: —] |
 | Adherentes | [campo: adherentes — si está vacío: —] |
 | Grupo parlamentario | [campo: grupo_parlamentario — si está vacío: —] |
 | Periodo parlamentario | [campo: periodo_parlamentario] |
 | Legislatura | [campo: legislatura — si está vacío: —] |
-| Link al expediente | [[Ver en SPLEY](campo: enlace_expediente — copiar EXACTO)] |
+| Link al expediente | [[Ver en SPLEY](campo: enlace_expediente — copiar exacto)] |
 
 ---
 
@@ -40,33 +41,24 @@
 
 **Etapa actual: [inferir de campo estado]** — [una línea explicando qué significa en la práctica: si está en comisiones, cuánto falta para el pleno; si está dormido, decirlo]
 
-⚠️ REGLA: Si el usuario preguntó algo condicional sobre otra cámara (ej. "si
-ya fue elevado al Senado, revisalo ahí y dame el estatus") — **respondé esa
-parte explícitamente, nunca la ignores en silencio**, incluso si la respuesta
-es "todavía no aplica". Este mismo expediente de SPLEY es la fuente única
-para todo el trámite bicameral del proyecto (no hay un sistema separado del
-Senado para consultar aparte): basate en los campos `estado` y `fases` para
-decidir. Si no hay ningún indicio de tránsito a otra cámara en esos campos,
-decilo así: "Todavía no fue elevado al Senado — sigue en [cámara/fase actual]
-según SPLEY." Si SÍ hay indicios de que pasó a otra cámara, decilo y aclará
-que el estado de esa etapa ya está reflejado arriba en este mismo expediente.
+Si el usuario preguntó algo condicional sobre otra cámara (ej. "si ya fue elevado al Senado, revisalo ahí y dame el estatus"), respondé esa parte explícitamente — nunca la ignores en silencio, incluso si la respuesta es "todavía no aplica". Este mismo expediente de SPLEY es la fuente única para todo el trámite bicameral (no hay un sistema separado del Senado): basate en los campos `estado` y `fases`. Si no hay indicio de tránsito a otra cámara, decilo así: "Todavía no fue elevado al Senado — sigue en [cámara/fase actual] según SPLEY." Si sí hay indicios, decilo y aclará que esa etapa ya está reflejada arriba en este mismo expediente.
 
 ---
 
 ### COMISIONES A LAS QUE FUE DERIVADO
 
-[Para CADA elemento del campo "comisiones":]
+[Para cada elemento del campo "comisiones":]
 - **[comision.nombre]** — derivado el [comision.fecha_derivacion] [[Ver comisión](comision.enlace si existe)]
 
-[Si el campo "comisiones" está vacío: "Todavía no ha sido derivado a ninguna comisión."]
+[Si "comisiones" está vacío: "Todavía no ha sido derivado a ninguna comisión."]
 
 ---
 
 ### ACTOS DE TRABAJO POR COMISIÓN
 
-⚠️ REGLA: Esta sección responde directamente "¿qué hizo cada comisión con este proyecto?". Para CADA comisión en el campo "comisiones", lista sus actos filtrando de "seguimiento" las filas donde seguimiento[i].comision coincide con el nombre de esa comisión. Orden cronológico ascendente (más antiguo primero).
+Esta sección responde "¿qué hizo cada comisión con este proyecto?". Para cada comisión en "comisiones", filtrá de "seguimiento" las filas donde seguimiento[i].comision coincide con el nombre de esa comisión, en orden cronológico ascendente (más antiguo primero).
 
-[Para CADA comisión en el campo "comisiones":]
+[Para cada comisión en "comisiones":]
 
 #### [comision.nombre]
 *Derivado el [comision.fecha_derivacion]*
@@ -74,68 +66,68 @@ que el estado de esa etapa ya está reflejado arriba en este mismo expediente.
 | FECHA | ACTO | DETALLE | ADJUNTOS |
 |---|---|---|---|
 
-Para cada fila de seguimiento donde seguimiento[i].comision == nombre de esta comisión:
+Por cada fila de seguimiento que corresponda a esta comisión:
 - FECHA: seguimiento[i].fecha
-- ACTO: seguimiento[i].estado — EN MAYÚSCULAS
-- DETALLE: seguimiento[i].detalle — EN MAYÚSCULAS — si vacío: —
-- ADJUNTOS: para CADA elemento de seguimiento[i].adjuntos → `[PDF](url)`. Si vacío: `-`
+- ACTO: seguimiento[i].estado — en mayúsculas
+- DETALLE: seguimiento[i].detalle — en mayúsculas, si vacío: —
+- ADJUNTOS: cada elemento de seguimiento[i].adjuntos → `[PDF](url)`. Si vacío: `-`
 
-Si no hay ninguna fila de seguimiento que corresponda a esta comisión: escribir una sola línea → "Sin actos registrados en esta comisión aún."
+Si ninguna fila corresponde a esta comisión: "Sin actos registrados en esta comisión aún."
 
-[Si el campo "comisiones" está vacío: omitir esta sección completa — el seguimiento plano ya cubre todo.]
+[Si "comisiones" está vacío: omití esta sección completa — el seguimiento plano ya cubre todo.]
 
 ---
 
 ### 1. SEGUIMIENTO
 
-⚠️ REGLA: Una fila por CADA elemento del campo "seguimiento". Si hay 1 elemento, 1 fila. Si hay 15, 15 filas. CERO excepciones. Orden: el más antiguo arriba (índice 0 primero).
+Una fila por cada elemento de "seguimiento", sin excepciones — si hay 1, una fila; si hay 15, quince. Orden: el más antiguo arriba.
 
 | FECHA | ESTADO PROCESAL | COMISIÓN | DETALLE | ADJUNTOS |
 |---|---|---|---|---|
 
-Para cada fila:
-- FECHA: campo seguimiento[i].fecha
-- ESTADO PROCESAL: campo seguimiento[i].estado — EN MAYÚSCULAS
-- COMISIÓN: campo seguimiento[i].comision — si está vacío: `—`
-- DETALLE: campo seguimiento[i].detalle — EN MAYÚSCULAS — si está vacío: `—`
-- ADJUNTOS: para CADA elemento de seguimiento[i].adjuntos → `[PDF](url)` o `[Oficio](url)` según tipo. Si hay varios, van todos separados por espacio. Si adjuntos está vacío o es lista vacía: `-`
+Por cada fila:
+- FECHA: seguimiento[i].fecha
+- ESTADO PROCESAL: seguimiento[i].estado — en mayúsculas
+- COMISIÓN: seguimiento[i].comision — si vacío: `—`
+- DETALLE: seguimiento[i].detalle — en mayúsculas, si vacío: `—`
+- ADJUNTOS: cada elemento de seguimiento[i].adjuntos → `[PDF](url)` o `[Oficio](url)` según tipo, separados por espacio si hay varios. Si vacío: `-`
 
-[Si el campo "seguimiento" está vacío o ausente: escribir "Sin registros de seguimiento." y continuar con las demás secciones.]
+[Si "seguimiento" está vacío o ausente: "Sin registros de seguimiento." y seguí con las demás secciones.]
 
 ---
 
 ### 2. PROYECTOS ACUMULADOS
 
-⚠️ REGLA: Una fila por CADA elemento del campo "proyectos_acumulados". Todos van, sin excepción.
+Una fila por cada elemento de "proyectos_acumulados", todos van.
 
 | N° PROYECTO | TÍTULO | FECHA PRESENTACIÓN | AUTOR | ESTADO | LINK |
 |---|---|---|---|---|---|
 
-Para cada fila:
-- N° PROYECTO: campo proyectos_acumulados[i].numero
-- TÍTULO: campo proyectos_acumulados[i].titulo
-- FECHA PRESENTACIÓN: campo proyectos_acumulados[i].fecha_presentacion
-- AUTOR: campo proyectos_acumulados[i].autor — si vacío: —
-- ESTADO: campo proyectos_acumulados[i].estado
-- LINK: `[Ver](`proyectos_acumulados[i].enlace`)` — si no hay enlace: `-`
+Por cada fila:
+- N° PROYECTO: proyectos_acumulados[i].numero
+- TÍTULO: proyectos_acumulados[i].titulo
+- FECHA PRESENTACIÓN: proyectos_acumulados[i].fecha_presentacion
+- AUTOR: proyectos_acumulados[i].autor — si vacío: —
+- ESTADO: proyectos_acumulados[i].estado
+- LINK: `[Ver](proyectos_acumulados[i].enlace)` — si no hay enlace: `-`
 
-[Si el campo "proyectos_acumulados" está vacío: "Sin proyectos acumulados registrados."]
-[Si SÍ hay acumulados: añadir al final → **Ojo:** este proyecto tiene [N] acumulados, lo que indica respaldo de varias bancadas y mayor probabilidad de avance.]
+[Si vacío: "Sin proyectos acumulados registrados."]
+[Si hay acumulados: agregá al final — **Ojo:** este proyecto tiene [N] acumulados, lo que indica respaldo de varias bancadas y mayor probabilidad de avance.]
 
 ---
 
 ### 3. DOCUMENTACIÓN ANEXA
 
-⚠️ REGLA: Una fila por CADA elemento del campo "documentacion_anexa". Todos van.
+Una fila por cada elemento de "documentacion_anexa", todos van.
 
 | FECHA | TIPO DE DOCUMENTO | DESCRIPCIÓN / REMITENTE | ADJUNTOS |
 |---|---|---|---|
 
-Para cada fila:
-- FECHA: campo documentacion_anexa[i].fecha — si vacío: —
-- TIPO: campo documentacion_anexa[i].tipo — si vacío: —
-- DESCRIPCIÓN: campo documentacion_anexa[i].descripcion — si vacío: —
-- ADJUNTOS: para CADA archivo en documentacion_anexa[i].adjuntos → `[PDF](url)`. Si la lista está vacía: `-`
+Por cada fila:
+- FECHA: documentacion_anexa[i].fecha — si vacío: —
+- TIPO: documentacion_anexa[i].tipo — si vacío: —
+- DESCRIPCIÓN: documentacion_anexa[i].descripcion — si vacío: —
+- ADJUNTOS: cada archivo en documentacion_anexa[i].adjuntos → `[PDF](url)`. Si vacío: `-`
 
 [Si "documentacion_anexa" está vacío o ausente: "Sin documentación anexa registrada."]
 [Si la herramienta no devolvió esta pestaña (campo ausente del todo): "La herramienta no devolvió datos de Documentación Anexa — puede ser un problema de scraping. Verificar manualmente en el link del expediente."]
@@ -144,15 +136,15 @@ Para cada fila:
 
 ### 4. SECCIONES
 
-⚠️ REGLA: Una fila por CADA elemento del campo "secciones". Todos van.
+Una fila por cada elemento de "secciones", todas van.
 
 | SECCIÓN | CONTENIDO / RESUMEN | ADJUNTOS |
 |---|---|---|
 
-Para cada fila:
-- SECCIÓN: campo secciones[i].titulo
-- CONTENIDO: si secciones[i].texto tiene contenido → primeras 300 caracteres del texto + "…" si hay más. Si está vacío: —
-- ADJUNTOS: para CADA archivo en secciones[i].adjuntos → `[PDF](url)`. Si la lista está vacía o ausente: `-`
+Por cada fila:
+- SECCIÓN: secciones[i].titulo
+- CONTENIDO: si secciones[i].texto tiene contenido → primeras 300 caracteres + "…" si hay más. Si vacío: —
+- ADJUNTOS: cada archivo en secciones[i].adjuntos → `[PDF](url)`. Si vacío o ausente: `-`
 
 [Si "secciones" está vacío: "Sin secciones registradas."]
 
@@ -173,9 +165,9 @@ Para cada fila:
 
 ### PREDICTAMEN / DICTAMEN
 
-[Si el campo "predictamen" no es null:]
+[Si "predictamen" no es null:]
 **Hay predictamen:** [predictamen.nombre] — fecha: [predictamen.fecha] — [[Ver documento](predictamen.url)]
-[Aclarar si es favorable, desfavorable o con texto sustitutorio si el nombre lo indica]
+[Aclará si es favorable, desfavorable o con texto sustitutorio si el nombre lo indica.]
 
 [Si predictamen es null: "No hay predictamen ni dictamen registrado en ninguna comisión."]
 
@@ -183,23 +175,23 @@ Para cada fila:
 
 ### MI LECTURA
 
-[Análisis propio de 4-8 líneas con criterio real — esto SÍ puede venir de tu razonamiento:]
-- Estado real del proyecto: ¿avanzando o dormido? Si la fecha del último movimiento en seguimiento fue hace más de 60 días, está dormido — dilo explícitamente con la fecha.
+[Análisis propio de 4-8 líneas, con criterio real:]
+- Estado real del proyecto: ¿avanzando o dormido? Si el último movimiento en seguimiento fue hace más de 60 días, decilo explícitamente con la fecha.
 - ¿Qué le falta para llegar al Pleno? (dictamen, debate en comisión, etc.)
-- ¿Quién lo impulsa (bancada/proponente) y qué peso político tiene eso? (un -PE del Ejecutivo tiene más tracción que un -CR de bancada chica)
-- ¿A qué sector afecta? ¿Por qué le importa al usuario?
-- Si hay acumulados: ¿el respaldo de múltiples bancadas cambia el panorama?
+- ¿Quién lo impulsa y qué peso político tiene? (un -PE del Ejecutivo suele tener más tracción que un -CR de bancada chica)
+- ¿A qué sector afecta y por qué le importa al usuario?
+- Si hay acumulados: ¿el respaldo de varias bancadas cambia el panorama?
 
 ---
 
 ### ADJUNTOS DEL EXPEDIENTE
 
-⚠️ REGLA: Lista TODOS los adjuntos del campo "todos_los_adjuntos". Cada adjunto en una línea con link clickeable. Si el campo está vacío o ausente: "Sin adjuntos registrados."
+Listá todos los adjuntos de "todos_los_adjuntos", uno por línea con link clickeable. Si el campo está vacío o ausente: "Sin adjuntos registrados."
 
-Para cada elemento en todos_los_adjuntos:
+Por cada elemento en todos_los_adjuntos:
 - 📄 **[todos_los_adjuntos[i].nombre]** — [todos_los_adjuntos[i].descripcion si es distinta al nombre, si no omitir] → [Descargar PDF](todos_los_adjuntos[i].url)
 
-[Si "todos_los_adjuntos" está vacío: "Sin adjuntos registrados en el expediente."]
+[Si vacío: "Sin adjuntos registrados en el expediente."]
 
 ---
 

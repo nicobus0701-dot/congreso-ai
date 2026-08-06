@@ -392,3 +392,47 @@ body {
   padding: 10px 14px;
   line-height: 1.5;
 }
+
+/* ── Modo oscuro (sincronizado desde el chat principal — ver pdfs.js) ── */
+html { transition: background 0.2s, color 0.2s; }
+[data-theme="dark"] body { background: #111111; color: #e8e8e8; }
+[data-theme="dark"] .p-sidebar { background: #1a1a1a; border-right-color: #2e2e2e; }
+[data-theme="dark"] .p-sidebar-header { border-bottom-color: #262626; }
+[data-theme="dark"] .p-title { color: #e8e8e8; }
+[data-theme="dark"] .p-title svg { color: #7c93ff; }
+[data-theme="dark"] .p-refresh-btn { color: #888; }
+[data-theme="dark"] .p-refresh-btn:hover { background: #232323; color: #7c93ff; }
+[data-theme="dark"] .p-list::-webkit-scrollbar-thumb { background: #333; }
+[data-theme="dark"] .p-loading, [data-theme="dark"] .p-no-items { color: #888; }
+[data-theme="dark"] .p-loading .dot, [data-theme="dark"] .p-preview-loading .dot { background: #444; }
+[data-theme="dark"] .p-section-label { color: #666; }
+[data-theme="dark"] .p-item:hover { background: #1e1e1e; }
+[data-theme="dark"] .p-item.active { background: rgba(79,110,247,.16); border-left-color: #7c93ff; }
+[data-theme="dark"] .p-item-nombre { color: #e8e8e8; }
+[data-theme="dark"] .p-item-tipo { color: #888; }
+[data-theme="dark"] .p-item-icon { background: rgba(255,255,255,.08); }
+[data-theme="dark"] .p-item.citacion  .p-item-icon { background: rgba(124,58,237,.18); }
+[data-theme="dark"] .p-item.sesion    .p-item-icon { background: rgba(22,163,74,.18); }
+[data-theme="dark"] .p-item.comision  .p-item-icon { background: rgba(217,119,6,.2); }
+[data-theme="dark"] .p-item.agenda    .p-item-icon { background: rgba(37,99,235,.2); }
+[data-theme="dark"] .p-item.documento .p-item-icon { background: rgba(148,163,184,.18); }
+[data-theme="dark"] .p-item.referencia .p-item-icon { background: rgba(5,150,105,.18); }
+[data-theme="dark"] .p-item.proyecto  .p-item-icon { background: rgba(234,88,12,.18); }
+[data-theme="dark"] .p-empty { color: #444; }
+[data-theme="dark"] .p-empty p { color: #888; }
+[data-theme="dark"] .p-panel { background: #1a1a1a; border-color: #2e2e2e; box-shadow: 0 2px 16px rgba(0,0,0,.3); }
+[data-theme="dark"] .p-badge.destacado { background: rgba(197,48,48,.2); color: #f28b8b; }
+[data-theme="dark"] .p-badge.citacion  { background: rgba(124,58,237,.2); color: #c4a6ff; }
+[data-theme="dark"] .p-badge.sesion    { background: rgba(22,163,74,.2); color: #7fd99b; }
+[data-theme="dark"] .p-badge.comision  { background: rgba(217,119,6,.2); color: #f3bb6e; }
+[data-theme="dark"] .p-badge.agenda    { background: rgba(37,99,235,.2); color: #93b4ff; }
+[data-theme="dark"] .p-badge.documento  { background: rgba(148,163,184,.2); color: #cbd5e1; }
+[data-theme="dark"] .p-badge.referencia { background: rgba(5,150,105,.2); color: #7fe0bd; }
+[data-theme="dark"] .p-badge.proyecto   { background: rgba(234,88,12,.2); color: #f5a672; }
+[data-theme="dark"] .p-doc-title { color: #e8e8e8; }
+[data-theme="dark"] .p-view-btn { background: #232323; color: #7c93ff; }
+[data-theme="dark"] .p-view-btn:hover { background: #2a2a35; }
+[data-theme="dark"] .p-preview-wrap { background: #1e1e1e; border-color: #2e2e2e; box-shadow: inset 0 2px 8px rgba(0,0,0,.3); }
+[data-theme="dark"] .p-preview-placeholder { color: #555; }
+[data-theme="dark"] .p-preview-placeholder span { color: #555; }
+[data-theme="dark"] .p-hint { background: #1a1a1a; color: #888; }

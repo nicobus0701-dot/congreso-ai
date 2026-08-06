@@ -70,11 +70,10 @@ def test_marcado_inline_se_limpia_en_celdas():
     assert doc.tables[0].cell(1, 0).text == "negrita"
 
 
-def test_incluye_encabezado_y_pie():
+def test_incluye_pie():
     doc = render("contenido")
     todo = " ".join(texts(doc))
-    assert "DOCUMENTO CONFIDENCIAL" in todo
-    assert "Generado por Lex" in todo
+    assert "Generado por Solón" in todo
 
 
 def test_markdown_vacio_no_revienta():

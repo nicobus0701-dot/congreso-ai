@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDFs del Congreso</title>
+  <script>
+    // Mismo localStorage que el chat principal (mismo origen) — aplica el
+    // tema antes de pintar para no parpadear en claro. pdfs.js escucha
+    // cambios en vivo vía postMessage desde la ventana padre.
+    if (localStorage.getItem('congreso_dark') === '1') {
+      document.documentElement.dataset.theme = 'dark';
+    }
+  </script>
   <link rel="stylesheet" href="/static/pdfs.css">
 </head>
 <body>

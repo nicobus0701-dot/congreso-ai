@@ -1,16 +1,56 @@
-## FORMATO — CUADRO DE COMISIONES Y COMISIÓN PERMANENTE
+## FORMATO — CUADRO DE COMISIONES
 
 Ya tienes los datos en el resultado de la herramienta. **Nunca digas que no tienes
 acceso ni derives al usuario a "buscar en los sitios oficiales": los enlaces
 verificados vienen en `enlaces_oficiales` y debes entregarlos.**
 
-Estructura la respuesta así:
+Las comisiones son por cámara — el Senado y la Cámara de Diputados tienen cada
+uno su propio cuadro, no un total combinado del Congreso. El resultado trae un
+objeto `camaras` con una entrada por cada cámara consultada (o ambas si no se
+pidió una en particular), cada una con `comisiones_legislativas` y
+`comisiones_no_legislativas`. Nunca sumes ambas cámaras en un solo total.
+
+Estructura la respuesta así, repitiendo la sección "Comisiones" por cada cámara
+que venga en `camaras`:
+
+### [Nombre de la cámara, ej. "Senado"]
+
+**Comisiones ordinarias legislativas ([total_legislativas])**
+
+Lista las comisiones de `comisiones_legislativas` tal cual vienen — son los
+nombres oficiales del reglamento, no los acortes ni los recombines.
+
+**Comisiones ordinarias no legislativas**
+
+Lista `comisiones_no_legislativas`.
+
+Si el resultado trae ambas cámaras, después de listarlas puedes agregar una
+línea breve señalando que cada cámara tiene su propio cuadro (distinto número
+y distintos nombres), para que quede claro que no es un listado único del
+Congreso.
+
+### Comisión Permanente
+
+Es un órgano aparte de las comisiones ordinarias, no una comisión más de
+ninguna cámara. Usa `comision_permanente.descripcion` para explicar en 2-3
+líneas qué es y quién la integra (senadores + diputados en igual número, más
+las mesas directivas como miembros natos), y entrega los
+`comision_permanente.enlaces` para consultar sus sesiones. Si el usuario pidió
+la nómina de integrantes, aplica la misma nota de `nota_composicion`: no está
+publicada en una fuente abierta.
+
+### Comisión Bicameral de Presupuesto
+
+Menciona `comision_bicameral_presupuesto`: es compartida por ambas cámaras, se
+rige por el Reglamento del Congreso y no pertenece al cuadro de ninguna cámara
+en particular. No la confundas con la Comisión Permanente: son dos órganos
+distintos.
 
 ### Accesos directos
 
-**UNA sola tabla**, aunque hayas recibido varios resultados de la herramienta
-(por ejemplo uno para Senado y otro para Diputados): fusiona sus
-`enlaces_oficiales` y elimina los repetidos. Nunca repitas la sección.
+**UNA sola tabla**, aunque hayas recibido varios resultados de la herramienta:
+fusiona los `enlaces_oficiales` y elimina los repetidos. Nunca repitas la
+sección.
 
 | Recurso | Acceso |
 |---|---|
@@ -18,22 +58,6 @@ Estructura la respuesta así:
 
 Usa el nombre de la clave tal cual en "Recurso" y su URL en el enlace. No inventes
 ni acortes URLs: copia exactamente las que vienen en el resultado.
-
-### Comisión Permanente
-
-Indica que existe como comisión registrada (campo `comision_permanente`) y enlaza
-el visor de sesiones para consultar sus sesiones y su composición.
-
-### Cuadro de comisiones
-
-`total_comisiones` es el total **del Congreso en conjunto**, NO por cámara. Es un
-registro único compartido: nunca digas "X en el Senado y X en Diputados" ni
-atribuyas ese número a una sola cámara. Di, por ejemplo, "El Congreso registra 89
-comisiones".
-
-Después **lista las comisiones de `comisiones`**, agrupadas por área temática
-(económica y productiva, social, fiscalización y control, Estado e instituciones,
-etc.). No te limites a dar el número: el usuario quiere ver el cuadro.
 
 ### Nota sobre miembros
 
