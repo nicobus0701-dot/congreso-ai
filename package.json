@@ -36,7 +36,8 @@
     "publish": {
       "provider": "github",
       "owner": "nicobus0701-dot",
-      "repo": "congreso-ai"
+      "repo": "congreso-ai",
+      "releaseType": "release"
     }
   }
 }
