@@ -1,0 +1,105 @@
+name: Auto-merge branches with your commits
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Author email to look for'
+        required: true
+        default: 'nbs070109@gmail.com'
+      dry_run:
+        description: 'If true, only report what would be done'
+        required: true
+        default: 'true'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  scan-and-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan branches and create PRs for commits by email
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const email = process.env.INPUT_EMAIL || process.env.EMAIL || 'nbs070109@gmail.com';
+            const dryRun = (process.env.INPUT_DRY_RUN || process.env.DRY_RUN || 'true') === 'true';
+
+            core.info(`Repo: ${owner}/${repo}`);
+            core.info(`Default email: ${email}, dry_run=${dryRun}`);
+
+            async function run() {
+              const repoInfo = await github.rest.repos.get({ owner, repo });
+              const defaultBranch = repoInfo.data.default_branch;
+              core.info(`Default branch: ${defaultBranch}`);
+
+              const branches = await github.paginate(github.rest.repos.listBranches, { owner, repo, per_page: 100 });
+
+              for (const br of branches) {
+                const branch = br.name;
+                if (branch === defaultBranch || branch === 'HEAD') continue;
+
+                core.info(`Checking branch ${branch} ...`);
+
+                let cmp;
+                try {
+                  cmp = await github.rest.repos.compareCommits({ owner, repo, base: defaultBranch, head: branch });
+                } catch (e) {
+                  core.warning(`Failed to compare ${defaultBranch}..${branch}: ${e}`);
+                  continue;
+                }
+
+                if (!cmp || !cmp.data) continue;
+                const aheadBy = cmp.data.ahead_by || 0;
+                if (aheadBy <= 0) {
+                  core.info(`Branch ${branch} has no commits ahead of ${defaultBranch}`);
+                  continue;
+                }
+
+                const commits = cmp.data.commits || [];
+                let found = false;
+                for (const c of commits) {
+                  if (c && c.commit && c.commit.author && c.commit.author.email && c.commit.author.email.toLowerCase() === email.toLowerCase()) {
+                    found = true;
+                    break;
+                  }
+                }
+
+                if (!found) {
+                  core.info(`No commits by ${email} found on ${branch}`);
+                  continue;
+                }
+
+                core.info(`Found commits by ${email} on ${branch} (ahead_by=${aheadBy}).`);
+
+                const existing = await github.rest.pulls.list({ owner, repo, head: `${owner}:${branch}`, base: defaultBranch, per_page: 10 });
+                if (existing && existing.data && existing.data.length > 0) {
+                  core.info(`PR already exists for ${branch}: #${existing.data[0].number}`);
+                  continue;
+                }
+
+                if (dryRun) {
+                  core.info(`[DRY_RUN] Would create PR: ${branch} → ${defaultBranch}`);
+                } else {
+                  core.info(`Creating PR for ${branch} → ${defaultBranch}`);
+                  const pr = await github.rest.pulls.create({ owner, repo, head: branch, base: defaultBranch, title: `Merge ${branch} → ${defaultBranch} (author: ${email})`, body: `Automated: integrating commits authored by ${email}` });
+                  core.info(`PR created: #${pr.data.number}`);
+
+                  try {
+                    const merged = await github.rest.pulls.merge({ owner, repo, pull_number: pr.data.number, merge_method: 'merge' });
+                    core.info(`Merged PR #${pr.data.number}: ${merged.data.sha}`);
+                  } catch (mergeErr) {
+                    core.warning(`Could not auto-merge PR #${pr.data.number}: ${mergeErr}. Please review and merge manually: https://github.com/${owner}/${repo}/pulls`);
+                  }
+                }
+              }
+            }
+
+            await run();
+        env:
+          EMAIL: ${{ github.event.inputs.email }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
