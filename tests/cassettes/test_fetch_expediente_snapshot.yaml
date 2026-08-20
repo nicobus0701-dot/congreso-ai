@@ -34,7 +34,7 @@ interactions:
         - 2025","desPerLegAbrev":"2024","fecIni":"2024-07-27 00:00:00.0","fecFin":"2025-07-26
         00:00:00.0","activo":true},{"perParId":2021,"perLegId":2025,"desPerLeg":"2025
         - 2026","desPerLegAbrev":"2025","fecIni":"2025-07-27 00:00:00.0","fecFin":"2026-07-26
-        00:00:00.0","activo":true}]}],"timestamp":"2026-08-19T20:48:55.714-05:00"}'
+        00:00:00.0","activo":true}]}],"timestamp":"2026-08-19T21:09:28.406-05:00"}'
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -59,7 +59,7 @@ interactions:
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Thu, 20 Aug 2026 01:48:55 GMT
+      - Thu, 20 Aug 2026 02:09:28 GMT
       expires:
       - '0'
       permissions-policy:
@@ -85,16 +85,16 @@ interactions:
       x-kong-proxy-latency:
       - '0'
       x-kong-request-id:
-      - c7f08c784fe91338fec4f37e82cfa415
+      - 4e8fea1702f0864cb01197544d30c77e
       x-kong-upstream-latency:
-      - '9'
+      - '30'
       x-xss-protection:
       - 1; mode=block
     status:
       code: 200
       message: OK
 - request:
-    body: '{"page":0,"size":300,"perParId":2026}'
+    body: '{"page":0,"size":300,"perParId":2026,"codTipoParl":"C"}'
     headers:
       accept:
       - application/json, text/html, */*
@@ -105,7 +105,7 @@ interactions:
       connection:
       - keep-alive
       content-length:
-      - '37'
+      - '55'
       content-type:
       - application/json
       host:
@@ -118,7 +118,7 @@ interactions:
     body:
       string: "{\"code\":200,\"status\":\"success\",\"data\":{\"proyectos\":[{\"perParId\":2026,\"pleyNum\":1,\"proyectoLey\":\"00001-2026-2031-CR\",\"desEstado\":\"PRESENTADO\",\"fecPresentacion\":\"2026-08-14T00:00:00.000-05:00\",\"titulo\":\"CUENTA
         GENERAL DE LA REP\xDABLICA CORRESPONDIENTE AL EJERCICIO FISCAL 2025\",\"desProponente\":\"PODER
-        EJECUTIVO\",\"autores\":\"\",\"codTipoParl\":\"C\",\"codTipoParlActual\":\"C\",\"rowsTotal\":0}],\"rowsTotal\":0},\"timestamp\":\"2026-08-19T20:48:56.189-05:00\"}"
+        EJECUTIVO\",\"autores\":\"\",\"codTipoParl\":\"C\",\"codTipoParlActual\":\"C\",\"rowsTotal\":0}],\"rowsTotal\":0},\"timestamp\":\"2026-08-19T21:09:28.907-05:00\"}"
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -143,7 +143,180 @@ interactions:
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Thu, 20 Aug 2026 01:48:56 GMT
+      - Thu, 20 Aug 2026 02:09:28 GMT
+      expires:
+      - '0'
+      permissions-policy:
+      - fullscreen=(self)
+      pragma:
+      - no-cache
+      referrer-policy:
+      - unsafe-url
+      strict-transport-security:
+      - max-age=63072000; includeSubDomains; preload
+      - max-age=31536000 ; includeSubDomains
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      vary:
+      - Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+      via:
+      - 1.1 kong/3.10.0.2-enterprise-edition
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - DENY
+      x-kong-proxy-latency:
+      - '1'
+      x-kong-request-id:
+      - 98df301e1f4d1879c320072d0a160515
+      x-kong-upstream-latency:
+      - '9'
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"page":0,"size":300,"perParId":2026,"codTipoParl":"D"}'
+    headers:
+      accept:
+      - application/json, text/html, */*
+      accept-encoding:
+      - gzip, deflate, br
+      accept-language:
+      - es-PE,es;q=0.9
+      connection:
+      - keep-alive
+      content-length:
+      - '55'
+      content-type:
+      - application/json
+      host:
+      - api.congreso.gob.pe
+      referer:
+      - https://wb2server.congreso.gob.pe/spley-portal/
+    method: POST
+    uri: https://api.congreso.gob.pe/spley-portal-service/proyecto-ley/lista-con-filtro
+  response:
+    body:
+      string: "{\"code\": 200, \"status\": \"success\", \"data\": {\"proyectos\":
+        [{\"perParId\": 2026, \"pleyNum\": 63, \"proyectoLey\": \"00063-2026-2031-CD\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\",
+        \"titulo\": \"LEY QUE DESARROLLA EL DERECHO A LA PROTESTA Y PROTECCCI\xD3N
+        A LA REUNI\xD3N PAC\xCDFICA\", \"desProponente\": \"C\xE1mara de Diputados\",
+        \"autores\": \"Sulca Castillo, Pilar; P\xE9rez Alccahuaman, Jes\xFAs; Fern\xE1ndez
+        Gonz\xE1lez, Svieta Valia; Aguirre Ramos, Marlon Alberto; Pe\xF1a C\xF3rdova,
+        Olver; Paredes Navarro, Yenifer Noelia; Isla Rojas, Azucena; Poma Huamani,
+        Haydee Celinda; Avenda\xF1o Vilca, Giannina Iris; Perez Quispe, Jessica Sadith;
+        Palomino Pacheco, Amalia Emilia\", \"codTipoParl\": \"D\", \"codTipoParlActual\":
+        \"D\", \"rowsTotal\": 0}, {\"perParId\": 2026, \"pleyNum\": 62, \"proyectoLey\":
+        \"00062-2026-2031-CD\", \"desEstado\": \"PRESENTADO\", \"fecPresentacion\":
+        \"2026-08-19T00:00:00.000-05:00\", \"titulo\": \"LEY QUE AMPL\xCDA EL PASAJE
+        UNIVERSITARIO URBANO E INTERURBANO A TODOS LOS D\xCDAS DE LA SEMANA Y PRECISA
+        EL C\xC1LCULO DEL PASAJE DIFERENCIADO.\", \"desProponente\": \"C\xE1mara de
+        Diputados\", \"autores\": \"Espinoza Huillca, Edwin; Hirache Pizarro, Gloria
+        Charito; Prado Vallejos, Lila Marianela; Castrejon Fernandez, Segundo Juan;
+        Molina Soto, Nathaly Milagros; Uribe S\xE1enz, Romina Alejandra; Gonzales
+        Polar, \xC9dgar Dember; Quispe Candia, Luis Eliseo; Santana Vera, Milagros
+        Karina; Garc\xEDa Huby, Fernando Alberto; Huaman Cornejo, Miguel F\xE9lix\",
+        \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\": 0}, {\"perParId\":
+        2026, \"pleyNum\": 61, \"proyectoLey\": \"00061-2026-2031-CD\", \"desEstado\":
+        \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\", \"titulo\":
+        \"LEY QUE RECUPERA LA CALIDAD DE LA EDUCACI\xD3N UNIVERSITARIA, MEDIANTE LA
+        DEROGACI\xD3N DE LA LEY 32105.\", \"desProponente\": \"C\xE1mara de Diputados\",
+        \"autores\": \"Buitr\xF3n Mart\xEDnez, Freshman; Arminta Valencia, Marleny
+        Bibiana; Huilca Flores, Indira Isabel; Meneses Crispin, \xC1ngel Renato; Sonco
+        Villanueva, Helard Bladimir; Muedas Balbiese, C\xE9sar Augusto; Marcelo Salazar,
+        Jos\xE9 Miguel\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\":
+        0}, {\"perParId\": 2026, \"pleyNum\": 60, \"proyectoLey\": \"00060-2026-2031-CD\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\",
+        \"titulo\": \"LEY QUE MODIFICA LA LEY 26864 PARA EVITAR EL INCUMPLIMIENTO
+        DE LA PROHIBICI\xD3N CONSTITUCIONAL DE REELECCI\xD3N INMEDIATA DE LOS ALCALDES.\",
+        \"desProponente\": \"C\xE1mara de Diputados\", \"autores\": \"Palomino Casavilca,
+        Catherin Norma; Cahuaza Mitivire, Oswar Elbis; P\xE9rez Mallqui, Juli\xE1n
+        Luis; Jibaja Ramos, Luis \xC1ngel; Pe\xF1a C\xF3rdova, Olver; Zunini Yerren,
+        Ernesto Alonzo\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\":
+        0}, {\"perParId\": 2026, \"pleyNum\": 59, \"proyectoLey\": \"00059-2026-2031-CD\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\",
+        \"titulo\": \"LEY QUE MODIFICA EL ART\xCDCULO II DEL T\xCDTULO PRELIMINAR
+        DEL C\xD3DIGO PENAL MILITAR POLICIAL, DECRETO LEGISLATIVO 1094, MODIFICA EL
+        ART\xCDCULO III DEL T\xCDTULO PRELIMINAR Y EL ART\xCDCULO 26 DEL NUEVO C\xD3DIGO
+        PROCESAL PENAL, DECRETO LEGISLATIVO 957, Y DEROGA LA DISPOSICI\xD3N COMPLEMENTARIA
+        FINAL \xDANICA DE LA LEY 32735, A FIN DE PRECISAR LA COMPETENCIA DEL FUERO
+        COM\xDAN EN CASOS DE INFRACCIONES PENALES Y DELITOS COMUNES COMETIDOS POR
+        PERSONAL MILITAR Y POLICIAL\", \"desProponente\": \"C\xE1mara de Diputados\",
+        \"autores\": \"Muedas Balbiese, C\xE9sar Augusto; Marcelo Salazar, Jos\xE9
+        Miguel; Holgu\xEDn Loaiza, C\xE9sar Augusto; Buitr\xF3n Mart\xEDnez, Freshman;
+        Meneses Crispin, \xC1ngel Renato\", \"codTipoParl\": \"D\", \"codTipoParlActual\":
+        \"D\", \"rowsTotal\": 0}, {\"perParId\": 2026, \"pleyNum\": 58, \"proyectoLey\":
+        \"00058-2026-2031-CD\", \"desEstado\": \"PRESENTADO\", \"fecPresentacion\":
+        \"2026-08-19T00:00:00.000-05:00\", \"titulo\": \"LEY ALQUILA, AHORRA Y COMPRA\",
+        \"desProponente\": \"C\xE1mara de Diputados\", \"autores\": \"Rocha Gallegos,
+        Roxana Mar\xEDa; Yalta Sotelo, Carlos Alberto; Cipriani Thorne, Javier Jos\xE9
+        Mar\xEDa; Mart\xEDnez Paitan, Paola Isabel; Baella Malca, Jos\xE9 Isidro;
+        Yonz Nu\xF1ez, Mady Ver\xF3nica; De Paz Lancho, Leo Miguel; Segura Figueroa,
+        Gustavo Alexander\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\",
+        \"rowsTotal\": 0}, {\"perParId\": 2026, \"pleyNum\": 57, \"proyectoLey\":
+        \"00057-2026-2031-CD\", \"desEstado\": \"PRESENTADO\", \"fecPresentacion\":
+        \"2026-08-19T00:00:00.000-05:00\", \"titulo\": \"LEY QUE MODIFICA LA LEY 27613,
+        LEY DE LA PARTICIPACI\xD3N EN RENTA DE ADUANAS Y LA LEY DE TRIBUTACI\xD3N
+        MUNICIPAL.\", \"desProponente\": \"Gobiernos Locales\", \"autores\": \"\",
+        \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\": 0}, {\"perParId\":
+        2026, \"pleyNum\": 56, \"proyectoLey\": \"00056-2026-2031-CD\", \"desEstado\":
+        \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\", \"titulo\":
+        \"PROYECTO DE LEY QUE MODIFICA EL NUMERAL 45.2 DEL ART\xCDCULO 45 DE LA LEY
+        30220, LEY UNIVERSITARIA, PARA GARANTIZAR LA SUSTENCTACI\xD3N OPORTUNA DE
+        LA TESIS O DESARROLLAR UN TRABAJO DE SUFICIENCIA PROFESIONAL PARA ACCEDER
+        AL T\xCDTULO PROFESIONAL.\", \"desProponente\": \"C\xE1mara de Diputados\",
+        \"autores\": \"Villanueva Calder\xF3n, Juan Am\xEDlcar; Poma Huamani, Haydee
+        Celinda; Sulca Castillo, Pilar; Paredes Navarro, Yenifer Noelia; Palomino
+        Pacheco, Amalia Emilia; Jibaja Ramos, Luis \xC1ngel; Guevara Ram\xEDrez, Jessica
+        Roxana\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\":
+        0}, {\"perParId\": 2026, \"pleyNum\": 55, \"proyectoLey\": \"00055-2026-2031-CD\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\",
+        \"titulo\": \"LEY QUE ESTABLECE UN PERIODO DE CINCO A\xD1OS PARA EL LICENCIAMIENTO
+        INSTITTUCIONAL, RENOVABLE PREVIO AL CUMPLIMIENTO DE LAS CONDICIONES B\xC1SICAS
+        DE CALIDAD\", \"desProponente\": \"C\xE1mara de Diputados\", \"autores\":
+        \"Villanueva Calder\xF3n, Juan Am\xEDlcar; Flores Valdizan, Marco Antonio;
+        Jibaja Ramos, Luis \xC1ngel; Holgu\xEDn Aguirre, James Arturo; Guevara Ram\xEDrez,
+        Jessica Roxana; Gonzales Delgado, Gabriel Robertino\", \"codTipoParl\": \"D\",
+        \"codTipoParlActual\": \"D\", \"rowsTotal\": 0}, {\"perParId\": 2026, \"pleyNum\":
+        54, \"proyectoLey\": \"00054-2026-2031-CD\", \"desEstado\": \"PRESENTADO\",
+        \"fecPresentacion\": \"2026-08-18T00:00:00.000-05:00\", \"titulo\": \"LEY
+        QUE MODIFICA LA LEY 29906 PARA FORTALECER LA PREVENCI\xD3N, CONTROL DE LA
+        CONTAMINACI\xD3N Y RECUPERACI\xD3N AMBIENTAL DEL LAGO TITICACA Y SUS AFLUENTES.\",
+        \"desProponente\": \"C\xE1mara de Diputados\", \"autores\": \"Sonco Villanueva,
+        Helard Bladimir; Huilca Flores, Indira Isabel; Colchado Huamani, Harvey Julio;
+        Meneses Crispin, \xC1ngel Renato; Holgu\xEDn Loaiza, C\xE9sar Augusto; Buitr\xF3n
+        Mart\xEDnez, Freshman; Marcelo Salazar, Jos\xE9 Miguel; Arminta Valencia,
+        Marleny Bibiana\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\":
+        0}], \"rowsTotal\": 0}, \"timestamp\": \"2026-08-19T21:09:29.416-05:00\"}"
+    headers:
+      access-control-allow-credentials:
+      - 'true'
+      - 'true'
+      access-control-allow-headers:
+      - '*'
+      access-control-allow-methods:
+      - GET, POST, PUT, DELETE, OPTIONS, PATCH
+      access-control-expose-headers:
+      - Content-Disposition, Content-Length, Content-Type
+      access-control-max-age:
+      - '3600'
+      cache-control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      connection:
+      - keep-alive
+      content-length:
+      - '42682'
+      content-security-policy:
+      - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
+        https://*.congreso.net;
+      content-type:
+      - application/json; charset=UTF-8
+      date:
+      - Thu, 20 Aug 2026 02:09:29 GMT
       expires:
       - '0'
       permissions-policy:
@@ -169,16 +342,16 @@ interactions:
       x-kong-proxy-latency:
       - '0'
       x-kong-request-id:
-      - b5afdc67d390673b618633650e622057
+      - 04c4ab679eec5666639a054314ba8b07
       x-kong-upstream-latency:
-      - '8'
+      - '26'
       x-xss-protection:
       - 1; mode=block
     status:
       code: 200
       message: OK
 - request:
-    body: '{"page":0,"size":300,"perParId":2021}'
+    body: '{"page":0,"size":300,"perParId":2026,"codTipoParl":"S"}'
     headers:
       accept:
       - application/json, text/html, */*
@@ -189,7 +362,126 @@ interactions:
       connection:
       - keep-alive
       content-length:
-      - '37'
+      - '55'
+      content-type:
+      - application/json
+      host:
+      - api.congreso.gob.pe
+      referer:
+      - https://wb2server.congreso.gob.pe/spley-portal/
+    method: POST
+    uri: https://api.congreso.gob.pe/spley-portal-service/proyecto-ley/lista-con-filtro
+  response:
+    body:
+      string: "{\"code\":200,\"status\":\"success\",\"data\":{\"proyectos\":[{\"perParId\":2026,\"pleyNum\":6,\"proyectoLey\":\"00006-2026-2031-S\",\"desEstado\":\"PRESENTADO\",\"fecPresentacion\":\"2026-08-19T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE MODIFICA EL REGLAMENTO DEL SENADO A FIN DE
+        GARANTIZAR EN LA LABOR LEGISLATIVA EL DERECHO A LA CONSULTA PREVIA DE LOS
+        PUEBLOS IND\xCDGENAS\",\"desProponente\":\"Senado de la Rep\xFAblica\",\"autores\":\"Chipana
+        Chipana, Jose Moises; Andr\xE9s Luj\xE1n, Seraf\xEDn\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":5,\"proyectoLey\":\"00005-2026-2031-S\",\"desEstado\":\"PRESENTADO\",\"fecPresentacion\":\"2026-08-19T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE GARANTIZA LA VIGENCIA DE LA COMISI\xD3N DE
+        PUEBLOS ANDINOS, AMAZ\xD3NICOS Y AFROPERUANOS, AMBIENTE Y ECOLOG\xCDA \",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"Chipana Chipana, Jose Moises; Andr\xE9s
+        Luj\xE1n, Seraf\xEDn\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":4,\"proyectoLey\":\"00004-2026-2031-S\",\"desEstado\":\"PRESENTADO\",\"fecPresentacion\":\"2026-08-14T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA DEL SENADO QUE MODIFICA LOS ART\xCDCULOS 39,
+        48, 86 Y 154 DEL REGLAMENTO DEL SENADO, A FIN DE FORTALECER LA LABOR PARLAMENTARIA\",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"Quito Sarmiento, Bernardo Jaime; Castillo
+        Terrones, Jos\xE9 Mercedes; Osorio Palp\xE1n, Percy Herbert; Morales Ram\xEDrez,
+        Edyson Humberto; Cutipa Ccama, V\xEDctor Ra\xFAl; Verano Saravia, Wilfredo;
+        Marav\xED Olarte, Iber Antenor; Chipana Chipana, Jose Moises; Ramos Huillcas,
+        Andr\xE9s Avelino\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":3,\"proyectoLey\":\"00003-2026-2031-S\",\"desEstado\":\"EN
+        COMISI\xD3N\",\"fecPresentacion\":\"2026-08-13T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE MODIFICA LA RESOLUCI\xD3N LEGISLATIVA DEL
+        CONGRESO 006-2025-2026-CR, QUE APRUEBA EL REGLAMENTO DEL SENADO, A FIN DE
+        RESTABLECER Y GARANTIZAR LA EXISTENCIA DE LA COMISI\xD3N DE PUEBLOS ANDINOS,
+        AMAZ\xD3NICOS Y AFROPERUANOS, AMBIENTE Y ECOLOG\xCDA\",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"Robles Araujo, Silvana Emperatriz; Castillo
+        Terrones, Jos\xE9 Mercedes; Cutipa Ccama, V\xEDctor Ra\xFAl; Armacanqui Morales,
+        Sa\xFAl Andr\xE9s; Quito Sarmiento, Bernardo Jaime; Osorio Palp\xE1n, Percy
+        Herbert; Morales Ram\xEDrez, Edyson Humberto; Andr\xE9s Luj\xE1n, Seraf\xEDn\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":2,\"proyectoLey\":\"00002-2026-2031-S\",\"desEstado\":\"EN
+        COMISI\xD3N\",\"fecPresentacion\":\"2026-08-12T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE MODIFICA EL REGLAMENTO DEL SENADO PARA EL
+        FORTALECIMIENTO DEL SISTEMA DEMOCR\xC1TICO Y REPRESENTATIVO \",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"Luque Ibarra, Ruth; L\xF3pez Chau Nava,
+        Pablo Alfonso; V\xE1squez Chuquil\xEDn, Mirtha Esther; Delgado Zegarra, Jaime
+        Ricardo\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":1,\"proyectoLey\":\"00001-2026-2031-S\",\"desEstado\":\"EN
+        COMISI\xD3N\",\"fecPresentacion\":\"2026-08-11T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE MODIFICA EL ART\xCDCULO 48 DEL REGLAMENTO
+        DEL SENADO PARA CREAR LA COMISI\xD3N ORDINARIA LEGISLATIVA DE PUEBLOS IND\xCDGENAS
+        U ORIGINARIOS, COMUNIDADES CAMPESINAS Y NATIVAS, PUEBLO AFROPERUANO Y POBLACIONES
+        EN SITUACI\xD3N DE VULNERABILIDAD DEL SENADO DE LA REP\xDABLICA\",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"V\xE1squez Chuquil\xEDn, Mirtha Esther;
+        Delgado Zegarra, Jaime Ricardo\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0}],\"rowsTotal\":0},\"timestamp\":\"2026-08-19T21:09:29.935-05:00\"}"
+    headers:
+      access-control-allow-credentials:
+      - 'true'
+      - 'true'
+      access-control-allow-headers:
+      - '*'
+      access-control-allow-methods:
+      - GET, POST, PUT, DELETE, OPTIONS, PATCH
+      access-control-expose-headers:
+      - Content-Disposition, Content-Length, Content-Type
+      access-control-max-age:
+      - '3600'
+      cache-control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      connection:
+      - keep-alive
+      content-length:
+      - '3744'
+      content-security-policy:
+      - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
+        https://*.congreso.net;
+      content-type:
+      - application/json; charset=UTF-8
+      date:
+      - Thu, 20 Aug 2026 02:09:29 GMT
+      expires:
+      - '0'
+      permissions-policy:
+      - fullscreen=(self)
+      pragma:
+      - no-cache
+      referrer-policy:
+      - unsafe-url
+      strict-transport-security:
+      - max-age=63072000; includeSubDomains; preload
+      - max-age=31536000 ; includeSubDomains
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      vary:
+      - Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+      via:
+      - 1.1 kong/3.10.0.2-enterprise-edition
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - DENY
+      x-kong-proxy-latency:
+      - '0'
+      x-kong-request-id:
+      - 752ed10016afae0e6cb9c05e20a43f5b
+      x-kong-upstream-latency:
+      - '14'
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"page":0,"size":300,"perParId":2021,"codTipoParl":"C"}'
+    headers:
+      accept:
+      - application/json, text/html, */*
+      accept-encoding:
+      - gzip, deflate, br
+      accept-language:
+      - es-PE,es;q=0.9
+      connection:
+      - keep-alive
+      content-length:
+      - '55'
       content-type:
       - application/json
       host:
@@ -275,7 +567,7 @@ interactions:
         Seferino; Ventura \xC1ngel, H\xE9ctor Jos\xE9; Santisteban Suclupe, Magally;
         Jim\xE9nez Heredia, David Julio; Obando Morgan, Auristela Ana\", \"codTipoParl\":
         \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}], \"rowsTotal\": 0},
-        \"timestamp\": \"2026-08-19T20:48:56.791-05:00\"}"
+        \"timestamp\": \"2026-08-19T21:09:32.555-05:00\"}"
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -300,7 +592,7 @@ interactions:
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Thu, 20 Aug 2026 01:48:56 GMT
+      - Thu, 20 Aug 2026 02:09:30 GMT
       expires:
       - '0'
       permissions-policy:
@@ -326,9 +618,9 @@ interactions:
       x-kong-proxy-latency:
       - '0'
       x-kong-request-id:
-      - 0600c60a05960f7eeabffc208702a551
+      - 4ee1b31084f0375df11d6242e5ac1563
       x-kong-upstream-latency:
-      - '296'
+      - '2230'
       x-xss-protection:
       - 1; mode=block
     status:
@@ -350,169 +642,11 @@ interactions:
       referer:
       - https://wb2server.congreso.gob.pe/spley-portal/
     method: GET
-    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/secciones
-  response:
-    body:
-      string: '{"code":404,"status":"No handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/secciones","message":"No
-        handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/secciones","timestamp":"2026-08-19T20:49:18.036-05:00"}'
-    headers:
-      access-control-allow-credentials:
-      - 'true'
-      - 'true'
-      access-control-allow-headers:
-      - '*'
-      access-control-allow-methods:
-      - GET, POST, PUT, DELETE, OPTIONS, PATCH
-      access-control-expose-headers:
-      - Content-Disposition, Content-Length, Content-Type
-      access-control-max-age:
-      - '3600'
-      cache-control:
-      - no-cache, no-store, max-age=0, must-revalidate
-      connection:
-      - keep-alive
-      content-length:
-      - '307'
-      content-security-policy:
-      - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
-        https://*.congreso.net;
-      content-type:
-      - application/json; charset=UTF-8
-      date:
-      - Thu, 20 Aug 2026 01:49:18 GMT
-      expires:
-      - '0'
-      permissions-policy:
-      - fullscreen=(self)
-      pragma:
-      - no-cache
-      referrer-policy:
-      - unsafe-url
-      strict-transport-security:
-      - max-age=63072000; includeSubDomains; preload
-      - max-age=31536000 ; includeSubDomains
-      - max-age=31536000; includeSubDomains; preload
-      transfer-encoding:
-      - chunked
-      vary:
-      - Origin,Access-Control-Request-Method,Access-Control-Request-Headers
-      via:
-      - 1.1 kong/3.10.0.2-enterprise-edition
-      x-content-type-options:
-      - nosniff
-      x-frame-options:
-      - DENY
-      x-kong-proxy-latency:
-      - '0'
-      x-kong-request-id:
-      - c82656630ea844596a0e2475784c8f2f
-      x-kong-upstream-latency:
-      - '3'
-      x-xss-protection:
-      - 1; mode=block
-    status:
-      code: 404
-      message: Not Found
-- request:
-    body: ''
-    headers:
-      accept:
-      - application/json, text/html, */*
-      accept-encoding:
-      - gzip, deflate, br
-      accept-language:
-      - es-PE,es;q=0.9
-      connection:
-      - keep-alive
-      host:
-      - api.congreso.gob.pe
-      referer:
-      - https://wb2server.congreso.gob.pe/spley-portal/
-    method: GET
-    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/opinion-ciudadana
-  response:
-    body:
-      string: '{"code":404,"status":"No handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/opinion-ciudadana","message":"No
-        handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/opinion-ciudadana","timestamp":"2026-08-19T20:49:18.093-05:00"}'
-    headers:
-      access-control-allow-credentials:
-      - 'true'
-      - 'true'
-      access-control-allow-headers:
-      - '*'
-      access-control-allow-methods:
-      - GET, POST, PUT, DELETE, OPTIONS, PATCH
-      access-control-expose-headers:
-      - Content-Disposition, Content-Length, Content-Type
-      access-control-max-age:
-      - '3600'
-      cache-control:
-      - no-cache, no-store, max-age=0, must-revalidate
-      connection:
-      - keep-alive
-      content-length:
-      - '323'
-      content-security-policy:
-      - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
-        https://*.congreso.net;
-      content-type:
-      - application/json; charset=UTF-8
-      date:
-      - Thu, 20 Aug 2026 01:49:18 GMT
-      expires:
-      - '0'
-      permissions-policy:
-      - fullscreen=(self)
-      pragma:
-      - no-cache
-      referrer-policy:
-      - unsafe-url
-      strict-transport-security:
-      - max-age=63072000; includeSubDomains; preload
-      - max-age=31536000 ; includeSubDomains
-      - max-age=31536000; includeSubDomains; preload
-      transfer-encoding:
-      - chunked
-      vary:
-      - Origin,Access-Control-Request-Method,Access-Control-Request-Headers
-      via:
-      - 1.1 kong/3.10.0.2-enterprise-edition
-      x-content-type-options:
-      - nosniff
-      x-frame-options:
-      - DENY
-      x-kong-proxy-latency:
-      - '0'
-      x-kong-request-id:
-      - 3c17d079e6f3c81fdcc17a0c8cd78240
-      x-kong-upstream-latency:
-      - '3'
-      x-xss-protection:
-      - 1; mode=block
-    status:
-      code: 404
-      message: Not Found
-- request:
-    body: ''
-    headers:
-      accept:
-      - application/json, text/html, */*
-      accept-encoding:
-      - gzip, deflate, br
-      accept-language:
-      - es-PE,es;q=0.9
-      connection:
-      - keep-alive
-      host:
-      - api.congreso.gob.pe
-      referer:
-      - https://wb2server.congreso.gob.pe/spley-portal/
-    method: GET
-    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/documentacion
+    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/documentacion?codTipoParl=C
   response:
     body:
       string: '{"code":404,"status":"No handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/documentacion","message":"No
-        handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/documentacion","timestamp":"2026-08-19T20:49:18.093-05:00"}'
+        handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/documentacion","timestamp":"2026-08-19T21:09:38.909-05:00"}'
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -537,7 +671,7 @@ interactions:
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Thu, 20 Aug 2026 01:49:18 GMT
+      - Thu, 20 Aug 2026 02:09:38 GMT
       expires:
       - '0'
       permissions-policy:
@@ -563,9 +697,9 @@ interactions:
       x-kong-proxy-latency:
       - '0'
       x-kong-request-id:
-      - 71cbd800d6dc3c2465b68d0e43cc4b60
+      - 2e9c5252d947697d0746496cc64e644f
       x-kong-upstream-latency:
-      - '3'
+      - '8'
       x-xss-protection:
       - 1; mode=block
     status:
@@ -587,11 +721,90 @@ interactions:
       referer:
       - https://wb2server.congreso.gob.pe/spley-portal/
     method: GET
-    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/acumulados
+    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/secciones?codTipoParl=C
+  response:
+    body:
+      string: '{"code":404,"status":"No handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/secciones","message":"No
+        handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/secciones","timestamp":"2026-08-19T21:09:38.913-05:00"}'
+    headers:
+      access-control-allow-credentials:
+      - 'true'
+      - 'true'
+      access-control-allow-headers:
+      - '*'
+      access-control-allow-methods:
+      - GET, POST, PUT, DELETE, OPTIONS, PATCH
+      access-control-expose-headers:
+      - Content-Disposition, Content-Length, Content-Type
+      access-control-max-age:
+      - '3600'
+      cache-control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      connection:
+      - keep-alive
+      content-length:
+      - '307'
+      content-security-policy:
+      - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
+        https://*.congreso.net;
+      content-type:
+      - application/json; charset=UTF-8
+      date:
+      - Thu, 20 Aug 2026 02:09:38 GMT
+      expires:
+      - '0'
+      permissions-policy:
+      - fullscreen=(self)
+      pragma:
+      - no-cache
+      referrer-policy:
+      - unsafe-url
+      strict-transport-security:
+      - max-age=63072000; includeSubDomains; preload
+      - max-age=31536000 ; includeSubDomains
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      vary:
+      - Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+      via:
+      - 1.1 kong/3.10.0.2-enterprise-edition
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - DENY
+      x-kong-proxy-latency:
+      - '0'
+      x-kong-request-id:
+      - 77405e1756cba216d0098006003cb07d
+      x-kong-upstream-latency:
+      - '2'
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 404
+      message: Not Found
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json, text/html, */*
+      accept-encoding:
+      - gzip, deflate, br
+      accept-language:
+      - es-PE,es;q=0.9
+      connection:
+      - keep-alive
+      host:
+      - api.congreso.gob.pe
+      referer:
+      - https://wb2server.congreso.gob.pe/spley-portal/
+    method: GET
+    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/acumulados?codTipoParl=C
   response:
     body:
       string: '{"code":404,"status":"No handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/acumulados","message":"No
-        handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/acumulados","timestamp":"2026-08-19T20:49:18.307-05:00"}'
+        handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/acumulados","timestamp":"2026-08-19T21:09:38.924-05:00"}'
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -616,7 +829,7 @@ interactions:
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Thu, 20 Aug 2026 01:49:18 GMT
+      - Thu, 20 Aug 2026 02:09:38 GMT
       expires:
       - '0'
       permissions-policy:
@@ -642,9 +855,9 @@ interactions:
       x-kong-proxy-latency:
       - '0'
       x-kong-request-id:
-      - 926d597dcb733a780ca5f947fdb5cd30
+      - de2a620393be2f665bafcc6deb0cc76a
       x-kong-upstream-latency:
-      - '3'
+      - '2'
       x-xss-protection:
       - 1; mode=block
     status:
@@ -666,7 +879,86 @@ interactions:
       referer:
       - https://wb2server.congreso.gob.pe/spley-portal/
     method: GET
-    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q
+    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/opinion-ciudadana?codTipoParl=C
+  response:
+    body:
+      string: '{"code":404,"status":"No handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/opinion-ciudadana","message":"No
+        handler found for GET /spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q/opinion-ciudadana","timestamp":"2026-08-19T21:09:38.941-05:00"}'
+    headers:
+      access-control-allow-credentials:
+      - 'true'
+      - 'true'
+      access-control-allow-headers:
+      - '*'
+      access-control-allow-methods:
+      - GET, POST, PUT, DELETE, OPTIONS, PATCH
+      access-control-expose-headers:
+      - Content-Disposition, Content-Length, Content-Type
+      access-control-max-age:
+      - '3600'
+      cache-control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      connection:
+      - keep-alive
+      content-length:
+      - '323'
+      content-security-policy:
+      - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
+        https://*.congreso.net;
+      content-type:
+      - application/json; charset=UTF-8
+      date:
+      - Thu, 20 Aug 2026 02:09:38 GMT
+      expires:
+      - '0'
+      permissions-policy:
+      - fullscreen=(self)
+      pragma:
+      - no-cache
+      referrer-policy:
+      - unsafe-url
+      strict-transport-security:
+      - max-age=63072000; includeSubDomains; preload
+      - max-age=31536000 ; includeSubDomains
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      vary:
+      - Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+      via:
+      - 1.1 kong/3.10.0.2-enterprise-edition
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - DENY
+      x-kong-proxy-latency:
+      - '0'
+      x-kong-request-id:
+      - 696775534fea540c90cf9012a5e8173a
+      x-kong-upstream-latency:
+      - '12'
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 404
+      message: Not Found
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json, text/html, */*
+      accept-encoding:
+      - gzip, deflate, br
+      accept-language:
+      - es-PE,es;q=0.9
+      connection:
+      - keep-alive
+      host:
+      - api.congreso.gob.pe
+      referer:
+      - https://wb2server.congreso.gob.pe/spley-portal/
+    method: GET
+    uri: https://api.congreso.gob.pe/spley-portal-service/expediente/ICnrsvoH7U-3Sjp2uTAa2A/TGt54DUjVCeW2NVOughS7Q?codTipoParl=C
   response:
     body:
       string: "{\"code\":200,\"status\":\"success\",\"data\":{\"general\":{\"pleyId\":20805,\"perParId\":2021,\"proyectoLey\":\"14864/2025-CR\",\"desPerParAbrev\":\"2021-2026\",\"desLegis\":\"Segunda
@@ -928,7 +1220,7 @@ interactions:
         de acumulaci\xF3n\",\"flagComision\":false,\"flagEstado\":false,\"comisionId\":null,\"orden\":248,\"activo\":true},{\"seccionId\":249,\"parentSeccionId\":7,\"desSeccion\":\"Otros
         documentos\",\"flagComision\":false,\"flagEstado\":false,\"comisionId\":null,\"orden\":249,\"activo\":true},{\"seccionId\":250,\"parentSeccionId\":7,\"desSeccion\":\"Pedido
         verbal de acumulaci\xF3n (# de proyectos acumulados)\",\"flagComision\":false,\"flagEstado\":false,\"comisionId\":null,\"orden\":250,\"activo\":true}],\"archivos\":[{\"proyectoArchivoId\":411380,\"seguimientoPleyId\":104111,\"seccionId\":8,\"pleyId\":20805,\"uuid\":null,\"fecha\":\"2026-07-22T00:00:00.000-05:00\",\"nombreArchivo\":\"PL
-        14864.pdf\",\"descripcion\":\"PL 14864\",\"enlace\":null,\"publico\":null,\"activo\":null}]},\"timestamp\":\"2026-08-19T20:49:18.340-05:00\"}"
+        14864.pdf\",\"descripcion\":\"PL 14864\",\"enlace\":null,\"publico\":null,\"activo\":null}]},\"timestamp\":\"2026-08-19T21:09:43.277-05:00\"}"
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -953,7 +1245,7 @@ interactions:
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Thu, 20 Aug 2026 01:49:18 GMT
+      - Thu, 20 Aug 2026 02:09:39 GMT
       expires:
       - '0'
       permissions-policy:
@@ -977,11 +1269,11 @@ interactions:
       x-frame-options:
       - DENY
       x-kong-proxy-latency:
-      - '1'
+      - '0'
       x-kong-request-id:
-      - 7727ae428d7dcf3220f4020b3f3e705f
+      - 4831073e72eec514f6d8684f5f39f738
       x-kong-upstream-latency:
-      - '252'
+      - '4163'
       x-xss-protection:
       - 1; mode=block
     status:

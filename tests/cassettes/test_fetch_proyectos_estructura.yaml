@@ -34,7 +34,7 @@ interactions:
         - 2025","desPerLegAbrev":"2024","fecIni":"2024-07-27 00:00:00.0","fecFin":"2025-07-26
         00:00:00.0","activo":true},{"perParId":2021,"perLegId":2025,"desPerLeg":"2025
         - 2026","desPerLegAbrev":"2025","fecIni":"2025-07-27 00:00:00.0","fecFin":"2026-07-26
-        00:00:00.0","activo":true}]}],"timestamp":"2026-08-19T20:48:48.604-05:00"}'
+        00:00:00.0","activo":true}]}],"timestamp":"2026-08-19T21:21:57.972-05:00"}'
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -59,7 +59,7 @@ interactions:
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Thu, 20 Aug 2026 01:48:48 GMT
+      - Thu, 20 Aug 2026 02:21:57 GMT
       expires:
       - '0'
       permissions-policy:
@@ -85,16 +85,16 @@ interactions:
       x-kong-proxy-latency:
       - '0'
       x-kong-request-id:
-      - 1d6c17636b8a7639c3408031ddbf2312
+      - 4110ba4ef7782e44d6ba0769a0a8ef0d
       x-kong-upstream-latency:
-      - '9'
+      - '16'
       x-xss-protection:
       - 1; mode=block
     status:
       code: 200
       message: OK
 - request:
-    body: '{"page":0,"size":3,"perParId":2026}'
+    body: '{"page":0,"size":3,"perParId":2026,"codTipoParl":"C"}'
     headers:
       accept:
       - application/json, text/html, */*
@@ -105,7 +105,7 @@ interactions:
       connection:
       - keep-alive
       content-length:
-      - '35'
+      - '53'
       content-type:
       - application/json
       host:
@@ -118,7 +118,7 @@ interactions:
     body:
       string: "{\"code\":200,\"status\":\"success\",\"data\":{\"proyectos\":[{\"perParId\":2026,\"pleyNum\":1,\"proyectoLey\":\"00001-2026-2031-CR\",\"desEstado\":\"PRESENTADO\",\"fecPresentacion\":\"2026-08-14T00:00:00.000-05:00\",\"titulo\":\"CUENTA
         GENERAL DE LA REP\xDABLICA CORRESPONDIENTE AL EJERCICIO FISCAL 2025\",\"desProponente\":\"PODER
-        EJECUTIVO\",\"autores\":\"\",\"codTipoParl\":\"C\",\"codTipoParlActual\":\"C\",\"rowsTotal\":0}],\"rowsTotal\":0},\"timestamp\":\"2026-08-19T20:48:49.037-05:00\"}"
+        EJECUTIVO\",\"autores\":\"\",\"codTipoParl\":\"C\",\"codTipoParlActual\":\"C\",\"rowsTotal\":0}],\"rowsTotal\":0},\"timestamp\":\"2026-08-19T21:21:58.503-05:00\"}"
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -143,7 +143,7 @@ interactions:
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Thu, 20 Aug 2026 01:48:49 GMT
+      - Thu, 20 Aug 2026 02:21:58 GMT
       expires:
       - '0'
       permissions-policy:
@@ -169,16 +169,16 @@ interactions:
       x-kong-proxy-latency:
       - '0'
       x-kong-request-id:
-      - a63f8d461ba1fe6fd8a3bc07d1253711
+      - 51adfb1b1f01810846b88f6de2d1a47d
       x-kong-upstream-latency:
-      - '8'
+      - '21'
       x-xss-protection:
       - 1; mode=block
     status:
       code: 200
       message: OK
 - request:
-    body: '{"page":0,"size":3,"perParId":2021}'
+    body: '{"page":0,"size":3,"perParId":2026,"codTipoParl":"D"}'
     headers:
       accept:
       - application/json, text/html, */*
@@ -189,7 +189,7 @@ interactions:
       connection:
       - keep-alive
       content-length:
-      - '35'
+      - '53'
       content-type:
       - application/json
       host:
@@ -201,81 +201,97 @@ interactions:
   response:
     body:
       string: "{\"code\": 200, \"status\": \"success\", \"data\": {\"proyectos\":
-        [{\"perParId\": 2021, \"pleyNum\": 14864, \"proyectoLey\": \"14864/2025-CR\",
-        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-07-22T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY QUE RESTITUYE LA COMPETENCIA DE LA JURISDICCI\xD3N
-        ORDINARIA SOBRE LOS PROCESOS PENALES SEGUIDOS CONTRA MILITARES Y POLIC\xCDAS\",
-        \"desProponente\": \"Congreso\", \"autores\": \"Luque Ibarra, Ruth; Baz\xE1n
-        Narro, Sigrid Tesoro; Paredes Piqu\xE9, Susel Ana Mar\xEDa\", \"codTipoParl\":
-        \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021,
-        \"pleyNum\": 14863, \"proyectoLey\": \"14863/2025-PE\", \"desEstado\": \"PRESENTADO\",
-        \"fecPresentacion\": \"2026-07-20T00:00:00.000-05:00\", \"titulo\": \"PROYECTO
-        DE LEY QUE MODIFICA LA LEY N.\xB0 27943, LEY DEL SISTEMA PORTUARIO NACIONAL,
-        A FIN DE OTORGAR LA FACULTAD DE EJECUCI\xD3N COACTIVA A LA AUTORIDAD PORTUARIA
-        NACIONAL\", \"desProponente\": \"PODER EJECUTIVO\", \"autores\": \"\", \"codTipoParl\":
-        \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021,
-        \"pleyNum\": 14862, \"proyectoLey\": \"14862/2025-PE\", \"desEstado\": \"PRESENTADO\",
-        \"fecPresentacion\": \"2026-07-17T00:00:00.000-05:00\", \"titulo\": \"PROYECTO
-        DE LEY DE CREACI\xD3N DEL DISTRITO DE WINCHINKIM EN LA PROVINCIA DE CONDORCANQUI
-        DEL DEPARTAMENTO DE AMAZONAS\", \"desProponente\": \"PODER EJECUTIVO\", \"autores\":
-        \"\", \"codTipoParl\": \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\":
-        0}, {\"perParId\": 2021, \"pleyNum\": 14861, \"proyectoLey\": \"14861/2025-GR\",
-        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-07-16T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY QUE DISPONE LA EXPROPIACI\xD3N DE LOS LOTES
-        17, 18 Y 19 EMPLAZADOS EN LA MANZANA 70, UBICADOS EN EL DISTRITO DE HUAMACHUCO,
-        PROVINCIA DE S\xC1NCHEZ CARRI\xD3N, REGI\xD3N LA LIBERTAD, QUE FORMAN PARTE
-        DE LA CASA DONDE NACI\xD3 EL PR\xD3CER DE LA INDEPENDENCIA Y TRIBUNO DE LA
-        REP\xDABLICA DOCTOR JOS\xC9 FAUSTINO S\xC1NCHEZ CARRI\xD3N.\", \"desProponente\":
-        \"Gobiernos Regionales\", \"autores\": \"\", \"codTipoParl\": \"C\", \"codTipoParlActual\":
-        \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\": 14860, \"proyectoLey\":
-        \"14860/2025-CR\", \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\":
-        \"2026-07-13T00:00:00.000-05:00\", \"titulo\": \"PROYECTO DE LEY QUE DECLARA
-        DE INTER\xC9S NACIONAL Y NECESIDAD P\xDABLICA LA CREACI\xD3N DEL DISTRITO
-        DE TACA, UBICADO EN EL DISTRITO DE CANARIA DE LA PROVINCIA DE V\xCDCTOR FAJARDO
-        DEL DEPARTAMENTO DE AYACUCHO\", \"desProponente\": \"Congreso\", \"autores\":
-        \"Palacios Huam\xE1n, Margot\", \"codTipoParl\": \"C\", \"codTipoParlActual\":
-        \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\": 14859, \"proyectoLey\":
-        \"14859/2025-CR\", \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\":
-        \"2026-07-10T00:00:00.000-05:00\", \"titulo\": \"PROYECTO DE LA NUEVA LEY
-        DEL DOCENTE\", \"desProponente\": \"Congreso\", \"autores\": \"Guti\xE9rrez
-        Ticona, Paul Silvio; Valer Pinto, H\xE9ctor; Pazo Nunura, Jose Bernardo; Medina
-        Hermosilla, Elizabeth Sara; Zegarra Saboya, Ana Zadith; Zea Choquechambi,
-        Oscar\", \"codTipoParl\": \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\":
-        0}, {\"perParId\": 2021, \"pleyNum\": 14858, \"proyectoLey\": \"14858/2025-CR\",
-        \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\": \"2026-07-07T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY QUE MODIFICA LA LEY N.\xB0 32680, A FIN DE GARANTIZAR
-        EL NOMBRAMIENTO EXCEPCIONAL EN LA CATEGOR\xCDA DE DOCENTE AUXILIAR DE LOS
-        JEFES DE PR\xC1CTICA DE UNIVERSIDADES P\xDABLICAS QUE INGRESARON POR CONCURSO
-        P\xDABLICO Y MANTUVIERON CONTINUIDAD FUNCIONAL BAJO DENOMINACIONES CONTRACTUALES
-        DISTINTAS\", \"desProponente\": \"Congreso\", \"autores\": \"Ag\xFCero Guti\xE9rrez,
-        Mar\xEDa Antonieta; Cruz Mamani, Flavio; Mita Alanoca, Isaac; Gonza Castillo,
-        Am\xE9rico; Espiritu Cavero, Raul; Cerr\xF3n Rojas, Waldemar Jos\xE9\", \"codTipoParl\":
-        \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021,
-        \"pleyNum\": 14857, \"proyectoLey\": \"14857/2025-CR\", \"desEstado\": \"EN
-        COMISI\xD3N\", \"fecPresentacion\": \"2026-07-07T00:00:00.000-05:00\", \"titulo\":
-        \"PROYECTO DE LEY NUEVA LEY GENERAL DE EDUCACI\xD3N\", \"desProponente\":
-        \"Congreso\", \"autores\": \"Guti\xE9rrez Ticona, Paul Silvio; Valer Pinto,
-        H\xE9ctor; Pazo Nunura, Jose Bernardo; Zegarra Saboya, Ana Zadith; Paredes
-        Gonzales, Alex Antonio; Zea Choquechambi, Oscar\", \"codTipoParl\": \"C\",
-        \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\":
-        14856, \"proyectoLey\": \"14856/2025-CR\", \"desEstado\": \"EN COMISI\xD3N\",
-        \"fecPresentacion\": \"2026-07-06T00:00:00.000-05:00\", \"titulo\": \"PROYECTO
-        DE LEY QUE MODIFICA LA LEY N.\xB0 31557, LEY QUE REGULA LA EXPLOTACI\xD3N
-        DE LOS JUEGOS A DISTANCIA Y APUESTAS DEPORTIVAS A DISTANCIA, A FIN DE FORTALECER
-        EL FINANCIAMIENTO DESCENTRALIZADO DE LOS SERVICIOS DE SALUD MENTAL\", \"desProponente\":
-        \"Congreso\", \"autores\": \"Chac\xF3n Trujillo, Nilza Merly; Jim\xE9nez Heredia,
-        David Julio; Moyano Delgado, Martha Lupe; L\xF3pez Morales, Jeny Luz; Infantes
-        Casta\xF1eda, Mery Eliana; Obando Morgan, Auristela Ana; Castillo Rivas, Eduardo
-        Enrique\", \"codTipoParl\": \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\":
-        0}, {\"perParId\": 2021, \"pleyNum\": 14855, \"proyectoLey\": \"14855/2025-CR\",
-        \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\": \"2026-07-03T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY INTEGRAL PARA LA PREVENCI\xD3N, ATENCI\xD3N
-        Y REHABILITACI\xD3N DEL ACCIDENTE CEREBROVASCULAR\", \"desProponente\": \"Congreso\",
-        \"autores\": \"Bustamante Donayre, Carlos Ernesto; Flores Ruiz, V\xEDctor
-        Seferino; Ventura \xC1ngel, H\xE9ctor Jos\xE9; Santisteban Suclupe, Magally;
-        Jim\xE9nez Heredia, David Julio; Obando Morgan, Auristela Ana\", \"codTipoParl\":
-        \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}], \"rowsTotal\": 0},
-        \"timestamp\": \"2026-08-19T20:48:49.575-05:00\"}"
+        [{\"perParId\": 2026, \"pleyNum\": 63, \"proyectoLey\": \"00063-2026-2031-CD\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\",
+        \"titulo\": \"LEY QUE DESARROLLA EL DERECHO A LA PROTESTA Y PROTECCCI\xD3N
+        A LA REUNI\xD3N PAC\xCDFICA\", \"desProponente\": \"C\xE1mara de Diputados\",
+        \"autores\": \"Sulca Castillo, Pilar; P\xE9rez Alccahuaman, Jes\xFAs; Fern\xE1ndez
+        Gonz\xE1lez, Svieta Valia; Aguirre Ramos, Marlon Alberto; Pe\xF1a C\xF3rdova,
+        Olver; Paredes Navarro, Yenifer Noelia; Isla Rojas, Azucena; Poma Huamani,
+        Haydee Celinda; Avenda\xF1o Vilca, Giannina Iris; Perez Quispe, Jessica Sadith;
+        Palomino Pacheco, Amalia Emilia\", \"codTipoParl\": \"D\", \"codTipoParlActual\":
+        \"D\", \"rowsTotal\": 0}, {\"perParId\": 2026, \"pleyNum\": 62, \"proyectoLey\":
+        \"00062-2026-2031-CD\", \"desEstado\": \"PRESENTADO\", \"fecPresentacion\":
+        \"2026-08-19T00:00:00.000-05:00\", \"titulo\": \"LEY QUE AMPL\xCDA EL PASAJE
+        UNIVERSITARIO URBANO E INTERURBANO A TODOS LOS D\xCDAS DE LA SEMANA Y PRECISA
+        EL C\xC1LCULO DEL PASAJE DIFERENCIADO.\", \"desProponente\": \"C\xE1mara de
+        Diputados\", \"autores\": \"Espinoza Huillca, Edwin; Hirache Pizarro, Gloria
+        Charito; Prado Vallejos, Lila Marianela; Castrejon Fernandez, Segundo Juan;
+        Molina Soto, Nathaly Milagros; Uribe S\xE1enz, Romina Alejandra; Gonzales
+        Polar, \xC9dgar Dember; Quispe Candia, Luis Eliseo; Santana Vera, Milagros
+        Karina; Garc\xEDa Huby, Fernando Alberto; Huaman Cornejo, Miguel F\xE9lix\",
+        \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\": 0}, {\"perParId\":
+        2026, \"pleyNum\": 61, \"proyectoLey\": \"00061-2026-2031-CD\", \"desEstado\":
+        \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\", \"titulo\":
+        \"LEY QUE RECUPERA LA CALIDAD DE LA EDUCACI\xD3N UNIVERSITARIA, MEDIANTE LA
+        DEROGACI\xD3N DE LA LEY 32105.\", \"desProponente\": \"C\xE1mara de Diputados\",
+        \"autores\": \"Buitr\xF3n Mart\xEDnez, Freshman; Arminta Valencia, Marleny
+        Bibiana; Huilca Flores, Indira Isabel; Meneses Crispin, \xC1ngel Renato; Sonco
+        Villanueva, Helard Bladimir; Muedas Balbiese, C\xE9sar Augusto; Marcelo Salazar,
+        Jos\xE9 Miguel\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\":
+        0}, {\"perParId\": 2026, \"pleyNum\": 60, \"proyectoLey\": \"00060-2026-2031-CD\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\",
+        \"titulo\": \"LEY QUE MODIFICA LA LEY 26864 PARA EVITAR EL INCUMPLIMIENTO
+        DE LA PROHIBICI\xD3N CONSTITUCIONAL DE REELECCI\xD3N INMEDIATA DE LOS ALCALDES.\",
+        \"desProponente\": \"C\xE1mara de Diputados\", \"autores\": \"Palomino Casavilca,
+        Catherin Norma; Cahuaza Mitivire, Oswar Elbis; P\xE9rez Mallqui, Juli\xE1n
+        Luis; Jibaja Ramos, Luis \xC1ngel; Pe\xF1a C\xF3rdova, Olver; Zunini Yerren,
+        Ernesto Alonzo\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\":
+        0}, {\"perParId\": 2026, \"pleyNum\": 59, \"proyectoLey\": \"00059-2026-2031-CD\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\",
+        \"titulo\": \"LEY QUE MODIFICA EL ART\xCDCULO II DEL T\xCDTULO PRELIMINAR
+        DEL C\xD3DIGO PENAL MILITAR POLICIAL, DECRETO LEGISLATIVO 1094, MODIFICA EL
+        ART\xCDCULO III DEL T\xCDTULO PRELIMINAR Y EL ART\xCDCULO 26 DEL NUEVO C\xD3DIGO
+        PROCESAL PENAL, DECRETO LEGISLATIVO 957, Y DEROGA LA DISPOSICI\xD3N COMPLEMENTARIA
+        FINAL \xDANICA DE LA LEY 32735, A FIN DE PRECISAR LA COMPETENCIA DEL FUERO
+        COM\xDAN EN CASOS DE INFRACCIONES PENALES Y DELITOS COMUNES COMETIDOS POR
+        PERSONAL MILITAR Y POLICIAL\", \"desProponente\": \"C\xE1mara de Diputados\",
+        \"autores\": \"Muedas Balbiese, C\xE9sar Augusto; Marcelo Salazar, Jos\xE9
+        Miguel; Holgu\xEDn Loaiza, C\xE9sar Augusto; Buitr\xF3n Mart\xEDnez, Freshman;
+        Meneses Crispin, \xC1ngel Renato\", \"codTipoParl\": \"D\", \"codTipoParlActual\":
+        \"D\", \"rowsTotal\": 0}, {\"perParId\": 2026, \"pleyNum\": 58, \"proyectoLey\":
+        \"00058-2026-2031-CD\", \"desEstado\": \"PRESENTADO\", \"fecPresentacion\":
+        \"2026-08-19T00:00:00.000-05:00\", \"titulo\": \"LEY ALQUILA, AHORRA Y COMPRA\",
+        \"desProponente\": \"C\xE1mara de Diputados\", \"autores\": \"Rocha Gallegos,
+        Roxana Mar\xEDa; Yalta Sotelo, Carlos Alberto; Cipriani Thorne, Javier Jos\xE9
+        Mar\xEDa; Mart\xEDnez Paitan, Paola Isabel; Baella Malca, Jos\xE9 Isidro;
+        Yonz Nu\xF1ez, Mady Ver\xF3nica; De Paz Lancho, Leo Miguel; Segura Figueroa,
+        Gustavo Alexander\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\",
+        \"rowsTotal\": 0}, {\"perParId\": 2026, \"pleyNum\": 57, \"proyectoLey\":
+        \"00057-2026-2031-CD\", \"desEstado\": \"PRESENTADO\", \"fecPresentacion\":
+        \"2026-08-19T00:00:00.000-05:00\", \"titulo\": \"LEY QUE MODIFICA LA LEY 27613,
+        LEY DE LA PARTICIPACI\xD3N EN RENTA DE ADUANAS Y LA LEY DE TRIBUTACI\xD3N
+        MUNICIPAL.\", \"desProponente\": \"Gobiernos Locales\", \"autores\": \"\",
+        \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\": 0}, {\"perParId\":
+        2026, \"pleyNum\": 56, \"proyectoLey\": \"00056-2026-2031-CD\", \"desEstado\":
+        \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\", \"titulo\":
+        \"PROYECTO DE LEY QUE MODIFICA EL NUMERAL 45.2 DEL ART\xCDCULO 45 DE LA LEY
+        30220, LEY UNIVERSITARIA, PARA GARANTIZAR LA SUSTENCTACI\xD3N OPORTUNA DE
+        LA TESIS O DESARROLLAR UN TRABAJO DE SUFICIENCIA PROFESIONAL PARA ACCEDER
+        AL T\xCDTULO PROFESIONAL.\", \"desProponente\": \"C\xE1mara de Diputados\",
+        \"autores\": \"Villanueva Calder\xF3n, Juan Am\xEDlcar; Poma Huamani, Haydee
+        Celinda; Sulca Castillo, Pilar; Paredes Navarro, Yenifer Noelia; Palomino
+        Pacheco, Amalia Emilia; Jibaja Ramos, Luis \xC1ngel; Guevara Ram\xEDrez, Jessica
+        Roxana\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\":
+        0}, {\"perParId\": 2026, \"pleyNum\": 55, \"proyectoLey\": \"00055-2026-2031-CD\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-08-19T00:00:00.000-05:00\",
+        \"titulo\": \"LEY QUE ESTABLECE UN PERIODO DE CINCO A\xD1OS PARA EL LICENCIAMIENTO
+        INSTITTUCIONAL, RENOVABLE PREVIO AL CUMPLIMIENTO DE LAS CONDICIONES B\xC1SICAS
+        DE CALIDAD\", \"desProponente\": \"C\xE1mara de Diputados\", \"autores\":
+        \"Villanueva Calder\xF3n, Juan Am\xEDlcar; Flores Valdizan, Marco Antonio;
+        Jibaja Ramos, Luis \xC1ngel; Holgu\xEDn Aguirre, James Arturo; Guevara Ram\xEDrez,
+        Jessica Roxana; Gonzales Delgado, Gabriel Robertino\", \"codTipoParl\": \"D\",
+        \"codTipoParlActual\": \"D\", \"rowsTotal\": 0}, {\"perParId\": 2026, \"pleyNum\":
+        54, \"proyectoLey\": \"00054-2026-2031-CD\", \"desEstado\": \"PRESENTADO\",
+        \"fecPresentacion\": \"2026-08-18T00:00:00.000-05:00\", \"titulo\": \"LEY
+        QUE MODIFICA LA LEY 29906 PARA FORTALECER LA PREVENCI\xD3N, CONTROL DE LA
+        CONTAMINACI\xD3N Y RECUPERACI\xD3N AMBIENTAL DEL LAGO TITICACA Y SUS AFLUENTES.\",
+        \"desProponente\": \"C\xE1mara de Diputados\", \"autores\": \"Sonco Villanueva,
+        Helard Bladimir; Huilca Flores, Indira Isabel; Colchado Huamani, Harvey Julio;
+        Meneses Crispin, \xC1ngel Renato; Holgu\xEDn Loaiza, C\xE9sar Augusto; Buitr\xF3n
+        Mart\xEDnez, Freshman; Marcelo Salazar, Jos\xE9 Miguel; Arminta Valencia,
+        Marleny Bibiana\", \"codTipoParl\": \"D\", \"codTipoParlActual\": \"D\", \"rowsTotal\":
+        0}], \"rowsTotal\": 0}, \"timestamp\": \"2026-08-19T21:21:59.073-05:00\"}"
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -293,14 +309,14 @@ interactions:
       connection:
       - keep-alive
       content-length:
-      - '8786237'
+      - '42682'
       content-security-policy:
       - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
         https://*.congreso.net;
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Thu, 20 Aug 2026 01:48:49 GMT
+      - Thu, 20 Aug 2026 02:21:59 GMT
       expires:
       - '0'
       permissions-policy:
@@ -326,9 +342,128 @@ interactions:
       x-kong-proxy-latency:
       - '0'
       x-kong-request-id:
-      - cd4e064cc3a7ac7d48b2c4445455c27e
+      - f84f992afc182f2c7d50c0384f914670
       x-kong-upstream-latency:
-      - '247'
+      - '15'
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"page":0,"size":3,"perParId":2026,"codTipoParl":"S"}'
+    headers:
+      accept:
+      - application/json, text/html, */*
+      accept-encoding:
+      - gzip, deflate, br
+      accept-language:
+      - es-PE,es;q=0.9
+      connection:
+      - keep-alive
+      content-length:
+      - '53'
+      content-type:
+      - application/json
+      host:
+      - api.congreso.gob.pe
+      referer:
+      - https://wb2server.congreso.gob.pe/spley-portal/
+    method: POST
+    uri: https://api.congreso.gob.pe/spley-portal-service/proyecto-ley/lista-con-filtro
+  response:
+    body:
+      string: "{\"code\":200,\"status\":\"success\",\"data\":{\"proyectos\":[{\"perParId\":2026,\"pleyNum\":6,\"proyectoLey\":\"00006-2026-2031-S\",\"desEstado\":\"PRESENTADO\",\"fecPresentacion\":\"2026-08-19T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE MODIFICA EL REGLAMENTO DEL SENADO A FIN DE
+        GARANTIZAR EN LA LABOR LEGISLATIVA EL DERECHO A LA CONSULTA PREVIA DE LOS
+        PUEBLOS IND\xCDGENAS\",\"desProponente\":\"Senado de la Rep\xFAblica\",\"autores\":\"Chipana
+        Chipana, Jose Moises; Andr\xE9s Luj\xE1n, Seraf\xEDn\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":5,\"proyectoLey\":\"00005-2026-2031-S\",\"desEstado\":\"PRESENTADO\",\"fecPresentacion\":\"2026-08-19T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE GARANTIZA LA VIGENCIA DE LA COMISI\xD3N DE
+        PUEBLOS ANDINOS, AMAZ\xD3NICOS Y AFROPERUANOS, AMBIENTE Y ECOLOG\xCDA \",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"Chipana Chipana, Jose Moises; Andr\xE9s
+        Luj\xE1n, Seraf\xEDn\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":4,\"proyectoLey\":\"00004-2026-2031-S\",\"desEstado\":\"PRESENTADO\",\"fecPresentacion\":\"2026-08-14T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA DEL SENADO QUE MODIFICA LOS ART\xCDCULOS 39,
+        48, 86 Y 154 DEL REGLAMENTO DEL SENADO, A FIN DE FORTALECER LA LABOR PARLAMENTARIA\",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"Quito Sarmiento, Bernardo Jaime; Castillo
+        Terrones, Jos\xE9 Mercedes; Osorio Palp\xE1n, Percy Herbert; Morales Ram\xEDrez,
+        Edyson Humberto; Cutipa Ccama, V\xEDctor Ra\xFAl; Verano Saravia, Wilfredo;
+        Marav\xED Olarte, Iber Antenor; Chipana Chipana, Jose Moises; Ramos Huillcas,
+        Andr\xE9s Avelino\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":3,\"proyectoLey\":\"00003-2026-2031-S\",\"desEstado\":\"EN
+        COMISI\xD3N\",\"fecPresentacion\":\"2026-08-13T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE MODIFICA LA RESOLUCI\xD3N LEGISLATIVA DEL
+        CONGRESO 006-2025-2026-CR, QUE APRUEBA EL REGLAMENTO DEL SENADO, A FIN DE
+        RESTABLECER Y GARANTIZAR LA EXISTENCIA DE LA COMISI\xD3N DE PUEBLOS ANDINOS,
+        AMAZ\xD3NICOS Y AFROPERUANOS, AMBIENTE Y ECOLOG\xCDA\",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"Robles Araujo, Silvana Emperatriz; Castillo
+        Terrones, Jos\xE9 Mercedes; Cutipa Ccama, V\xEDctor Ra\xFAl; Armacanqui Morales,
+        Sa\xFAl Andr\xE9s; Quito Sarmiento, Bernardo Jaime; Osorio Palp\xE1n, Percy
+        Herbert; Morales Ram\xEDrez, Edyson Humberto; Andr\xE9s Luj\xE1n, Seraf\xEDn\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":2,\"proyectoLey\":\"00002-2026-2031-S\",\"desEstado\":\"EN
+        COMISI\xD3N\",\"fecPresentacion\":\"2026-08-12T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE MODIFICA EL REGLAMENTO DEL SENADO PARA EL
+        FORTALECIMIENTO DEL SISTEMA DEMOCR\xC1TICO Y REPRESENTATIVO \",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"Luque Ibarra, Ruth; L\xF3pez Chau Nava,
+        Pablo Alfonso; V\xE1squez Chuquil\xEDn, Mirtha Esther; Delgado Zegarra, Jaime
+        Ricardo\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0},{\"perParId\":2026,\"pleyNum\":1,\"proyectoLey\":\"00001-2026-2031-S\",\"desEstado\":\"EN
+        COMISI\xD3N\",\"fecPresentacion\":\"2026-08-11T00:00:00.000-05:00\",\"titulo\":\"PROPOSICI\xD3N
+        DE RESOLUCI\xD3N LEGISLATIVA QUE MODIFICA EL ART\xCDCULO 48 DEL REGLAMENTO
+        DEL SENADO PARA CREAR LA COMISI\xD3N ORDINARIA LEGISLATIVA DE PUEBLOS IND\xCDGENAS
+        U ORIGINARIOS, COMUNIDADES CAMPESINAS Y NATIVAS, PUEBLO AFROPERUANO Y POBLACIONES
+        EN SITUACI\xD3N DE VULNERABILIDAD DEL SENADO DE LA REP\xDABLICA\",\"desProponente\":\"Senado
+        de la Rep\xFAblica\",\"autores\":\"V\xE1squez Chuquil\xEDn, Mirtha Esther;
+        Delgado Zegarra, Jaime Ricardo\",\"codTipoParl\":\"S\",\"codTipoParlActual\":\"S\",\"rowsTotal\":0}],\"rowsTotal\":0},\"timestamp\":\"2026-08-19T21:21:59.535-05:00\"}"
+    headers:
+      access-control-allow-credentials:
+      - 'true'
+      - 'true'
+      access-control-allow-headers:
+      - '*'
+      access-control-allow-methods:
+      - GET, POST, PUT, DELETE, OPTIONS, PATCH
+      access-control-expose-headers:
+      - Content-Disposition, Content-Length, Content-Type
+      access-control-max-age:
+      - '3600'
+      cache-control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      connection:
+      - keep-alive
+      content-length:
+      - '3744'
+      content-security-policy:
+      - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
+        https://*.congreso.net;
+      content-type:
+      - application/json; charset=UTF-8
+      date:
+      - Thu, 20 Aug 2026 02:21:59 GMT
+      expires:
+      - '0'
+      permissions-policy:
+      - fullscreen=(self)
+      pragma:
+      - no-cache
+      referrer-policy:
+      - unsafe-url
+      strict-transport-security:
+      - max-age=63072000; includeSubDomains; preload
+      - max-age=31536000 ; includeSubDomains
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      vary:
+      - Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+      via:
+      - 1.1 kong/3.10.0.2-enterprise-edition
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - DENY
+      x-kong-proxy-latency:
+      - '0'
+      x-kong-request-id:
+      - 3d16d401da9a74275e6884266f8cc11f
+      x-kong-upstream-latency:
+      - '22'
       x-xss-protection:
       - 1; mode=block
     status:

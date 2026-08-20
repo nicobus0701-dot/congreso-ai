@@ -40,6 +40,16 @@ DIPUTADOS  = "https://diputados.congreso.gob.pe"
 PER_PAR_FALLBACK = [2026, 2021]
 PER_PAR_ID = PER_PAR_FALLBACK[-1]   # periodo 2021-2026, base de los enlaces viejos
 
+# codTipoParl es el discriminador de cámara de SPLEY. Sin mandarlo, la API
+# responde solo con las proposiciones del Congreso (C) — al 19/08/2026 eso era
+# 1 de 70: Diputados tenía 63 y Senado 6. Va en el body; como query param se
+# ignora, igual que strBusqueda.
+CAMARAS = {"C": "Congreso", "D": "Diputados", "S": "Senado"}
+CAMARA_RUTA = {"C": "congreso", "D": "diputados", "S": "senado"}
+# El bicameralismo arranca con el periodo 2026-2031; antes solo existía "C", así
+# que para periodos viejos consultar D y S es tráfico tirado a la basura.
+PER_PAR_BICAMERAL = 2026
+
 # Ventana de "noticia reciente". Coincide con la del resumen semanal
 # (services.orchestrator.RESUMEN_DIAS).
 DIAS_NOTICIAS_RECIENTES = 7
@@ -223,6 +233,20 @@ def _num_proyecto(numero) -> str:
     return m.group(1) if m else str(numero or "").strip()
 
 
+def _camara_de_numero(numero) -> str | None:
+    """
+    Cámara deducida del sufijo del número: '00040-2026-2031-CD' → 'D'.
+
+    En el periodo bicameral la numeración reinicia en cada cámara, así que
+    '00001' existe tres veces y el sufijo es lo único que las separa. En
+    2021-2026 el sufijo era el tipo de proponente (PE, GR, GL...), no una
+    cámara; por eso solo se aceptan los tres códigos válidos y cualquier otro
+    devuelve None, o sea "sin restricción".
+    """
+    m = re.search(r"-(CR|CD|S)\s*$", str(numero or "").upper())
+    return {"CR": "C", "CD": "D", "S": "S"}[m.group(1)] if m else None
+
+
 async def _spley_proyectos(c, payload: dict, min_items: int = 1) -> list[dict]:
     """
     Corre lista-con-filtro sobre los periodos parlamentarios, del más nuevo al
@@ -235,16 +259,20 @@ async def _spley_proyectos(c, payload: dict, min_items: int = 1) -> list[dict]:
     """
     out: list[dict] = []
     for per in await _periodos():
-        try:
-            r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro",
-                             json={**payload, "perParId": per})
-            if r.status_code != 200:
-                continue
-            for p in r.json().get("data", {}).get("proyectos", []):
-                p["_perPar"] = per
-                out.append(p)
-        except Exception as _e:
-            logger.debug("spley periodo %s: %s", per, _e)
+        camaras = list(CAMARAS) if per >= PER_PAR_BICAMERAL else ["C"]
+        for cod in camaras:
+            try:
+                r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro",
+                                 json={**payload, "perParId": per,
+                                       "codTipoParl": cod})
+                if r.status_code != 200:
+                    continue
+                for p in r.json().get("data", {}).get("proyectos", []):
+                    p["_perPar"] = per
+                    p["_camara"] = cod
+                    out.append(p)
+            except Exception as _e:
+                logger.debug("spley periodo %s cámara %s: %s", per, cod, _e)
         if len(out) >= min_items:
             break
 
@@ -285,7 +313,7 @@ async def _fetch_spley_por_materia(materia: str, limit: int = 20):
         return {"sin_datos": True,
                 "mensaje": f"No se encontraron proyectos sobre '{materia}' en el período actual."}
 
-    return _format_proyectos(matches[:limit])
+    return _format_proyectos(matches[:limit], total_disponible=len(matches))
 
 
 async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
@@ -316,11 +344,14 @@ async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
             # ("00001-2026-2031-CR") se usa para desambiguar.
             m_per = re.search(r"(20\d{2})\s*-\s*20\d{2}", str(numero))
             per_pedido = int(m_per.group(1)) if m_per else None
+            cam_pedida = _camara_de_numero(numero)
 
             def filtro_local(p):
                 if _num_proyecto(p.get("proyectoLey") or p.get("pleyNum")) != objetivo:
                     return False
-                return per_pedido is None or p.get("_perPar") == per_pedido
+                if per_pedido is not None and p.get("_perPar") != per_pedido:
+                    return False
+                return cam_pedida is None or p.get("_camara") == cam_pedida
         elif autor:
             tokens = [t for t in re.split(r"\s+", autor.upper()) if len(t) > 2]
 
@@ -390,7 +421,7 @@ async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
                             "mensaje": _mensaje_sin_proyectos(
                                 autor=autor, comision=comision, numero=numero,
                                 materia=materia, dias=dias)}
-                return _format_proyectos(items[:limit])
+                return _format_proyectos(items[:limit], total_disponible=len(items))
         except Exception as _e:
             logger.debug("scraper silenced: %s", _e)
 
@@ -420,24 +451,27 @@ def _mensaje_sin_proyectos(autor=None, comision=None, numero=None,
             "así que todavía hay muy pocos proyectos presentados.")
 
 
-SPLEY_PORTAL = "https://wb2server.congreso.gob.pe/spley-portal/#/expediente"
+SPLEY_PORTAL_BASE = "https://wb2server.congreso.gob.pe/spley-portal/#"
+SPLEY_PORTAL = f"{SPLEY_PORTAL_BASE}/expediente"
 
 
 def _enlace_expediente(p: dict) -> str:
     """
     Enlace al expediente en el portal SPLEY.
 
-    El periodo va en la URL, así que se toma el del propio proyecto (`_perPar`,
-    puesto por _spley_proyectos) y no una constante: con resultados mezclados de
-    2021-2026 y 2026-2031 un periodo fijo mandaba a un expediente inexistente.
+    El portal enruta por cámara (#/diputados/expediente/..., #/senado/...,
+    #/congreso/...) y el periodo va en la URL, así que ambos salen del propio
+    proyecto (`_camara` y `_perPar`, puestos por _spley_proyectos). Con valores
+    fijos el enlace apuntaba a un expediente inexistente.
     """
     num = p.get("pleyNum") or ""
     if not num:
         return ""
-    return f"{SPLEY_PORTAL}/{p.get('_perPar') or PER_PAR_ID}/{num}"
+    ruta = CAMARA_RUTA.get(p.get("_camara") or "C", "congreso")
+    return f"{SPLEY_PORTAL_BASE}/{ruta}/expediente/{p.get('_perPar') or PER_PAR_ID}/{num}"
 
 
-def _format_proyectos(items):
+def _format_proyectos(items, total_disponible: int | None = None):
     out = []
     for p in items:
         num = p.get("pleyNum") or ""
@@ -452,10 +486,28 @@ def _format_proyectos(items):
             "comision":            p.get("desComision") or "",
             "grupo_parlamentario": p.get("desGpar") or "",
             "legislatura":         p.get("desLegis") or "",
+            "camara":              CAMARAS.get(p.get("_camara") or "C", "Congreso"),
             "enlace":              _enlace_expediente(p) or f"{SPLEY_PORTAL}/search",
         })
-    return {"fuente": "SPLEY — api.congreso.gob.pe",
-            "total": len(out), "items": out}
+    # `total` es lo que se devuelve; `total_disponible` lo que había antes de
+    # cortar por `limit`. Sin la distinción el modelo leía el total truncado y
+    # afirmaba "van 20 en total" cuando eran 40, y sacaba conclusiones sobre las
+    # cámaras a partir de la porción que le tocó ver.
+    #
+    # El orden importa: orchestrator.MAX_TOOL_RESULT_CHARS recorta el JSON
+    # serializado, así que los metadatos van ANTES de `items` — puestos después
+    # quedaban fuera del corte y el modelo nunca los leía.
+    resumen: dict = {"fuente": "SPLEY — api.congreso.gob.pe", "total": len(out)}
+    if total_disponible is not None and total_disponible > len(out):
+        resumen["total_disponible"] = total_disponible
+        resumen["truncado"] = True
+        resumen["aviso"] = (
+            f"Se muestran {len(out)} de {total_disponible} resultados que "
+            f"cumplen el filtro. No afirmes que son todos: pedí más con `limit` "
+            f"si necesitás el total real o el desglose por cámara."
+        )
+    resumen["items"] = out
+    return resumen
 
 
 # ── Sesiones ───────────────────────────────────────────────────
@@ -1071,17 +1123,20 @@ async def fetch_expediente(numero: str):
                                        min_items=300)
         if not items:
             return {"error": f"No se pudo buscar el proyecto {numero}."}
+        cam_pedida = _camara_de_numero(numero)
         exact = next(
             (p for p in items
-             if _num_proyecto(p.get("proyectoLey") or p.get("pleyNum")) == num_clean),
+             if _num_proyecto(p.get("proyectoLey") or p.get("pleyNum")) == num_clean
+             and (cam_pedida is None or p.get("_camara") == cam_pedida)),
             None,
         )
         if not exact:
             return {"error": f"Proyecto {numero} no encontrado."}
         pley_num = str(exact["pleyNum"])
-        # El expediente vive dentro de su periodo: usar uno fijo devolvía 404
-        # para cualquier proyecto del periodo 2026-2031.
+        # El expediente vive dentro de su periodo y su cámara: con valores fijos
+        # devolvía 404 para todo lo del periodo 2026-2031.
         per_par = exact.get("_perPar") or PER_PAR_ID
+        cod_parl = exact.get("_camara") or "C"
 
     enc_per = _spley_encrypt(str(per_par))
     enc_ple = _spley_encrypt(pley_num)
@@ -1091,7 +1146,8 @@ async def fetch_expediente(numero: str):
 
     async def _get(c, path):
         try:
-            r = await c.get(f"{base_url}{path}")
+            # codTipoParl acá sí va como query param (así lo llama el portal).
+            r = await c.get(f"{base_url}{path}", params={"codTipoParl": cod_parl})
             if r.status_code == 200:
                 return r.json().get("data", {})
         except Exception as _e:
@@ -1182,7 +1238,8 @@ async def fetch_expediente(numero: str):
             "autor":              _normalizar_lista_autores(p.get("autores")) or p.get("desProponente") or "",
             "proponente":         p.get("desProponente") or "",
             "estado":             p.get("desEstado") or "",
-            "enlace":             f"{SPLEY_PORTAL}/{per_par}/{p.get('pleyNum','')}" if p.get("pleyNum") else "",
+            "enlace":             _enlace_expediente({**p, "_perPar": per_par,
+                                                      "_camara": cod_parl}),
         })
 
     # Pestaña 3: Documentación Anexa (oficios, opiniones de ministerios, informes)
@@ -1269,7 +1326,9 @@ async def fetch_expediente(numero: str):
             "nombre":  dictamen.get("nombreArchivo") if dictamen else None,
             "url":     _archivo_url(dictamen) if dictamen else None,
         } if dictamen else None,
-        "enlace_expediente":     f"{SPLEY_PORTAL}/{per_par}/{pley_num_str}" if pley_num_str else "",
+        "enlace_expediente":     _enlace_expediente({"pleyNum": pley_num_str,
+                                                     "_perPar": per_par,
+                                                     "_camara": cod_parl}),
         "fuente":                f"SPLEY expediente — {SPLEY_API}",
     }
 

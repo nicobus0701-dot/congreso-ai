@@ -1,45 +1,51 @@
 {
+  "aviso": "Se muestran 3 de 17 resultados que cumplen el filtro. No afirmes que son todos: pedí más con `limit` si necesitás el total real o el desglose por cámara.",
   "fuente": "SPLEY — api.congreso.gob.pe",
   "items": [
     {
-      "autor": "PODER EJECUTIVO",
+      "autor": "Pilar Sulca Castillo; Jesús Pérez Alccahuaman; Svieta Valia Fernández González; Marlon Alberto Aguirre Ramos; Olver Peña Córdova; Yenifer Noelia Paredes Navarro; Azucena Isla Rojas; Haydee Celinda Poma Huamani; Giannina Iris Avendaño Vilca; Jessica Sadith Perez Quispe; Amalia Emilia Palomino Pacheco",
+      "camara": "Diputados",
       "comision": "",
-      "enlace": "https://wb2server.congreso.gob.pe/spley-portal/#/expediente/2026/1",
+      "enlace": "https://wb2server.congreso.gob.pe/spley-portal/#/diputados/expediente/2026/63",
       "estado": "PRESENTADO",
-      "fecha_presentacion": "2026-08-14",
+      "fecha_presentacion": "2026-08-19",
       "grupo_parlamentario": "",
       "legislatura": "",
-      "numero": "00001-2026-2031-CR",
-      "proponente": "PODER EJECUTIVO",
-      "sumilla": "CUENTA GENERAL DE LA REPÚBLICA CORRESPONDIENTE AL EJERCICIO FISCAL 2025",
-      "titulo": "CUENTA GENERAL DE LA REPÚBLICA CORRESPONDIENTE AL EJERCICIO FISCAL 2025"
+      "numero": "00063-2026-2031-CD",
+      "proponente": "Cámara de Diputados",
+      "sumilla": "LEY QUE DESARROLLA EL DERECHO A LA PROTESTA Y PROTECCCIÓN A LA REUNIÓN PACÍFICA",
+      "titulo": "LEY QUE DESARROLLA EL DERECHO A LA PROTESTA Y PROTECCCIÓN A LA REUNIÓN PACÍFICA"
     },
     {
-      "autor": "Ruth Luque Ibarra; Sigrid Tesoro Bazán Narro; Susel Ana María Paredes Piqué",
+      "autor": "Edwin Espinoza Huillca; Gloria Charito Hirache Pizarro; Lila Marianela Prado Vallejos; Segundo Juan Castrejon Fernandez; Nathaly Milagros Molina Soto; Romina Alejandra Uribe Sáenz; Édgar Dember Gonzales Polar; Luis Eliseo Quispe Candia; Milagros Karina Santana Vera; Fernando Alberto García Huby; Miguel Félix Huaman Cornejo",
+      "camara": "Diputados",
       "comision": "",
-      "enlace": "https://wb2server.congreso.gob.pe/spley-portal/#/expediente/2021/14864",
+      "enlace": "https://wb2server.congreso.gob.pe/spley-portal/#/diputados/expediente/2026/62",
       "estado": "PRESENTADO",
-      "fecha_presentacion": "2026-07-22",
+      "fecha_presentacion": "2026-08-19",
       "grupo_parlamentario": "",
       "legislatura": "",
-      "numero": "14864/2025-CR",
-      "proponente": "Congreso",
-      "sumilla": "PROYECTO DE LEY QUE RESTITUYE LA COMPETENCIA DE LA JURISDICCIÓN ORDINARIA SOBRE LOS PROCESOS PENALES SEGUIDOS CONTRA MILITARES Y POLICÍAS",
-      "titulo": "PROYECTO DE LEY QUE RESTITUYE LA COMPETENCIA DE LA JURISDICCIÓN ORDINARIA SOBRE LOS PROCESOS PENALES SEGUIDOS CONTRA MILITARES Y POLICÍAS"
+      "numero": "00062-2026-2031-CD",
+      "proponente": "Cámara de Diputados",
+      "sumilla": "LEY QUE AMPLÍA EL PASAJE UNIVERSITARIO URBANO E INTERURBANO A TODOS LOS DÍAS DE LA SEMANA Y PRECISA EL CÁLCULO DEL PASAJE DIFERENCIADO.",
+      "titulo": "LEY QUE AMPLÍA EL PASAJE UNIVERSITARIO URBANO E INTERURBANO A TODOS LOS DÍAS DE LA SEMANA Y PRECISA EL CÁLCULO DEL PASAJE DIFERENCIADO."
     },
     {
-      "autor": "PODER EJECUTIVO",
+      "autor": "Freshman Buitrón Martínez; Marleny Bibiana Arminta Valencia; Indira Isabel Huilca Flores; Ángel Renato Meneses Crispin; Helard Bladimir Sonco Villanueva; César Augusto Muedas Balbiese; José Miguel Marcelo Salazar",
+      "camara": "Diputados",
       "comision": "",
-      "enlace": "https://wb2server.congreso.gob.pe/spley-portal/#/expediente/2021/14863",
+      "enlace": "https://wb2server.congreso.gob.pe/spley-portal/#/diputados/expediente/2026/61",
       "estado": "PRESENTADO",
-      "fecha_presentacion": "2026-07-20",
+      "fecha_presentacion": "2026-08-19",
       "grupo_parlamentario": "",
       "legislatura": "",
-      "numero": "14863/2025-PE",
-      "proponente": "PODER EJECUTIVO",
-      "sumilla": "PROYECTO DE LEY QUE MODIFICA LA LEY N.° 27943, LEY DEL SISTEMA PORTUARIO NACIONAL, A FIN DE OTORGAR LA FACULTAD DE EJECUCIÓN COACTIVA A LA AUTORIDAD PORTUARIA NACIONAL",
-      "titulo": "PROYECTO DE LEY QUE MODIFICA LA LEY N.° 27943, LEY DEL SISTEMA PORTUARIO NACIONAL, A FIN DE OTORGAR LA FACULTAD DE EJECUCIÓN COACTIVA A LA AUTORIDAD PORTUARIA NACIONAL"
+      "numero": "00061-2026-2031-CD",
+      "proponente": "Cámara de Diputados",
+      "sumilla": "LEY QUE RECUPERA LA CALIDAD DE LA EDUCACIÓN UNIVERSITARIA, MEDIANTE LA DEROGACIÓN DE LA LEY 32105.",
+      "titulo": "LEY QUE RECUPERA LA CALIDAD DE LA EDUCACIÓN UNIVERSITARIA, MEDIANTE LA DEROGACIÓN DE LA LEY 32105."
     }
   ],
-  "total": 3
+  "total": 3,
+  "total_disponible": 17,
+  "truncado": true
 }
