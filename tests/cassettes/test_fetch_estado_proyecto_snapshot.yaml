@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"perParId":2021,"strBusqueda":"14864","page":0,"size":10}'
+    body: ''
     headers:
       accept:
       - application/json, text/html, */*
@@ -10,88 +10,31 @@ interactions:
       - es-PE,es;q=0.9
       connection:
       - keep-alive
-      content-length:
-      - '58'
-      content-type:
-      - application/json
       host:
       - api.congreso.gob.pe
       referer:
       - https://wb2server.congreso.gob.pe/spley-portal/
-    method: POST
-    uri: https://api.congreso.gob.pe/spley-portal-service/proyecto-ley/lista-con-filtro
+    method: GET
+    uri: https://api.congreso.gob.pe/spley-portal-service/periodo-parlamentario
   response:
     body:
-      string: "{\"code\": 200, \"status\": \"success\", \"data\": {\"proyectos\":
-        [{\"perParId\": 2021, \"pleyNum\": 14864, \"proyectoLey\": \"14864/2025-CR\",
-        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-07-22T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY QUE RESTITUYE LA COMPETENCIA DE LA JURISDICCI\xD3N
-        ORDINARIA SOBRE LOS PROCESOS PENALES SEGUIDOS CONTRA MILITARES Y POLIC\xCDAS\",
-        \"desProponente\": \"Congreso\", \"autores\": \"Luque Ibarra, Ruth; Baz\xE1n
-        Narro, Sigrid Tesoro; Paredes Piqu\xE9, Susel Ana Mar\xEDa\", \"rowsTotal\":
-        0}, {\"perParId\": 2021, \"pleyNum\": 14863, \"proyectoLey\": \"14863/2025-PE\",
-        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-07-20T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY QUE MODIFICA LA LEY N.\xB0 27943, LEY DEL SISTEMA
-        PORTUARIO NACIONAL, A FIN DE OTORGAR LA FACULTAD DE EJECUCI\xD3N COACTIVA
-        A LA AUTORIDAD PORTUARIA NACIONAL\", \"desProponente\": \"Poder Ejecutivo\",
-        \"autores\": \"\", \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\": 14862,
-        \"proyectoLey\": \"14862/2025-PE\", \"desEstado\": \"PRESENTADO\", \"fecPresentacion\":
-        \"2026-07-17T00:00:00.000-05:00\", \"titulo\": \"PROYECTO DE LEY DE CREACI\xD3N
-        DEL DISTRITO DE WINCHINKIM EN LA PROVINCIA DE CONDORCANQUI DEL DEPARTAMENTO
-        DE AMAZONAS\", \"desProponente\": \"Poder Ejecutivo\", \"autores\": \"\",
-        \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\": 14861, \"proyectoLey\":
-        \"14861/2025-GR\", \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-07-16T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY QUE DISPONE LA EXPROPIACI\xD3N DE LOS LOTES
-        17, 18 Y 19 EMPLAZADOS EN LA MANZANA 70, UBICADOS EN EL DISTRITO DE HUAMACHUCO,
-        PROVINCIA DE S\xC1NCHEZ CARRI\xD3N, REGI\xD3N LA LIBERTAD, QUE FORMAN PARTE
-        DE LA CASA DONDE NACI\xD3 EL PR\xD3CER DE LA INDEPENDENCIA Y TRIBUNO DE LA
-        REP\xDABLICA DOCTOR JOS\xC9 FAUSTINO S\xC1NCHEZ CARRI\xD3N.\", \"desProponente\":
-        \"Gobiernos Regionales\", \"autores\": \"\", \"rowsTotal\": 0}, {\"perParId\":
-        2021, \"pleyNum\": 14860, \"proyectoLey\": \"14860/2025-CR\", \"desEstado\":
-        \"EN COMISI\xD3N\", \"fecPresentacion\": \"2026-07-13T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY QUE DECLARA DE INTER\xC9S NACIONAL Y NECESIDAD
-        P\xDABLICA LA CREACI\xD3N DEL DISTRITO DE TACA, UBICADO EN EL DISTRITO DE
-        CANARIA DE LA PROVINCIA DE V\xCDCTOR FAJARDO DEL DEPARTAMENTO DE AYACUCHO\",
-        \"desProponente\": \"Congreso\", \"autores\": \"Palacios Huam\xE1n, Margot\",
-        \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\": 14859, \"proyectoLey\":
-        \"14859/2025-CR\", \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\":
-        \"2026-07-10T00:00:00.000-05:00\", \"titulo\": \"PROYECTO DE LA NUEVA LEY
-        DEL DOCENTE\", \"desProponente\": \"Congreso\", \"autores\": \"Guti\xE9rrez
-        Ticona, Paul Silvio; Valer Pinto, H\xE9ctor; Pazo Nunura, Jose Bernardo; Medina
-        Hermosilla, Elizabeth Sara; Zegarra Saboya, Ana Zadith; Zea Choquechambi,
-        Oscar\", \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\": 14858, \"proyectoLey\":
-        \"14858/2025-CR\", \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\":
-        \"2026-07-07T00:00:00.000-05:00\", \"titulo\": \"PROYECTO DE LEY QUE MODIFICA
-        LA LEY N.\xB0 32680, A FIN DE GARANTIZAR EL NOMBRAMIENTO EXCEPCIONAL EN LA
-        CATEGOR\xCDA DE DOCENTE AUXILIAR DE LOS JEFES DE PR\xC1CTICA DE UNIVERSIDADES
-        P\xDABLICAS QUE INGRESARON POR CONCURSO P\xDABLICO Y MANTUVIERON CONTINUIDAD
-        FUNCIONAL BAJO DENOMINACIONES CONTRACTUALES DISTINTAS\", \"desProponente\":
-        \"Congreso\", \"autores\": \"Ag\xFCero Guti\xE9rrez, Mar\xEDa Antonieta; Cruz
-        Mamani, Flavio; Mita Alanoca, Isaac; Gonza Castillo, Am\xE9rico; Espiritu
-        Cavero, Raul; Cerr\xF3n Rojas, Waldemar Jos\xE9\", \"rowsTotal\": 0}, {\"perParId\":
-        2021, \"pleyNum\": 14857, \"proyectoLey\": \"14857/2025-CR\", \"desEstado\":
-        \"EN COMISI\xD3N\", \"fecPresentacion\": \"2026-07-07T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY NUEVA LEY GENERAL DE EDUCACI\xD3N\", \"desProponente\":
-        \"Congreso\", \"autores\": \"Guti\xE9rrez Ticona, Paul Silvio; Valer Pinto,
-        H\xE9ctor; Pazo Nunura, Jose Bernardo; Zegarra Saboya, Ana Zadith; Paredes
-        Gonzales, Alex Antonio; Zea Choquechambi, Oscar\", \"rowsTotal\": 0}, {\"perParId\":
-        2021, \"pleyNum\": 14856, \"proyectoLey\": \"14856/2025-CR\", \"desEstado\":
-        \"EN COMISI\xD3N\", \"fecPresentacion\": \"2026-07-06T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY QUE MODIFICA LA LEY N.\xB0 31557, LEY QUE REGULA
-        LA EXPLOTACI\xD3N DE LOS JUEGOS A DISTANCIA Y APUESTAS DEPORTIVAS A DISTANCIA,
-        A FIN DE FORTALECER EL FINANCIAMIENTO DESCENTRALIZADO DE LOS SERVICIOS DE
-        SALUD MENTAL\", \"desProponente\": \"Congreso\", \"autores\": \"Chac\xF3n
-        Trujillo, Nilza Merly; Jim\xE9nez Heredia, David Julio; Moyano Delgado, Martha
-        Lupe; L\xF3pez Morales, Jeny Luz; Infantes Casta\xF1eda, Mery Eliana; Obando
-        Morgan, Auristela Ana; Castillo Rivas, Eduardo Enrique\", \"rowsTotal\": 0},
-        {\"perParId\": 2021, \"pleyNum\": 14855, \"proyectoLey\": \"14855/2025-CR\",
-        \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\": \"2026-07-03T00:00:00.000-05:00\",
-        \"titulo\": \"PROYECTO DE LEY INTEGRAL PARA LA PREVENCI\xD3N, ATENCI\xD3N
-        Y REHABILITACI\xD3N DEL ACCIDENTE CEREBROVASCULAR\", \"desProponente\": \"Congreso\",
-        \"autores\": \"Bustamante Donayre, Carlos Ernesto; Flores Ruiz, V\xEDctor
-        Seferino; Ventura \xC1ngel, H\xE9ctor Jos\xE9; Santisteban Suclupe, Magally;
-        Jim\xE9nez Heredia, David Julio; Obando Morgan, Auristela Ana\", \"rowsTotal\":
-        0}], \"rowsTotal\": 0}, \"timestamp\": \"2026-07-28T23:05:25.908-05:00\"}"
+      string: '{"code":200,"status":"success","data":[{"perParId":2026,"desPerPar":"Periodo
+        Parlamentario 2026 - 2031","desPerParAbrev":"2026-2031","fecIni":"2026-07-27
+        00:00:00.0","fecFin":"2031-07-26 00:00:00.0","activo":true,"periodosLegislativos":[{"perParId":2026,"perLegId":2026,"desPerLeg":"2026
+        - 2027","desPerLegAbrev":"2026","fecIni":"2026-07-27 00:00:00.0","fecFin":"2027-07-26
+        00:00:00.0","activo":true}]},{"perParId":2021,"desPerPar":"Periodo Parlamentario
+        2021 - 2026","desPerParAbrev":"2021-2026","fecIni":"2021-07-22 00:00:00.0","fecFin":"2026-07-26
+        00:00:00.0","activo":true,"periodosLegislativos":[{"perParId":2021,"perLegId":2021,"desPerLeg":"2021
+        - 2022","desPerLegAbrev":"2021","fecIni":"2021-07-27 00:00:00.0","fecFin":"2022-07-26
+        00:00:00.0","activo":true},{"perParId":2021,"perLegId":2022,"desPerLeg":"2022
+        - 2023","desPerLegAbrev":"2022","fecIni":"2022-07-27 00:00:00.0","fecFin":"2023-07-26
+        00:00:00.0","activo":true},{"perParId":2021,"perLegId":2023,"desPerLeg":"2023
+        - 2024","desPerLegAbrev":"2023","fecIni":"2023-07-27 00:00:00.0","fecFin":"2024-07-26
+        00:00:00.0","activo":true},{"perParId":2021,"perLegId":2024,"desPerLeg":"2024
+        - 2025","desPerLegAbrev":"2024","fecIni":"2024-07-27 00:00:00.0","fecFin":"2025-07-26
+        00:00:00.0","activo":true},{"perParId":2021,"perLegId":2025,"desPerLeg":"2025
+        - 2026","desPerLegAbrev":"2025","fecIni":"2025-07-27 00:00:00.0","fecFin":"2026-07-26
+        00:00:00.0","activo":true}]}],"timestamp":"2026-08-19T20:49:19.191-05:00"}'
     headers:
       access-control-allow-credentials:
       - 'true'
@@ -109,14 +52,98 @@ interactions:
       connection:
       - keep-alive
       content-length:
-      - '8153890'
+      - '1468'
       content-security-policy:
       - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
         https://*.congreso.net;
       content-type:
       - application/json; charset=UTF-8
       date:
-      - Wed, 29 Jul 2026 04:05:25 GMT
+      - Thu, 20 Aug 2026 01:49:19 GMT
+      expires:
+      - '0'
+      permissions-policy:
+      - fullscreen=(self)
+      pragma:
+      - no-cache
+      referrer-policy:
+      - unsafe-url
+      strict-transport-security:
+      - max-age=63072000; includeSubDomains; preload
+      - max-age=31536000 ; includeSubDomains
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      vary:
+      - Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+      via:
+      - 1.1 kong/3.10.0.2-enterprise-edition
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - DENY
+      x-kong-proxy-latency:
+      - '0'
+      x-kong-request-id:
+      - 6ee28a29a456ed3ec4d5155c5c747305
+      x-kong-upstream-latency:
+      - '54'
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"page":0,"size":300,"perParId":2026}'
+    headers:
+      accept:
+      - application/json, text/html, */*
+      accept-encoding:
+      - gzip, deflate, br
+      accept-language:
+      - es-PE,es;q=0.9
+      connection:
+      - keep-alive
+      content-length:
+      - '37'
+      content-type:
+      - application/json
+      host:
+      - api.congreso.gob.pe
+      referer:
+      - https://wb2server.congreso.gob.pe/spley-portal/
+    method: POST
+    uri: https://api.congreso.gob.pe/spley-portal-service/proyecto-ley/lista-con-filtro
+  response:
+    body:
+      string: "{\"code\":200,\"status\":\"success\",\"data\":{\"proyectos\":[{\"perParId\":2026,\"pleyNum\":1,\"proyectoLey\":\"00001-2026-2031-CR\",\"desEstado\":\"PRESENTADO\",\"fecPresentacion\":\"2026-08-14T00:00:00.000-05:00\",\"titulo\":\"CUENTA
+        GENERAL DE LA REP\xDABLICA CORRESPONDIENTE AL EJERCICIO FISCAL 2025\",\"desProponente\":\"PODER
+        EJECUTIVO\",\"autores\":\"\",\"codTipoParl\":\"C\",\"codTipoParlActual\":\"C\",\"rowsTotal\":0}],\"rowsTotal\":0},\"timestamp\":\"2026-08-19T20:49:19.739-05:00\"}"
+    headers:
+      access-control-allow-credentials:
+      - 'true'
+      - 'true'
+      access-control-allow-headers:
+      - '*'
+      access-control-allow-methods:
+      - GET, POST, PUT, DELETE, OPTIONS, PATCH
+      access-control-expose-headers:
+      - Content-Disposition, Content-Length, Content-Type
+      access-control-max-age:
+      - '3600'
+      cache-control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      connection:
+      - keep-alive
+      content-length:
+      - '439'
+      content-security-policy:
+      - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
+        https://*.congreso.net;
+      content-type:
+      - application/json; charset=UTF-8
+      date:
+      - Thu, 20 Aug 2026 01:49:19 GMT
       expires:
       - '0'
       permissions-policy:
@@ -142,9 +169,166 @@ interactions:
       x-kong-proxy-latency:
       - '1'
       x-kong-request-id:
-      - 124a4977649cfe50f91148745c754877
+      - 38e44f1e922e8f1505c1871baf0bfe60
       x-kong-upstream-latency:
-      - '289'
+      - '6'
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"page":0,"size":300,"perParId":2021}'
+    headers:
+      accept:
+      - application/json, text/html, */*
+      accept-encoding:
+      - gzip, deflate, br
+      accept-language:
+      - es-PE,es;q=0.9
+      connection:
+      - keep-alive
+      content-length:
+      - '37'
+      content-type:
+      - application/json
+      host:
+      - api.congreso.gob.pe
+      referer:
+      - https://wb2server.congreso.gob.pe/spley-portal/
+    method: POST
+    uri: https://api.congreso.gob.pe/spley-portal-service/proyecto-ley/lista-con-filtro
+  response:
+    body:
+      string: "{\"code\": 200, \"status\": \"success\", \"data\": {\"proyectos\":
+        [{\"perParId\": 2021, \"pleyNum\": 14864, \"proyectoLey\": \"14864/2025-CR\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-07-22T00:00:00.000-05:00\",
+        \"titulo\": \"PROYECTO DE LEY QUE RESTITUYE LA COMPETENCIA DE LA JURISDICCI\xD3N
+        ORDINARIA SOBRE LOS PROCESOS PENALES SEGUIDOS CONTRA MILITARES Y POLIC\xCDAS\",
+        \"desProponente\": \"Congreso\", \"autores\": \"Luque Ibarra, Ruth; Baz\xE1n
+        Narro, Sigrid Tesoro; Paredes Piqu\xE9, Susel Ana Mar\xEDa\", \"codTipoParl\":
+        \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021,
+        \"pleyNum\": 14863, \"proyectoLey\": \"14863/2025-PE\", \"desEstado\": \"PRESENTADO\",
+        \"fecPresentacion\": \"2026-07-20T00:00:00.000-05:00\", \"titulo\": \"PROYECTO
+        DE LEY QUE MODIFICA LA LEY N.\xB0 27943, LEY DEL SISTEMA PORTUARIO NACIONAL,
+        A FIN DE OTORGAR LA FACULTAD DE EJECUCI\xD3N COACTIVA A LA AUTORIDAD PORTUARIA
+        NACIONAL\", \"desProponente\": \"PODER EJECUTIVO\", \"autores\": \"\", \"codTipoParl\":
+        \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021,
+        \"pleyNum\": 14862, \"proyectoLey\": \"14862/2025-PE\", \"desEstado\": \"PRESENTADO\",
+        \"fecPresentacion\": \"2026-07-17T00:00:00.000-05:00\", \"titulo\": \"PROYECTO
+        DE LEY DE CREACI\xD3N DEL DISTRITO DE WINCHINKIM EN LA PROVINCIA DE CONDORCANQUI
+        DEL DEPARTAMENTO DE AMAZONAS\", \"desProponente\": \"PODER EJECUTIVO\", \"autores\":
+        \"\", \"codTipoParl\": \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\":
+        0}, {\"perParId\": 2021, \"pleyNum\": 14861, \"proyectoLey\": \"14861/2025-GR\",
+        \"desEstado\": \"PRESENTADO\", \"fecPresentacion\": \"2026-07-16T00:00:00.000-05:00\",
+        \"titulo\": \"PROYECTO DE LEY QUE DISPONE LA EXPROPIACI\xD3N DE LOS LOTES
+        17, 18 Y 19 EMPLAZADOS EN LA MANZANA 70, UBICADOS EN EL DISTRITO DE HUAMACHUCO,
+        PROVINCIA DE S\xC1NCHEZ CARRI\xD3N, REGI\xD3N LA LIBERTAD, QUE FORMAN PARTE
+        DE LA CASA DONDE NACI\xD3 EL PR\xD3CER DE LA INDEPENDENCIA Y TRIBUNO DE LA
+        REP\xDABLICA DOCTOR JOS\xC9 FAUSTINO S\xC1NCHEZ CARRI\xD3N.\", \"desProponente\":
+        \"Gobiernos Regionales\", \"autores\": \"\", \"codTipoParl\": \"C\", \"codTipoParlActual\":
+        \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\": 14860, \"proyectoLey\":
+        \"14860/2025-CR\", \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\":
+        \"2026-07-13T00:00:00.000-05:00\", \"titulo\": \"PROYECTO DE LEY QUE DECLARA
+        DE INTER\xC9S NACIONAL Y NECESIDAD P\xDABLICA LA CREACI\xD3N DEL DISTRITO
+        DE TACA, UBICADO EN EL DISTRITO DE CANARIA DE LA PROVINCIA DE V\xCDCTOR FAJARDO
+        DEL DEPARTAMENTO DE AYACUCHO\", \"desProponente\": \"Congreso\", \"autores\":
+        \"Palacios Huam\xE1n, Margot\", \"codTipoParl\": \"C\", \"codTipoParlActual\":
+        \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\": 14859, \"proyectoLey\":
+        \"14859/2025-CR\", \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\":
+        \"2026-07-10T00:00:00.000-05:00\", \"titulo\": \"PROYECTO DE LA NUEVA LEY
+        DEL DOCENTE\", \"desProponente\": \"Congreso\", \"autores\": \"Guti\xE9rrez
+        Ticona, Paul Silvio; Valer Pinto, H\xE9ctor; Pazo Nunura, Jose Bernardo; Medina
+        Hermosilla, Elizabeth Sara; Zegarra Saboya, Ana Zadith; Zea Choquechambi,
+        Oscar\", \"codTipoParl\": \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\":
+        0}, {\"perParId\": 2021, \"pleyNum\": 14858, \"proyectoLey\": \"14858/2025-CR\",
+        \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\": \"2026-07-07T00:00:00.000-05:00\",
+        \"titulo\": \"PROYECTO DE LEY QUE MODIFICA LA LEY N.\xB0 32680, A FIN DE GARANTIZAR
+        EL NOMBRAMIENTO EXCEPCIONAL EN LA CATEGOR\xCDA DE DOCENTE AUXILIAR DE LOS
+        JEFES DE PR\xC1CTICA DE UNIVERSIDADES P\xDABLICAS QUE INGRESARON POR CONCURSO
+        P\xDABLICO Y MANTUVIERON CONTINUIDAD FUNCIONAL BAJO DENOMINACIONES CONTRACTUALES
+        DISTINTAS\", \"desProponente\": \"Congreso\", \"autores\": \"Ag\xFCero Guti\xE9rrez,
+        Mar\xEDa Antonieta; Cruz Mamani, Flavio; Mita Alanoca, Isaac; Gonza Castillo,
+        Am\xE9rico; Espiritu Cavero, Raul; Cerr\xF3n Rojas, Waldemar Jos\xE9\", \"codTipoParl\":
+        \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021,
+        \"pleyNum\": 14857, \"proyectoLey\": \"14857/2025-CR\", \"desEstado\": \"EN
+        COMISI\xD3N\", \"fecPresentacion\": \"2026-07-07T00:00:00.000-05:00\", \"titulo\":
+        \"PROYECTO DE LEY NUEVA LEY GENERAL DE EDUCACI\xD3N\", \"desProponente\":
+        \"Congreso\", \"autores\": \"Guti\xE9rrez Ticona, Paul Silvio; Valer Pinto,
+        H\xE9ctor; Pazo Nunura, Jose Bernardo; Zegarra Saboya, Ana Zadith; Paredes
+        Gonzales, Alex Antonio; Zea Choquechambi, Oscar\", \"codTipoParl\": \"C\",
+        \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}, {\"perParId\": 2021, \"pleyNum\":
+        14856, \"proyectoLey\": \"14856/2025-CR\", \"desEstado\": \"EN COMISI\xD3N\",
+        \"fecPresentacion\": \"2026-07-06T00:00:00.000-05:00\", \"titulo\": \"PROYECTO
+        DE LEY QUE MODIFICA LA LEY N.\xB0 31557, LEY QUE REGULA LA EXPLOTACI\xD3N
+        DE LOS JUEGOS A DISTANCIA Y APUESTAS DEPORTIVAS A DISTANCIA, A FIN DE FORTALECER
+        EL FINANCIAMIENTO DESCENTRALIZADO DE LOS SERVICIOS DE SALUD MENTAL\", \"desProponente\":
+        \"Congreso\", \"autores\": \"Chac\xF3n Trujillo, Nilza Merly; Jim\xE9nez Heredia,
+        David Julio; Moyano Delgado, Martha Lupe; L\xF3pez Morales, Jeny Luz; Infantes
+        Casta\xF1eda, Mery Eliana; Obando Morgan, Auristela Ana; Castillo Rivas, Eduardo
+        Enrique\", \"codTipoParl\": \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\":
+        0}, {\"perParId\": 2021, \"pleyNum\": 14855, \"proyectoLey\": \"14855/2025-CR\",
+        \"desEstado\": \"EN COMISI\xD3N\", \"fecPresentacion\": \"2026-07-03T00:00:00.000-05:00\",
+        \"titulo\": \"PROYECTO DE LEY INTEGRAL PARA LA PREVENCI\xD3N, ATENCI\xD3N
+        Y REHABILITACI\xD3N DEL ACCIDENTE CEREBROVASCULAR\", \"desProponente\": \"Congreso\",
+        \"autores\": \"Bustamante Donayre, Carlos Ernesto; Flores Ruiz, V\xEDctor
+        Seferino; Ventura \xC1ngel, H\xE9ctor Jos\xE9; Santisteban Suclupe, Magally;
+        Jim\xE9nez Heredia, David Julio; Obando Morgan, Auristela Ana\", \"codTipoParl\":
+        \"C\", \"codTipoParlActual\": \"C\", \"rowsTotal\": 0}], \"rowsTotal\": 0},
+        \"timestamp\": \"2026-08-19T20:49:20.273-05:00\"}"
+    headers:
+      access-control-allow-credentials:
+      - 'true'
+      - 'true'
+      access-control-allow-headers:
+      - '*'
+      access-control-allow-methods:
+      - GET, POST, PUT, DELETE, OPTIONS, PATCH
+      access-control-expose-headers:
+      - Content-Disposition, Content-Length, Content-Type
+      access-control-max-age:
+      - '3600'
+      cache-control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      connection:
+      - keep-alive
+      content-length:
+      - '8786237'
+      content-security-policy:
+      - frame-ancestors 'self' https://congreso.gob.pe https://*.congreso.gob.pe https://congreso.net
+        https://*.congreso.net;
+      content-type:
+      - application/json; charset=UTF-8
+      date:
+      - Thu, 20 Aug 2026 01:49:19 GMT
+      expires:
+      - '0'
+      permissions-policy:
+      - fullscreen=(self)
+      pragma:
+      - no-cache
+      referrer-policy:
+      - unsafe-url
+      strict-transport-security:
+      - max-age=63072000; includeSubDomains; preload
+      - max-age=31536000 ; includeSubDomains
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      vary:
+      - Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+      via:
+      - 1.1 kong/3.10.0.2-enterprise-edition
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - DENY
+      x-kong-proxy-latency:
+      - '0'
+      x-kong-request-id:
+      - fc91c74a5400fc4ed4438329bdf27f56
+      x-kong-upstream-latency:
+      - '319'
       x-xss-protection:
       - 1; mode=block
     status:

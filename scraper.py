@@ -35,7 +35,10 @@ CONGRESO   = "https://www.congreso.gob.pe"
 # WordPress/plugin que CONGRESO (mismas clases widget_wc_widget_*).
 SENADO     = "https://senado.congreso.gob.pe"
 DIPUTADOS  = "https://diputados.congreso.gob.pe"
-PER_PAR_ID = 2021   # periodo parlamentario actual 2021-2026
+# Periodos parlamentarios de respaldo, del más nuevo al más viejo. Solo se usan
+# si /periodo-parlamentario no responde; la lista real se resuelve en runtime.
+PER_PAR_FALLBACK = [2026, 2021]
+PER_PAR_ID = PER_PAR_FALLBACK[-1]   # periodo 2021-2026, base de los enlaces viejos
 
 # Ventana de "noticia reciente". Coincide con la del resumen semanal
 # (services.orchestrator.RESUMEN_DIAS).
@@ -171,6 +174,84 @@ async def _google_news(query: str, max_results: int = 15, dias: int | None = Non
 
 # ── Proyectos de ley ───────────────────────────────────────────
 
+_periodos_cache: list[int] | None = None
+_periodos_lock = asyncio.Lock()
+
+
+async def _periodos() -> list[int]:
+    """
+    perParId de los periodos parlamentarios, del más reciente al más antiguo.
+
+    No puede quedar hardcodeado: el 27/07/2026 arrancó el periodo 2026-2031 y
+    todo lo que seguía pidiendo perParId=2021 dejó de ver proyectos nuevos
+    (el último que devolvía era del 22/07/2026). Se resuelve contra la API y se
+    cachea por proceso — la lista cambia una vez cada cinco años.
+    """
+    global _periodos_cache
+    if _periodos_cache is not None:
+        return _periodos_cache
+
+    async with _periodos_lock:
+        if _periodos_cache is not None:
+            return _periodos_cache
+        try:
+            async with _client() as c:
+                r = await c.get(f"{SPLEY_API}/periodo-parlamentario")
+                if r.status_code == 200:
+                    ids = [p["perParId"] for p in r.json().get("data", [])
+                           if p.get("perParId")]
+                    if ids:
+                        _periodos_cache = sorted(set(ids), reverse=True)
+                        logger.info("periodos parlamentarios: %s", _periodos_cache)
+                        return _periodos_cache
+        except Exception as _e:
+            logger.debug("periodo-parlamentario falló, uso fallback: %s", _e)
+
+        _periodos_cache = list(PER_PAR_FALLBACK)
+        return _periodos_cache
+
+
+def _num_proyecto(numero) -> str:
+    """
+    Número de proyecto normalizado para comparar.
+
+    Conviven dos formatos: '14864/2025-CR' (periodo 2021-2026) y
+    '00001-2026-2031-CR' (2026-2031). El nuevo lleva ceros a la izquierda, así
+    que se toman los dígitos iniciales sin ceros: '14864' y '1'.
+    """
+    m = re.match(r"\s*0*(\d+)", str(numero or ""))
+    return m.group(1) if m else str(numero or "").strip()
+
+
+async def _spley_proyectos(c, payload: dict, min_items: int = 1) -> list[dict]:
+    """
+    Corre lista-con-filtro sobre los periodos parlamentarios, del más nuevo al
+    más viejo, y devuelve los proyectos anotados con su periodo en `_perPar`.
+
+    Sigue al periodo anterior en vez de cortar en el primero que responde:
+    2026-2031 abrió con un único proyecto, así que quedarse ahí dejaría la app
+    casi vacía durante semanas. Ordena por fecha de presentación descendente
+    para que la mezcla de periodos salga coherente.
+    """
+    out: list[dict] = []
+    for per in await _periodos():
+        try:
+            r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro",
+                             json={**payload, "perParId": per})
+            if r.status_code != 200:
+                continue
+            for p in r.json().get("data", {}).get("proyectos", []):
+                p["_perPar"] = per
+                out.append(p)
+        except Exception as _e:
+            logger.debug("spley periodo %s: %s", per, _e)
+        if len(out) >= min_items:
+            break
+
+    out.sort(key=lambda p: str(p.get("fecPresentacion") or ""), reverse=True)
+    return out
+
+
 async def _fetch_spley_por_materia(materia: str, limit: int = 20):
     """
     SPLEY's strBusqueda does NOT filter by topic — it ignores the keyword and
@@ -181,14 +262,16 @@ async def _fetch_spley_por_materia(materia: str, limit: int = 20):
     if not keywords:
         return None
 
-    # Fetch up to 300 recent projects and filter locally
-    payload = {"perParId": PER_PAR_ID, "page": 0, "size": 300}
+    # Fetch up to 300 recent projects and filter locally.
+    # min_items=300 fuerza a barrer todos los periodos: el actual todavía tiene
+    # muy pocos proyectos y una búsqueda por materia sin el periodo anterior no
+    # encontraría nada.
     try:
         async with _client() as c:
-            r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro", json=payload)
-            if r.status_code != 200:
-                return None
-            all_items = r.json().get("data", {}).get("proyectos", [])
+            all_items = await _spley_proyectos(c, {"page": 0, "size": 300},
+                                               min_items=300)
+        if not all_items:
+            return None
     except Exception as _e:
         logger.debug("scraper → None: %s", _e)
         return None
@@ -219,12 +302,41 @@ async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
 
         # Con dias: traer más items para filtrar por fecha luego
         fetch_size = min(100, limit * 5) if dias else limit
-        payload: dict = {"perParId": PER_PAR_ID, "page": 0, "size": fetch_size}
+        payload: dict = {"page": 0, "size": fetch_size}
 
+        # SPLEY ignora strBusqueda por completo (hasta un texto inexistente
+        # devuelve el catálogo entero), así que número y autor se filtran del
+        # lado del cliente igual que materia. Mandarlo como filtro devolvía los
+        # proyectos más recientes disfrazados de resultado de la búsqueda.
+        filtro_local = None
         if numero:
-            payload["strBusqueda"] = numero.split("/")[0].strip()
+            objetivo = _num_proyecto(numero)
+            # El número solo es único dentro de su periodo: "00001" existe tanto
+            # en 2021-2026 como en 2026-2031. Si el texto trae el periodo
+            # ("00001-2026-2031-CR") se usa para desambiguar.
+            m_per = re.search(r"(20\d{2})\s*-\s*20\d{2}", str(numero))
+            per_pedido = int(m_per.group(1)) if m_per else None
+
+            def filtro_local(p):
+                if _num_proyecto(p.get("proyectoLey") or p.get("pleyNum")) != objetivo:
+                    return False
+                return per_pedido is None or p.get("_perPar") == per_pedido
         elif autor:
-            payload["strBusqueda"] = autor
+            tokens = [t for t in re.split(r"\s+", autor.upper()) if len(t) > 2]
+
+            def filtro_local(p):
+                # `autores` viene como "Luque Ibarra, Ruth" (apellidos primero),
+                # así que comparar contra el crudo hacía fallar "Ruth Luque".
+                # Se normaliza al orden natural y se exige que estén todas las
+                # palabras del nombre buscado, en cualquier orden.
+                texto = (f"{_normalizar_lista_autores(p.get('autores'))} "
+                         f"{p.get('desProponente') or ''}").upper()
+                return bool(tokens) and all(t in texto for t in tokens)
+
+        if filtro_local:
+            # El filtro corre sobre el catálogo completo, no sobre `limit`.
+            payload["size"] = 300
+            fetch_size = 300
         elif comision:
             try:
                 rc = await c.get(f"{SPLEY_API}/comisiones")
@@ -244,33 +356,41 @@ async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
                 payload["strBusqueda"] = comision
 
         try:
-            r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro",
-                             json=payload)
-            if r.status_code == 200:
-                data = r.json().get("data", {})
-                items = data.get("proyectos", [])
-                if items:
-                    # Filtrar por fecha si se pidió
-                    if dias:
-                        # Normalizado a medianoche: las fechas de SPLEY vienen a
-                        # medianoche (sin hora real), así que comparar contra
-                        # "ahora mismo" (con hora) excluía de forma inconsistente
-                        # ítems del propio día límite según a qué hora se
-                        # corriera la consulta — un proyecto de "hoy 00:00" podía
-                        # quedar afuera de "últimos 15 días" si ya eran las 11pm.
-                        hoy_medianoche = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-                        cutoff = hoy_medianoche - timedelta(days=int(dias))
-                        def _parse_raw(s):
-                            for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
-                                try:
-                                    return datetime.strptime(str(s)[:19], fmt)
-                                except Exception as _e:
-                                    logger.debug("scraper silenced: %s", _e)
-                            return None
-                        items = [p for p in items
-                                 if _parse_raw(p.get("fecPresentacion") or "") is not None
-                                 and _parse_raw(p.get("fecPresentacion")) >= cutoff]
-                    return _format_proyectos(items[:limit])
+            items = await _spley_proyectos(c, payload, min_items=fetch_size)
+            if items:
+                if filtro_local:
+                    items = [p for p in items if filtro_local(p)]
+
+                # Filtrar por fecha si se pidió
+                if dias:
+                    # Normalizado a medianoche: las fechas de SPLEY vienen a
+                    # medianoche (sin hora real), así que comparar contra
+                    # "ahora mismo" (con hora) excluía de forma inconsistente
+                    # ítems del propio día límite según a qué hora se
+                    # corriera la consulta — un proyecto de "hoy 00:00" podía
+                    # quedar afuera de "últimos 15 días" si ya eran las 11pm.
+                    hoy_medianoche = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                    cutoff = hoy_medianoche - timedelta(days=int(dias))
+                    def _parse_raw(s):
+                        for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+                            try:
+                                return datetime.strptime(str(s)[:19], fmt)
+                            except Exception as _e:
+                                logger.debug("scraper silenced: %s", _e)
+                        return None
+                    items = [p for p in items
+                             if _parse_raw(p.get("fecPresentacion") or "") is not None
+                             and _parse_raw(p.get("fecPresentacion")) >= cutoff]
+
+                if not items:
+                    # Distinguir "no hay nada que cumpla el filtro" de un fallo
+                    # de red: devolver una lista vacía dejaba al modelo sin nada
+                    # que decir y respondía en vago.
+                    return {"sin_datos": True,
+                            "mensaje": _mensaje_sin_proyectos(
+                                autor=autor, comision=comision, numero=numero,
+                                materia=materia, dias=dias)}
+                return _format_proyectos(items[:limit])
         except Exception as _e:
             logger.debug("scraper silenced: %s", _e)
 
@@ -280,7 +400,42 @@ async def fetch_proyectos(autor=None, comision=None, numero=None, materia=None,
         }
 
 
+def _mensaje_sin_proyectos(autor=None, comision=None, numero=None,
+                           materia=None, dias=None) -> str:
+    """Explica por qué la búsqueda quedó vacía, con el criterio que la vació."""
+    if numero:
+        return f"No se encontró el proyecto de ley {numero}."
+    criterios = []
+    if autor:
+        criterios.append(f"del autor '{autor}'")
+    if comision:
+        criterios.append(f"en la comisión '{comision}'")
+    if materia:
+        criterios.append(f"sobre '{materia}'")
+    if dias:
+        criterios.append(f"presentados en los últimos {dias} días")
+    detalle = " ".join(criterios) if criterios else "con esos criterios"
+    return (f"No se encontraron proyectos de ley {detalle}. "
+            "El periodo parlamentario 2026-2031 recién comenzó el 27/07/2026, "
+            "así que todavía hay muy pocos proyectos presentados.")
+
+
 SPLEY_PORTAL = "https://wb2server.congreso.gob.pe/spley-portal/#/expediente"
+
+
+def _enlace_expediente(p: dict) -> str:
+    """
+    Enlace al expediente en el portal SPLEY.
+
+    El periodo va en la URL, así que se toma el del propio proyecto (`_perPar`,
+    puesto por _spley_proyectos) y no una constante: con resultados mezclados de
+    2021-2026 y 2026-2031 un periodo fijo mandaba a un expediente inexistente.
+    """
+    num = p.get("pleyNum") or ""
+    if not num:
+        return ""
+    return f"{SPLEY_PORTAL}/{p.get('_perPar') or PER_PAR_ID}/{num}"
+
 
 def _format_proyectos(items):
     out = []
@@ -297,7 +452,7 @@ def _format_proyectos(items):
             "comision":            p.get("desComision") or "",
             "grupo_parlamentario": p.get("desGpar") or "",
             "legislatura":         p.get("desLegis") or "",
-            "enlace":              f"{SPLEY_PORTAL}/{PER_PAR_ID}/{num}" if num else f"{SPLEY_PORTAL}/search",
+            "enlace":              _enlace_expediente(p) or f"{SPLEY_PORTAL}/search",
         })
     return {"fuente": "SPLEY — api.congreso.gob.pe",
             "total": len(out), "items": out}
@@ -567,23 +722,20 @@ async def fetch_congresista(nombre: str):
 
 async def fetch_estado_proyecto(numero: str):
     """Estado detallado de un proyecto de ley por número."""
-    # Extract just the numeric part for search (e.g. "14860/2025-CR" → "14860")
-    num_clean = numero.split("/")[0].strip()
+    # Número normalizado: "14860/2025-CR" → "14860", "00001-2026-2031-CR" → "1"
+    num_clean = _num_proyecto(numero)
     async with _client() as c:
-        payload = {
-            "perParId":    PER_PAR_ID,
-            "strBusqueda": num_clean,
-            "page":        0,
-            "size":        10,
-        }
         try:
-            r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro", json=payload)
-            if r.status_code == 200:
-                items = r.json().get("data", {}).get("proyectos", [])
-                # Find exact match first, then fall back to first result
+            items = await _spley_proyectos(c, {"page": 0, "size": 300},
+                                           min_items=300)
+            if items:
+                # Match exacto por número. Antes era `num_clean in proyectoLey`,
+                # que con números cortos matcheaba cualquier proyecto que los
+                # contuviera como substring y devolvía uno equivocado.
                 exact = next(
-                    (p for p in items if num_clean in (p.get("proyectoLey") or p.get("pleyNum") or "")),
-                    items[0] if items else None
+                    (p for p in items
+                     if _num_proyecto(p.get("proyectoLey") or p.get("pleyNum")) == num_clean),
+                    None
                 )
                 if exact:
                     p   = exact
@@ -596,7 +748,7 @@ async def fetch_estado_proyecto(numero: str):
                         "autor":         _normalizar_lista_autores(p.get("autores")) or p.get("desProponente") or "",
                         "comision":      p.get("desComision") or "",
                         "sumilla":       p.get("sumilla") or p.get("titulo") or "",
-                        "enlace":        f"{SPLEY_PORTAL}/{PER_PAR_ID}/{num}" if num else "",
+                        "enlace":        _enlace_expediente(p),
                         "fuente":        "SPLEY — api.congreso.gob.pe",
                     }
         except Exception as _e:
@@ -911,25 +1063,27 @@ async def fetch_expediente(numero: str):
     Obtiene el expediente completo de un proyecto: comisiones asignadas,
     seguimiento cronológico de actos, predictamen/dictamen y grupo parlamentario.
     """
-    num_clean = numero.split("/")[0].strip()
+    num_clean = _num_proyecto(numero)
 
     # Resolve pleyNum from list if needed
     async with _client() as c:
-        r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro",
-                         json={"perParId": PER_PAR_ID, "strBusqueda": num_clean,
-                               "page": 0, "size": 10})
-        if r.status_code != 200:
+        items = await _spley_proyectos(c, {"page": 0, "size": 300},
+                                       min_items=300)
+        if not items:
             return {"error": f"No se pudo buscar el proyecto {numero}."}
-        items = r.json().get("data", {}).get("proyectos", [])
         exact = next(
-            (p for p in items if num_clean in (p.get("proyectoLey") or p.get("pleyNum",""))),
-            items[0] if items else None,
+            (p for p in items
+             if _num_proyecto(p.get("proyectoLey") or p.get("pleyNum")) == num_clean),
+            None,
         )
         if not exact:
             return {"error": f"Proyecto {numero} no encontrado."}
         pley_num = str(exact["pleyNum"])
+        # El expediente vive dentro de su periodo: usar uno fijo devolvía 404
+        # para cualquier proyecto del periodo 2026-2031.
+        per_par = exact.get("_perPar") or PER_PAR_ID
 
-    enc_per = _spley_encrypt(str(PER_PAR_ID))
+    enc_per = _spley_encrypt(str(per_par))
     enc_ple = _spley_encrypt(pley_num)
     import asyncio as _asyncio
 
@@ -1028,7 +1182,7 @@ async def fetch_expediente(numero: str):
             "autor":              _normalizar_lista_autores(p.get("autores")) or p.get("desProponente") or "",
             "proponente":         p.get("desProponente") or "",
             "estado":             p.get("desEstado") or "",
-            "enlace":             f"{SPLEY_PORTAL}/{PER_PAR_ID}/{p.get('pleyNum','')}" if p.get("pleyNum") else "",
+            "enlace":             f"{SPLEY_PORTAL}/{per_par}/{p.get('pleyNum','')}" if p.get("pleyNum") else "",
         })
 
     # Pestaña 3: Documentación Anexa (oficios, opiniones de ministerios, informes)
@@ -1115,7 +1269,7 @@ async def fetch_expediente(numero: str):
             "nombre":  dictamen.get("nombreArchivo") if dictamen else None,
             "url":     _archivo_url(dictamen) if dictamen else None,
         } if dictamen else None,
-        "enlace_expediente":     f"{SPLEY_PORTAL}/{PER_PAR_ID}/{pley_num_str}" if pley_num_str else "",
+        "enlace_expediente":     f"{SPLEY_PORTAL}/{per_par}/{pley_num_str}" if pley_num_str else "",
         "fuente":                f"SPLEY expediente — {SPLEY_API}",
     }
 
@@ -1455,11 +1609,10 @@ async def fetch_interpelaciones(ministro: str = None):
     # ── 1. Buscar mociones formales en SPLEY ──────────────────────
     mociones_spley = []
     try:
-        payload = {"perParId": PER_PAR_ID, "page": 0, "size": 300}
         async with _client() as c:
-            r = await c.post(f"{SPLEY_API}/proyecto-ley/lista-con-filtro", json=payload)
-            if r.status_code == 200:
-                all_items = r.json().get("data", {}).get("proyectos", [])
+            all_items = await _spley_proyectos(c, {"page": 0, "size": 300},
+                                               min_items=300)
+            if all_items:
                 for p in all_items:
                     titulo = (p.get("titulo") or "").upper()
                     sumilla = (p.get("sumilla") or "").upper()
@@ -1479,7 +1632,7 @@ async def fetch_interpelaciones(ministro: str = None):
                                 "fecha":     _fmt_date(p.get("fecPresentacion") or ""),
                                 "proponente": p.get("desProponente") or p.get("autores") or "",
                                 "comision":  p.get("desComision") or "",
-                                "enlace":    f"{SPLEY_PORTAL}/{PER_PAR_ID}/{num}" if num else "",
+                                "enlace":    _enlace_expediente(p),
                             })
     except Exception as _e:
         logger.debug("scraper silenced: %s", _e)

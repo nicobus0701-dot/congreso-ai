@@ -68,6 +68,20 @@ def vcr_config():
     }
 
 
+@pytest.fixture(autouse=True)
+def _reset_periodos_cache():
+    """
+    scraper._periodos() cachea los periodos parlamentarios por proceso. Sin
+    limpiarlo, el primer test graba el GET a /periodo-parlamentario y los demás
+    lo saltan por caché: sus cassettes quedan sin esa request y el replay pasa a
+    depender del orden de ejecución. Reseteando, cada cassette es autocontenida.
+    """
+    import scraper
+    scraper._periodos_cache = None
+    yield
+    scraper._periodos_cache = None
+
+
 def assert_snapshot(name: str, data):
     """
     Compara `data` con tests/snapshots/<name>.json.

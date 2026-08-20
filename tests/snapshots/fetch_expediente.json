@@ -1,10 +1,10 @@
 {
   "adherentes": "",
-  "autor_principal": "Luque Ibarra, Ruth",
-  "coautores": "Bazán Narro, Sigrid Tesoro, Paredes Piqué, Susel Ana María",
+  "autor_principal": "Ruth Luque Ibarra",
+  "coautores": "Sigrid Tesoro Bazán Narro, Susel Ana María Paredes Piqué",
   "comisiones": [],
   "documentacion_anexa": [],
-  "enlace_expediente": "",
+  "enlace_expediente": "https://wb2server.congreso.gob.pe/spley-portal/#/expediente/2021/14864",
   "estado": "PRESENTADO",
   "fases": [
     "Presentado"
@@ -32,7 +32,7 @@
           "descripcion": "PL 14864",
           "nombre": "PL 14864.pdf",
           "tipo": "pdf",
-          "url": "https://api.congreso.gob.pe/spley-portal-service/expediente/archivo/PL%2014864.pdf"
+          "url": "https://api.congreso.gob.pe/spley-portal-service/archivo/NDExMzgw/pdf"
         }
       ],
       "comision": "",
@@ -48,7 +48,7 @@
       "descripcion": "PL 14864",
       "nombre": "PL 14864.pdf",
       "tipo": "pdf",
-      "url": "https://api.congreso.gob.pe/spley-portal-service/expediente/archivo/PL%2014864.pdf"
+      "url": "https://api.congreso.gob.pe/spley-portal-service/archivo/NDExMzgw/pdf"
     }
   ]
 }
