@@ -51,14 +51,14 @@ RESUMEN_CONTEXTO_DIAS = 15
 # Herramientas fijas del resumen semanal — no se le deja la elección al
 # router (8B). Dejado a su criterio con tool_choice="required" terminaba
 # llamando 7-8 herramientas de golpe (fetch_interpelaciones, fetch_comisiones,
-# buscar_en_web, buscar_agenda...) y reventaba el TPM de Groq (6k), tumbando
+# fetch_comisiones, buscar_agenda...) y reventaba el TPM de Groq (6k), tumbando
 # la función entera.
 #
 # fetch_interpelaciones sí se agregó a la lista fija: es la fuente de la
 # noticia política más caliente de la semana (mociones contra ministros) y
 # sin ella el resumen puede terminar hablando solo de trámite institucional
 # mientras ignora lo más relevante — pasó en producción. Las otras 3
-# (fetch_comisiones, buscar_en_web, buscar_agenda) siguen afuera: no aportan
+# (fetch_comisiones y buscar_agenda) siguen afuera: no aportan
 # nada nuevo que buscar_destacados/fetch_agenda_pleno no cubran ya para un
 # resumen semanal, así que agregarlas sería puro peso extra sin beneficio.
 RESUMEN_TOOLS = (

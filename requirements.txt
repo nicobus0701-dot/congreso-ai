@@ -8,7 +8,6 @@ beautifulsoup4==4.12.3
 yt-dlp
 youtube-transcript-api
 pycryptodome>=3.20.0
-ddgs>=9.0.0
 python-multipart>=0.0.9
 PyMuPDF>=1.24.0
 python-docx>=1.1.0

@@ -5,10 +5,6 @@ TOOLS        — schemas en formato function-calling de OpenAI/Groq.
 TOOL_MAP     — nombre de herramienta → coroutine que la ejecuta.
 STATUS_LABELS— texto de progreso que ve el usuario mientras corre cada una.
 """
-import asyncio
-
-from ddgs import DDGS
-
 from config import logger
 from scraper import (
     fetch_agenda,
@@ -126,27 +122,6 @@ TOOLS = [
                     }
                 },
                 "required": ["nombre"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "buscar_en_web",
-            "description": "Búsqueda web general (DuckDuckGo) para lo que no sea proyectos/sesiones/agenda/congresistas del Congreso.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Términos de búsqueda"
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Número de resultados (default: 5)"
-                    }
-                },
-                "required": ["query"]
             }
         }
     },
@@ -311,7 +286,7 @@ TOOLS = [
             "name": "fetch_interpelaciones",
             "description": (
                 "Mociones de interpelación a ministros — formales Y en gestación (firmas). "
-                "Ya busca ambas, no hace falta buscar_en_web aparte."
+                "Ya busca ambas contra fuentes del Congreso."
             ),
             "parameters": {
                 "type": "object",
@@ -326,34 +301,6 @@ TOOLS = [
     }
 ]
 
-async def buscar_en_web(query: str, limit: int = 5):
-    """
-    Búsqueda web en un executor — el SDK es síncrono y bloquearía el loop.
-
-    Usa `ddgs`. El paquete anterior (`duckduckgo_search`) quedó deprecado y su
-    parser dejó de extraer resultados: devolvía [] para toda consulta sin lanzar
-    excepción, así que el modelo concluía "no tengo acceso" en vez de fallar.
-    Por eso acá una lista vacía se reporta explícitamente como sin_datos.
-    """
-    def _search():
-        with DDGS() as ddgs:
-            return list(ddgs.text(query, max_results=limit))
-
-    try:
-        results = await asyncio.get_running_loop().run_in_executor(None, _search)
-    except Exception as e:
-        logger.warning("buscar_en_web falló para %r: %s", query, e)
-        return {"sin_datos": True, "mensaje": f"La búsqueda web falló: {e}"}
-
-    if not results:
-        logger.warning("buscar_en_web sin resultados para %r", query)
-        return {"sin_datos": True,
-                "mensaje": f"La búsqueda web no devolvió resultados para '{query}'."}
-
-    return [{"titulo": r.get("title"), "url": r.get("href"), "resumen": r.get("body")}
-            for r in results]
-
-
 async def _responder_directo():
     return {"nota": "Responde directamente con tu conocimiento, sin datos externos."}
 
@@ -365,7 +312,6 @@ TOOL_MAP = {
     "buscar_destacados":       lambda args: fetch_destacados(),
     "buscar_congresista":      lambda args: fetch_congresista(**args),
     "rastrear_proyecto":       lambda args: fetch_estado_proyecto(**args),
-    "buscar_en_web":           lambda args: buscar_en_web(**args),
     "fetch_expediente":        lambda args: fetch_expediente(
                                    numero=args.get("numero_proyecto") or args.get("numero", "")
                                ),
@@ -385,7 +331,6 @@ STATUS_LABELS = {
     "buscar_destacados":       "Buscando destacados, citaciones y documentos...",
     "buscar_congresista":      "Consultando perfil del congresista...",
     "rastrear_proyecto":       "Rastreando estado del proyecto...",
-    "buscar_en_web":           "Buscando en internet...",
     "fetch_expediente":        "Consultando el expediente completo en SPLEY (5 pestañas)...",
     "fetch_agenda_comisiones": "Revisando agenda de comisiones...",
     "fetch_agenda_pleno":      "Cargando la Agenda del Pleno...",

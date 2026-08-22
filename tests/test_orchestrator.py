@@ -352,8 +352,8 @@ async def test_run_tool_solo_reintenta_una_vez():
 
 def test_phase3_usa_mini_con_tools_sin_workflow():
     """Sin workflow propio se ahorra ~800 tokens usando SYSTEM_MINI."""
-    orch = make([user("busca en internet qué es una moción")],
-                tools_usados=["buscar_en_web"],
+    orch = make([user("perfil del congresista Fulano")],
+                tools_usados=["buscar_congresista"],
                 tool_msgs=[{"role": "tool", "content": "{}"}])
     system = orch._phase3_system()
     assert system == SYSTEM_MINI.format(hoy=orch.hoy)

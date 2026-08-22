@@ -1,7 +1,12 @@
 """
 Scrapers for Congreso de la República del Perú.
 - Proyectos de ley: SPLEY API (api.congreso.gob.pe/spley-portal-service)
-- Sesiones / Agenda / Destacados: DuckDuckGo news + fallback HTML
+- Sesiones / Agenda / Destacados: portales de Congreso/Senado/Diputados
+- Noticias: sala de prensa oficial (comunicaciones.congreso.gob.pe)
+
+Toda la información sale de dominios del Congreso. No se consultan
+buscadores ni medios de prensa: si el Congreso no lo publicó, la
+herramienta devuelve vacío en vez de rellenar con otra fuente.
 """
 import asyncio
 import base64
@@ -101,85 +106,136 @@ def _fecha_desde_titulo_es(titulo: str):
 
 def _antiguedad_dias(pubdate_raw: str):
     """
-    Días transcurridos desde un pubDate de RSS ("Mon, 23 Jun 2026 10:00:00 GMT").
+    Días transcurridos desde una fecha de publicación.
+
+    Acepta dos formatos, porque conviven dos fuentes de fecha:
+      - "2026-08-21 18:15[:03]" — el post_date de la API de noticias del
+        Congreso, que es la fuente actual.
+      - "Mon, 23 Jun 2026 10:00:00 GMT" — RFC-822, el pubDate de RSS.
+        Se mantiene por si alguna fuente del Congreso vuelve a servir RSS.
 
     Devuelve None si la fecha no se puede parsear — quien filtre decide qué
-    hacer con eso.
+    hacer con eso. OJO: sin el formato ISO acá, el filtro `dias` descartaba
+    TODAS las noticias oficiales (parsedate_to_datetime no lo entiende y
+    devolvía None), o sea que el resumen semanal se quedaba sin noticias.
     """
     from email.utils import parsedate_to_datetime
 
     if not pubdate_raw:
         return None
-    try:
-        dt = parsedate_to_datetime(pubdate_raw)
-    except (TypeError, ValueError):
-        return None
+
+    dt = None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            dt = datetime.strptime(pubdate_raw.strip()[:19], fmt)
+            break
+        except ValueError:
+            continue
+    if dt is None:
+        try:
+            dt = parsedate_to_datetime(pubdate_raw)
+        except (TypeError, ValueError):
+            return None
+
     ahora = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
     return (ahora - dt).days
 
 
-async def _google_news(query: str, max_results: int = 15, dias: int | None = None):
-    """
-    Fetch news from Google News RSS — results from Google's index.
+# Sala de prensa oficial del Congreso (WP REST API). Es lo que alimenta el
+# widget de noticias de las portadas de congreso/senado/diputados, que en el
+# HTML llega vacío con "Loading..." porque lo rellena JavaScript.
+NOTICIAS_API = "https://comunicaciones.congreso.gob.pe/wp-json/noticias/v1"
 
-    `dias` limita a noticias publicadas en los últimos N días. El índice de
-    Google devuelve resultados de meses atrás para consultas de temas amplios;
-    sin este filtro el resumen semanal las presentaba como si fueran de la
-    semana en curso. Una noticia sin pubDate parseable se descarta cuando hay
-    filtro: no se puede afirmar que esté dentro de la ventana.
-    """
-    import xml.etree.ElementTree as ET
+# `destacado=` acepta una cámara. "diputados" responde 404 con code
+# "no_destacados" cuando no hay ninguna marcada — es "vacío", no un fallo.
+_NOTICIAS_CAMARAS = ("congreso", "senado", "diputados")
 
-    q = urllib.parse.quote(query)
-    url = (
-        f"https://news.google.com/rss/search"
-        f"?q={q}&hl=es-419&gl=PE&ceid=PE:es"
-    )
-    try:
-        async with _client() as c:
-            r = await c.get(url, headers={
-                "User-Agent": "Mozilla/5.0 (compatible; RSS reader)",
-                "Accept": "application/rss+xml, application/xml",
-            })
-            if r.status_code != 200:
+
+async def _noticias_oficiales() -> list[dict]:
+    """
+    Todas las noticias publicadas por el Congreso: las últimas más las
+    destacadas de cada cámara, deduplicadas por enlace.
+
+    Sustituye a la búsqueda en Google News. La diferencia de fondo: esta API
+    NO busca por palabra clave, devuelve lo último publicado — así que el
+    filtrado por tema se hace acá, sobre el texto que ya vino. Es el mismo
+    criterio que _fetch_spley_por_materia usa con SPLEY, que tampoco filtra.
+    """
+    async def _traer(c, url):
+        try:
+            r = await c.get(url)
+            if r.status_code != 200:      # 404 = "no hay destacadas", no error
                 return []
-            root = ET.fromstring(r.text)
-            results = []
-            descartadas = 0
-            # El filtro va antes del recorte: si cortáramos a max_results primero,
-            # una tanda de noticias viejas dejaría el resultado casi vacío.
-            for item in root.findall(".//item"):
-                title  = item.findtext("title", "").strip()
-                if not title:
-                    continue
-                pubdate_raw = item.findtext("pubDate", "")
-                if dias is not None:
-                    antiguedad = _antiguedad_dias(pubdate_raw)
-                    if antiguedad is None or antiguedad > dias:
-                        descartadas += 1
-                        continue
-                link   = item.findtext("link",  "").strip()
-                source = item.findtext("source", "").strip()
-                desc   = item.findtext("description", "")
-                desc = re.sub(r'<[^>]+>', '', desc).strip()[:300]
-                results.append({
-                    "titulo":  title,
-                    "fecha":   pubdate_raw[:16],
-                    "fuente":  source,
-                    "resumen": desc,
-                    "enlace":  link,
-                })
-                if len(results) >= max_results:
-                    break
-            if descartadas:
-                logger.info(
-                    "_google_news(%r): %d noticias descartadas por antigüedad (>%d días)",
-                    query, descartadas, dias,
-                )
-            return results
-    except Exception as _e:
-        logger.debug("scraper silenced: %s", _e)
-        return []
+            return r.json().get("noticias") or []
+        except Exception as _e:
+            logger.debug("noticias oficiales (%s): %s", url, _e)
+            return []
+
+    urls = [f"{NOTICIAS_API}/ultimos/"]
+    urls += [f"{NOTICIAS_API}/destacados?destacado={cam}&cantidad=10"
+             for cam in _NOTICIAS_CAMARAS]
+
+    async with _client() as c:
+        tandas = await asyncio.gather(*(_traer(c, u) for u in urls))
+
+    vistas, salida = set(), []
+    for tanda in tandas:
+        for n in tanda:
+            enlace = (n.get("post_link") or "").strip()
+            titulo = (n.get("post_title") or "").strip()
+            if not titulo or enlace in vistas:
+                continue
+            vistas.add(enlace)
+            resumen = re.sub(r"<[^>]+>", "", n.get("post_content") or "").strip()
+            salida.append({
+                "titulo":  titulo,
+                "fecha":   (n.get("post_date") or "")[:16],
+                "fuente":  "Congreso de la República",
+                "resumen": resumen[:300],
+                "enlace":  enlace,
+            })
+    return salida
+
+
+async def _noticias_congreso(query: str, max_results: int = 15,
+                             dias: int | None = None):
+    """
+    Noticias oficiales del Congreso que coinciden con `query`.
+
+    Reemplazo directo de la vieja _google_news: misma firma y mismos campos de
+    salida, pero la fuente es la sala de prensa del Congreso en vez del índice
+    de Google. Consecuencia esperada y buscada: devuelve menos, porque solo
+    dice lo que el Congreso publicó. Antes se rellenaba con notas de prensa de
+    medios y el informe las citaba como si fueran fuente parlamentaria.
+
+    `dias` limita a lo publicado en los últimos N días; una noticia sin fecha
+    parseable se descarta cuando hay filtro, igual que antes: no se puede
+    afirmar que esté dentro de la ventana.
+    """
+    noticias = await _noticias_oficiales()
+
+    # Palabras de 4+ letras: las cortas ("de", "el", "ley") matchean todo.
+    claves = [p for p in re.findall(r"\w+", query.lower()) if len(p) > 3]
+
+    resultados, descartadas = [], 0
+    for n in noticias:
+        if dias is not None:
+            antiguedad = _antiguedad_dias(n["fecha"])
+            if antiguedad is None or antiguedad > dias:
+                descartadas += 1
+                continue
+        if claves:
+            texto = f"{n['titulo']} {n['resumen']}".lower()
+            if not any(k in texto for k in claves):
+                continue
+        resultados.append(n)
+        if len(resultados) >= max_results:
+            break
+
+    if descartadas:
+        logger.info("_noticias_congreso(%r): %d descartadas por antigüedad (>%d días)",
+                    query, descartadas, dias)
+    return resultados
 
 
 # ── Proyectos de ley ───────────────────────────────────────────
@@ -520,7 +576,7 @@ async def fetch_sesiones(comision=None, fecha=None, limit=20):
     if fecha:
         query += f" {fecha}"
 
-    noticias = await _google_news(query, max_results=limit)
+    noticias = await _noticias_congreso(query, max_results=limit)
 
     if noticias:
         return {
@@ -556,7 +612,7 @@ async def fetch_sesiones(comision=None, fecha=None, limit=20):
 
 async def fetch_agenda():
     query = "agenda parlamentaria congreso perú sesiones pleno 2026"
-    noticias = await _google_news(query, max_results=15)
+    noticias = await _noticias_congreso(query, max_results=15)
 
     if noticias:
         return {
@@ -627,7 +683,7 @@ async def _scrape_destacados_camara(url: str):
     # Distinguir "esta cámara no publicó nada" de "el scraping se rompió". Los
     # widgets se renderizan en el servidor con el literal "No hay publicaciones
     # para mostrar" cuando están vacíos — antes eso se trataba como fallo y se
-    # devolvían noticias de Google News como si fueran documentos oficiales.
+    # devolvían notas de prensa de medios como si fueran documentos oficiales.
     vacio_declarado = "No hay publicaciones para mostrar" in r.text
     if not destacados and not citaciones and not vacio_declarado:
         raise Exception("sin items y sin aviso de vacío — el HTML cambió")
@@ -676,7 +732,7 @@ async def fetch_destacados():
         # última semana (el índice de Google devuelve resultados de meses
         # atrás que terminaban citados como actividad de la semana en curso).
         logger.warning("Scrape de destacados falló en las 3 cámaras: %s", fallidas)
-        noticias = await _google_news(
+        noticias = await _noticias_congreso(
             "congreso perú noticias destacados sesión pleno ley",
             max_results=10,
             dias=DIAS_NOTICIAS_RECIENTES,
@@ -749,8 +805,8 @@ async def fetch_congresista(nombre: str):
 
     # Proyectos en SPLEY
     proyectos_task = fetch_proyectos(autor=nombre, limit=30)
-    # Noticias en Google News
-    noticias_task  = _google_news(f"{nombre} congresista peru", max_results=10)
+    # Noticias de la sala de prensa del Congreso
+    noticias_task  = _noticias_congreso(f"{nombre} congresista peru", max_results=10)
 
     proyectos, noticias = await asyncio.gather(proyectos_task, noticias_task)
 
@@ -1663,7 +1719,8 @@ async def fetch_interpelaciones(ministro: str = None):
     """
     Busca mociones de interpelación presentadas en el Congreso.
     1) Busca en SPLEY por keyword "interpelacion" para obtener mociones formales.
-    2) Complementa con Google News para las que están juntando firmas.
+    2) Complementa con la sala de prensa del Congreso para las que están
+       juntando firmas.
     """
     import asyncio
 
@@ -1706,7 +1763,7 @@ async def fetch_interpelaciones(ministro: str = None):
         f"moción {base}congreso peru 2026",
         f"{base}congreso peru firmas",
     ]
-    news_tasks = [_google_news(q, max_results=6) for q in queries]
+    news_tasks = [_noticias_congreso(q, max_results=6) for q in queries]
     news_results = await asyncio.gather(*news_tasks)
 
     seen_news, noticias = set(), []
@@ -1723,7 +1780,7 @@ async def fetch_interpelaciones(ministro: str = None):
         }
 
     return {
-        "fuente": "SPLEY (mociones formales) + Google News (prensa)",
+        "fuente": "SPLEY (mociones formales) + sala de prensa del Congreso",
         "mociones_formales": mociones_spley,
         "total_formales": len(mociones_spley),
         "noticias_prensa": noticias,
