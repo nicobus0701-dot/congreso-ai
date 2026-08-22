@@ -66,8 +66,41 @@ def is_rate_limit(e) -> bool:
                                  "resource_exhausted", "resource exhausted"))
 
 
+# Variable de entorno que hay que completar para cada proveedor, para poder
+# decirle al usuario exactamente qué le falta en vez de un "error genérico".
+_ENV_KEY = {
+    "groq": "GROQ_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "cerebras": "CEREBRAS_API_KEY",
+    "openai": "OPENAI_API_KEY",
+}
+
+
+def is_auth_error(e) -> bool:
+    """
+    Key ausente, inválida o sin permisos. Reintentar no sirve de nada.
+
+    Cada proveedor lo reporta distinto — Groq: 401 'invalid_api_key';
+    Gemini: 400 'Please pass a valid API key' con status INVALID_ARGUMENT
+    (sí, 400, no 401) — así que se reconocen por texto y no solo por código.
+    """
+    s = str(e).lower()
+    marcas = ("invalid_api_key", "invalid api key", "valid api key",
+              "api key not valid", "api_key_invalid", "unauthorized",
+              "permission_denied", "missing credentials")
+    if any(m in s for m in marcas):
+        return True
+    return "error code: 401" in s or "error code: 403" in s
+
+
 def is_tool_format_error(e) -> bool:
     """El modelo generó un tool_call malformado — conviene reintentar sin tools."""
+    # Un 400 por key inválida NO es un tool_call malformado. Sin esta guarda,
+    # Gemini (que responde 400 a una key mala) caía acá y el orquestador
+    # reintentaba con el modelo grande: dos llamadas fallidas y un mensaje
+    # final de "problema al conectar" que no decía nada del verdadero motivo.
+    if is_auth_error(e):
+        return False
     s = str(e)
     return "tool_use_failed" in s or "failed_generation" in s or "400" in s
 
@@ -75,6 +108,13 @@ def is_tool_format_error(e) -> bool:
 def friendly_error(e) -> str:
     """Traduce la excepción a un mensaje que se le puede mostrar al usuario."""
     s = str(e).lower()
+    if is_auth_error(e):
+        var = _ENV_KEY.get(LLM_PROVIDER, "la API key")
+        return (
+            f"La API key de {_PROVIDER_LABEL} no es válida o falta. "
+            f"Revisá {var} en el archivo .env de la raíz del proyecto "
+            f"(hay una plantilla en .env.example) y reiniciá la app."
+        )
     if "per day" in s or "tpd" in s or "perday" in s:
         m = re.search(r"try again in ([0-9hms.]+)", s)
         cuando = "en un rato"
