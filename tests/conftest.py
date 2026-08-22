@@ -82,17 +82,25 @@ def _reset_periodos_cache():
     scraper._periodos_cache = None
 
 
-def assert_snapshot(name: str, data):
+def assert_snapshot(name: str, data, ignorar: tuple = ()):
     """
     Compara `data` con tests/snapshots/<name>.json.
 
     Si el snapshot no existe lo escribe y pasa el test — así la primera
     corrida graba la referencia. Los cambios posteriores fallan y hay que
     revisarlos a mano (o borrar el .json para regrabar).
+
+    `ignorar`: claves de primer nivel que se excluyen de la comparación. Sirve
+    para los campos que el scraper calcula contra la fecha de HOY (ej.
+    "advertencia_desactualizado", que lleva un "hace N días"): congelarlos en
+    un JSON hace que el test solo pueda pasar el día en que se grabó. Lo que
+    dependa del reloj se verifica aparte, en su propio assert.
     """
     SNAPSHOTS_DIR.mkdir(exist_ok=True)
     path = SNAPSHOTS_DIR / f"{name}.json"
     actual = json.loads(json.dumps(data, ensure_ascii=False, default=str))
+    if ignorar and isinstance(actual, dict):
+        actual = {k: v for k, v in actual.items() if k not in ignorar}
 
     if not path.exists():
         path.write_text(

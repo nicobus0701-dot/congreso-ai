@@ -192,15 +192,15 @@ async def test_resumen_usa_herramientas_fijas_no_el_router():
     assert orch.tools_usados == [name for name, _ in RESUMEN_TOOLS]
     assert len(events) == len(RESUMEN_TOOLS)  # un sse.status por herramienta
 
-    # El mensaje "assistant" con tool_calls trae las 4 llamadas de una, y cada
-    # una tiene un tool_call_id único que matchea con su mensaje "tool".
-    assistant_msg = orch.tool_msgs[0]
-    assert len(assistant_msg["tool_calls"]) == len(RESUMEN_TOOLS)
-    tool_msgs = [m for m in orch.tool_msgs if m["role"] == "tool"]
-    assert len(tool_msgs) == len(RESUMEN_TOOLS)
-    ids_assistant = {tc["id"] for tc in assistant_msg["tool_calls"]}
-    ids_tool = {m["tool_call_id"] for m in tool_msgs}
-    assert ids_assistant == ids_tool
+    # Los resultados NO van en el formato nativo de function-calling (mensaje
+    # "assistant" con tool_calls + un mensaje "tool" por cada uno): Gemini lo
+    # rechaza porque exige un "thought_signature" que no se puede reconstruir
+    # a mano. Van como texto plano en mensajes de usuario, uno por herramienta
+    # — ver el comentario en ChatOrchestrator._phase2.
+    assert len(orch.tool_msgs) == len(RESUMEN_TOOLS)
+    assert all(m["role"] == "user" for m in orch.tool_msgs)
+    for (name, _), msg in zip(RESUMEN_TOOLS, orch.tool_msgs):
+        assert msg["content"].startswith(f"[Resultado de la herramienta {name}]")
 
 
 @pytest.mark.asyncio
@@ -391,7 +391,16 @@ def test_phase3_max_tokens(tools, esperado):
 
 
 def test_phase3_max_tokens_resumen_tiene_prioridad():
-    """is_resumen manda su propio presupuesto aunque tools_usados matchee otro caso."""
-    orch = make([user("__RESUMEN_SEMANAL__: general")],
-                tools_usados=["fetch_expediente"])
-    assert orch._phase3_max_tokens() == 3000
+    """
+    is_resumen manda su propio presupuesto aunque tools_usados matchee otro caso.
+
+    El número vive en ChatOrchestrator._phase3_max_tokens (3500 desde que se
+    sumó la sección de interpelaciones al resumen); lo que este test cuida es
+    que gane sobre el de fetch_expediente, no el valor exacto.
+    """
+    resumen = make([user("__RESUMEN_SEMANAL__: general")],
+                   tools_usados=["fetch_expediente"])
+    solo_expediente = make([user("x")], tools_usados=["fetch_expediente"])
+
+    assert resumen._phase3_max_tokens() == 3500
+    assert resumen._phase3_max_tokens() != solo_expediente._phase3_max_tokens()

@@ -19,15 +19,23 @@ jobs:
       - run: ruff check .
 
   test:
-    name: Tests (pytest)
+    name: Tests (pytest, Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 es la que usa el build del DMG. 3.13 se agregó porque ahí se
+        # eliminó `audioop` de la stdlib (PEP 594) y el servidor entero dejaba
+        # de importar en cualquier Python moderno — con la matriz en 3.11 sola
+        # eso pasó desapercibido hasta probarlo en una Mac con 3.14.
+        python-version: ["3.11", "3.13"]
     env:
       GROQ_API_KEY: test-key-mock
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "${{ matrix.python-version }}"
       - name: Install dependencies
         run: |
           pip install -r requirements.txt -r requirements-dev.txt

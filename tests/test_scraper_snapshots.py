@@ -87,4 +87,17 @@ async def test_fetch_agenda_pleno_snapshot():
         warnings.simplefilter("ignore")
         data = await fetch_agenda_pleno()
 
-    assert_snapshot("fetch_agenda_pleno", data)
+    # "advertencia_desactualizado" lleva un "hace N días" calculado contra
+    # date.today(), así que crece un día por día: congelado dentro del snapshot,
+    # el test solo podía pasar la fecha exacta en que se grabó. Se excluye de
+    # la comparación y se verifica acá abajo por lo que no depende del reloj.
+    assert_snapshot("fetch_agenda_pleno", data,
+                    ignorar=("advertencia_desactualizado",))
+
+    # La agenda de la cassette es del 23/06/2026: con más de 14 días encima,
+    # el scraper tiene que marcarla como vieja para que el modelo no la
+    # presente como la agenda "de esta semana". Va en este mismo test para no
+    # duplicar una cassette de 1.8 MB solo por un assert más.
+    aviso = data.get("advertencia_desactualizado", "")
+    assert aviso, "la agenda de la cassette es vieja y debería venir con aviso"
+    assert "23/06/2026" in aviso, "el aviso tiene que decir la fecha real del documento"
