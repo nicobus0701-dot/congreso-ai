@@ -93,7 +93,15 @@ async def dashboard_metrics():
 
     proyectos_ingresados = None
     if isinstance(proyectos, dict):
-        proyectos_ingresados = {"total": proyectos.get("total", 0), "dias": 7}
+        # `total` es cuántos DEVOLVIÓ el scraper, recortado por `limit` (20 por
+        # defecto); `total_disponible` es cuántos hay de verdad y solo aparece
+        # cuando hubo recorte (ver _format_proyectos). Esta tarjeta dice
+        # "proyectos ingresados en 7 días", así que le toca el número real:
+        # leyendo `total` mostraba 20 cuando eran 48 — un dato falso en la
+        # pantalla de inicio, y encima el chat contestaba 48 a la misma
+        # pregunta porque el modelo sí veía `total_disponible`.
+        total_real = proyectos.get("total_disponible") or proyectos.get("total", 0)
+        proyectos_ingresados = {"total": total_real, "dias": 7}
 
     citaciones_links = set()
     if isinstance(destacados, dict):

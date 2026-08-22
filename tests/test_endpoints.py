@@ -83,3 +83,42 @@ async def test_congreso_pdfs_shape(client):
     data = r.json()
     assert "pdfs" in data
     assert isinstance(data["pdfs"], list)
+
+
+# ── /dashboard-metrics ────────────────────────────────────────────────────────
+@pytest.mark.asyncio
+async def test_dashboard_usa_el_total_real_no_el_truncado(client):
+    """
+    La tarjeta "proyectos ingresados" tiene que mostrar cuántos hay, no cuántos
+    devolvió el scraper. fetch_proyectos recorta por `limit` (20 por defecto) y
+    deja el número real en `total_disponible`; leyendo `total` la pantalla de
+    inicio decía 20 cuando eran 48.
+    """
+    import routers.pages as pages
+
+    pages._METRICS_CACHE["data"] = None  # la caché de 5 min taparía el cambio
+    recortado = {"total": 20, "total_disponible": 48, "truncado": True, "items": []}
+    with patch("routers.pages.fetch_proyectos", new=AsyncMock(return_value=recortado)), \
+         patch("routers.pages.fetch_agenda_camaras", new=AsyncMock(return_value={"sin_datos": True})), \
+         patch("routers.pages.fetch_destacados", new=AsyncMock(return_value={"camaras": {}})):
+        r = await client.get("/dashboard-metrics")
+
+    pages._METRICS_CACHE["data"] = None
+    assert r.status_code == 200
+    assert r.json()["proyectos_ingresados"]["total"] == 48
+
+
+@pytest.mark.asyncio
+async def test_dashboard_sin_recorte_usa_total(client):
+    """Sin truncado no hay `total_disponible`: entonces `total` ya es el real."""
+    import routers.pages as pages
+
+    pages._METRICS_CACHE["data"] = None
+    completo = {"total": 7, "items": []}
+    with patch("routers.pages.fetch_proyectos", new=AsyncMock(return_value=completo)), \
+         patch("routers.pages.fetch_agenda_camaras", new=AsyncMock(return_value={"sin_datos": True})), \
+         patch("routers.pages.fetch_destacados", new=AsyncMock(return_value={"camaras": {}})):
+        r = await client.get("/dashboard-metrics")
+
+    pages._METRICS_CACHE["data"] = None
+    assert r.json()["proyectos_ingresados"]["total"] == 7
