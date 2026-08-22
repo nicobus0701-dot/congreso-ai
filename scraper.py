@@ -1715,75 +1715,115 @@ def _parse_indice_agenda_pleno(doc) -> list:
 
 # ── Mociones de interpelación ─────────────────────────────────
 
+# ── Mociones de Orden del Día ──────────────────────────────────
+#
+# Sistema oficial de mociones, enlazado desde el menú de senado. y
+# diputados.congreso.gob.pe ("Sistema de Mociones de Orden del Día"). Vive en
+# el mismo api.congreso.gob.pe que SPLEY y tampoco pide autenticación.
+#
+# Las interpelaciones son mociones, no proposiciones legislativas: por eso
+# antes había que rastrearlas con un LIKE '%INTERPELAC%' sobre los títulos de
+# SPLEY —donde no viven— y completar el hueco con notas de prensa. Acá vienen
+# tipificadas, con su estado real de trámite.
+SMOCIONES_API = "https://api.congreso.gob.pe/smociones-portal-service"
+
+# tipoMocionId del catálogo oficial (general/info-filtros-lista-mociones).
+TIPO_MOCION = {
+    "interpelacion": 19,   # Pedidos de Interpelación al Consejo de Ministros
+    "censura":       27,   # Censura al Consejo de Ministros o a Ministros
+    "vacancia":      30,   # Pedido de Vacancia Presidencial
+    "investigacion": 17,   # Conformación de Comisiones de Investigación
+}
+
+SMOCIONES_PORTAL = "https://wb2server.congreso.gob.pe/smociones-portal/#/expediente"
+
+
+async def fetch_mociones(tipo: str = None, camara: str = None,
+                         texto: str = None, limit: int = 20):
+    """
+    Mociones de Orden del Día de ambas cámaras.
+
+    `tipo` es una clave de TIPO_MOCION ("interpelacion", "censura",
+    "vacancia"...). Sin tipo trae todas.
+
+    OJO con `size`: la API lo acepta pero lo ignora y devuelve el periodo
+    completo (153 mociones en Diputados 2026, medido) — igual que SPLEY con su
+    propio `size`. Por eso el recorte a `limit` se hace acá.
+    """
+    codigos = {"diputados": ["D"], "senado": ["S"]}.get(
+        (camara or "").lower(), ["D", "S"])
+    tipo_id = TIPO_MOCION.get((tipo or "").lower())
+
+    async def _una_camara(c, cod):
+        try:
+            per = await c.get(f"{SMOCIONES_API}/general/periodo-parlamentario/{cod}")
+            periodos = per.json().get("data") or []
+            if not periodos:
+                return []
+            per_id = periodos[0].get("perParId")
+            r = await c.post(f"{SMOCIONES_API}/mocion/lista-con-filtros", json={
+                "codTipoParl": cod, "perParId": per_id, "perLegId": None,
+                "mocionNum": None, "tipoMocionId": tipo_id, "finalidadId": None,
+                "estadoMocionId": None, "congresistaId": None, "grupoParlId": None,
+            })
+            if r.status_code != 200:
+                return []
+            return [dict(m, _camara=cod)
+                    for m in (r.json().get("data") or {}).get("mociones") or []]
+        except Exception as _e:
+            logger.debug("smociones cámara %s: %s", cod, _e)
+            return []
+
+    async with _client() as c:
+        tandas = await asyncio.gather(*(_una_camara(c, cod) for cod in codigos))
+
+    filtro = (texto or "").upper()
+    out = []
+    for tanda in tandas:
+        for m in tanda:
+            sumilla = m.get("sumilla") or ""
+            if filtro and filtro not in sumilla.upper() and filtro not in str(m.get("autores") or "").upper():
+                continue
+            out.append({
+                "numero":     m.get("mocion") or m.get("mocionNum") or "",
+                "tipo":       m.get("desTipoMocion") or "",
+                "estado":     m.get("desEstadoMocion") or "",
+                "fecha":      _fmt_date(m.get("fecPresentacion") or ""),
+                "sumilla":    sumilla,
+                "grupo_parlamentario": m.get("desGpar") or "",
+                "autores":    _normalizar_lista_autores(m.get("autores")) or (m.get("autores") or ""),
+                "camara":     CAMARAS.get(m.get("_camara") or "D", ""),
+                "enlace":     f"{SMOCIONES_PORTAL}/{m.get('_camara')}/search",
+            })
+
+    out.sort(key=lambda m: m["fecha"][-4:] + m["fecha"][3:5] + m["fecha"][:2],
+             reverse=True)
+    return out[:limit], len(out)
+
+
 async def fetch_interpelaciones(ministro: str = None):
     """
-    Busca mociones de interpelación presentadas en el Congreso.
-    1) Busca en SPLEY por keyword "interpelacion" para obtener mociones formales.
-    2) Complementa con la sala de prensa del Congreso para las que están
-       juntando firmas.
+    Mociones de interpelación a ministros, del sistema oficial de mociones.
+
+    Antes esto salía de un LIKE sobre los títulos de SPLEY (donde las mociones
+    no viven) más notas de prensa de medios. Ahora sale del registro oficial,
+    filtrado por el tipo 19 del catálogo del propio Congreso, con el estado
+    real de cada una — admitida, en Junta de Portavoces, con ministro citado.
     """
-    import asyncio
-
-    kw_filter = (ministro or "").upper()
-
-    # ── 1. Buscar mociones formales en SPLEY ──────────────────────
-    mociones_spley = []
-    try:
-        async with _client() as c:
-            all_items = await _spley_proyectos(c, {"page": 0, "size": 300},
-                                               min_items=300)
-            if all_items:
-                for p in all_items:
-                    titulo = (p.get("titulo") or "").upper()
-                    sumilla = (p.get("sumilla") or "").upper()
-                    # Antes también matcheaba "MOCIÓN" in titulo — como substring,
-                    # eso matchea "PROMOCIÓN" (ej. "PROMOCIÓN TURÍSTICA") y traía
-                    # proyectos sin ninguna relación con interpelaciones. Cualquier
-                    # moción de interpelación real ya cae en el chequeo de
-                    # "INTERPELAC" (título o sumilla), así que sacarlo no pierde
-                    # cobertura real.
-                    if "INTERPELAC" in titulo or "INTERPELAC" in sumilla:
-                        if not kw_filter or kw_filter in titulo or kw_filter in sumilla:
-                            num = p.get("pleyNum") or ""
-                            mociones_spley.append({
-                                "numero":    p.get("proyectoLey") or num or "",
-                                "titulo":    p.get("titulo") or "",
-                                "estado":    p.get("desEstado") or "",
-                                "fecha":     _fmt_date(p.get("fecPresentacion") or ""),
-                                "proponente": p.get("desProponente") or p.get("autores") or "",
-                                "comision":  p.get("desComision") or "",
-                                "enlace":    _enlace_expediente(p),
-                            })
-    except Exception as _e:
-        logger.debug("scraper silenced: %s", _e)
-
-    # ── 2. Noticias recientes (prensa) ────────────────────────────
-    base = f"interpelación {ministro} " if ministro else "interpelación ministro "
-    queries = [
-        f"moción {base}congreso peru 2026",
-        f"{base}congreso peru firmas",
-    ]
-    news_tasks = [_noticias_congreso(q, max_results=6) for q in queries]
-    news_results = await asyncio.gather(*news_tasks)
-
-    seen_news, noticias = set(), []
-    for lista in news_results:
-        for n in lista:
-            if n["enlace"] not in seen_news:
-                seen_news.add(n["enlace"])
-                noticias.append(n)
-
-    if not mociones_spley and not noticias:
+    mociones, total = await fetch_mociones(tipo="interpelacion", texto=ministro,
+                                           limit=30)
+    if not mociones:
+        detalle = f" que mencionen a «{ministro}»" if ministro else ""
         return {
             "sin_datos": True,
-            "mensaje": "No se encontraron mociones de interpelación activas en este momento.",
+            "mensaje": (f"El Congreso no tiene mociones de interpelación registradas"
+                        f"{detalle} en el periodo actual."),
         }
 
     return {
-        "fuente": "SPLEY (mociones formales) + sala de prensa del Congreso",
-        "mociones_formales": mociones_spley,
-        "total_formales": len(mociones_spley),
-        "noticias_prensa": noticias,
+        "fuente": "Sistema de Mociones de Orden del Día — api.congreso.gob.pe",
+        "mociones_interpelacion": mociones,
+        "total": total,
     }
 
 

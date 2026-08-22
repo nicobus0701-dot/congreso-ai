@@ -285,8 +285,10 @@ TOOLS = [
         "function": {
             "name": "fetch_interpelaciones",
             "description": (
-                "Mociones de interpelación a ministros — formales Y en gestación (firmas). "
-                "Ya busca ambas contra fuentes del Congreso."
+                "Mociones de interpelación a ministros, del Sistema oficial de Mociones "
+                "de Orden del Día del Congreso, con su estado real de trámite. Solo "
+                "devuelve mociones efectivamente PRESENTADAS: si un medio anunció una y "
+                "no está acá, no fue presentada."
             ),
             "parameters": {
                 "type": "object",
