@@ -7,7 +7,11 @@ on:
 
 jobs:
   build-mac:
-    runs-on: macos-latest
+    # macos-latest es Apple Silicon (arm64), así que el DMG salía arm64 puro y
+    # NO arranca en una Mac Intel: Rosetta 2 traduce x86→arm, no al revés.
+    # Compilando en Intel el DMG sale x64, que corre nativo en Intel y bajo
+    # Rosetta 2 en Apple Silicon — un solo artefacto que sirve en las dos.
+    runs-on: macos-15-intel
     permissions:
       contents: write
 

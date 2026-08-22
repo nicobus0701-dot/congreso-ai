@@ -4,10 +4,12 @@ Extrae audio en crudo con ffmpeg (streaming, sin archivos intermedios) y
 transcribe con Groq Whisper en ventanas de 10s traslapadas 2s entre sí, para
 no perder palabras que caigan justo en el corte entre chunks.
 """
+import array
 import asyncio
-import audioop
 import difflib
+import math
 import os
+import shutil
 import signal
 import struct
 import threading
@@ -127,12 +129,50 @@ def _transcribe_pcm(pcm: bytes, api_key: str) -> str:
     return text.strip()
 
 
+def _rms(pcm: bytes) -> int:
+    """
+    RMS de audio PCM s16le mono.
+
+    Esto lo hacía audioop.rms(), pero audioop se eliminó de la stdlib en
+    Python 3.13 (PEP 594) y sin esto el módulo ni siquiera importa — lo que
+    tumbaba el servidor entero, no solo el vivo, porque routers/live.py lo
+    importa al arranque. La versión en Python puro cuesta 28 ms por ventana
+    de 12 s (medido en esta Mac): 0.24 % del tiempo real del chunk, así que
+    no vale la pena arrastrar una dependencia binaria para esto.
+    """
+    muestras = array.array("h")
+    muestras.frombytes(pcm[:len(pcm) // 2 * 2])  # descarta un byte suelto al final
+    if not muestras:
+        return 0
+    return int(math.sqrt(sum(m * m for m in muestras) / len(muestras)))
+
+
 def _is_silence(pcm: bytes) -> bool:
     """RMS del audio crudo (PCM s16le) — filtro previo a Whisper para no
     alucinar texto sobre tramos sin voz real."""
     if len(pcm) < 2:
         return True
-    return audioop.rms(pcm, 2) < SILENCE_RMS_THRESHOLD
+    return _rms(pcm) < SILENCE_RMS_THRESHOLD
+
+
+def ffmpeg_exe() -> str:
+    """
+    Ruta al binario de ffmpeg.
+
+    Primero el del sistema (PATH). Si no está — el caso normal en una Mac sin
+    Homebrew — usa el que trae el paquete `imageio-ffmpeg`, que se instala con
+    un pip install y no necesita brew ni sudo. Si tampoco está, devuelve
+    "ffmpeg" para que el error que vea el usuario sea el de siempre.
+    """
+    ruta = shutil.which("ffmpeg")
+    if ruta:
+        return ruta
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return "ffmpeg"
 
 
 def _merge_overlap(prev_text: str, new_text: str, max_words: int = 12) -> str:
@@ -178,7 +218,7 @@ async def stream_transcription(video_id: str, api_key: str, start_seconds: int =
     yield {"status": f"Stream resuelto ({kind}). Iniciando captura de audio..."}
 
     # ── Step 2: ffmpeg emite PCM crudo continuo por stdout ──────
-    cmd = ["ffmpeg", "-y"]
+    cmd = [ffmpeg_exe(), "-y"]
     if start_seconds:
         # -ss ANTES de -i: seek de entrada, salta directo al segmento HLS
         # correspondiente en vez de descargar y descartar todo lo anterior.

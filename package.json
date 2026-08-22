@@ -4,7 +4,8 @@
   "description": "Asistente IA para el Congreso del Perú",
   "main": "main.js",
   "scripts": {
-    "start": "electron . --no-sandbox --disable-gpu-sandbox --disable-software-rasterizer",
+    "start": "electron .",
+    "start:linux": "electron . --no-sandbox --disable-gpu-sandbox --disable-software-rasterizer",
     "build": "electron-builder"
   },
   "dependencies": {

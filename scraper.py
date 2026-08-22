@@ -1002,6 +1002,10 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
 
     from groq import Groq
 
+    # Import diferido: live_transcriber importa de este módulo (ver
+    # get_stream_url), así que a nivel de módulo sería circular.
+    from live_transcriber import ffmpeg_exe
+
     seconds = minutes * 60
 
     # Resolver URL de audio sin descargar
@@ -1019,7 +1023,7 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
     with tempfile.TemporaryDirectory() as tmp:
         out_path = os.path.join(tmp, "audio.wav")
         cmd = [
-            "ffmpeg", "-y",
+            ffmpeg_exe(), "-y",
             "-i", stream_url,
             "-vn",
             "-ar", "16000",
@@ -1032,7 +1036,7 @@ def transcribe_with_whisper(video_id: str, api_key: str, minutes: int = 10):
         except subprocess.TimeoutExpired:
             return {"ok": False, "error": "Tiempo de espera agotado al capturar el audio."}
         except FileNotFoundError:
-            return {"ok": False, "error": "ffmpeg no está instalado. Instálalo con: sudo apt install ffmpeg"}
+            return {"ok": False, "error": "ffmpeg no está instalado. Instálalo con: pip install imageio-ffmpeg"}
 
         if not os.path.exists(out_path) or os.path.getsize(out_path) < 4096:
             stderr = result.stderr.decode(errors="ignore")[-300:]

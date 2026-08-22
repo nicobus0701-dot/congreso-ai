@@ -12,3 +12,8 @@ ddgs>=9.0.0
 python-multipart>=0.0.9
 PyMuPDF>=1.24.0
 python-docx>=1.1.0
+# ffmpeg para la transcripción (vivo y Whisper). Trae el binario en el wheel,
+# así que no hace falta brew/apt ni sudo — en una Mac sin Homebrew es la única
+# vía de un paso. Si hay un ffmpeg en el PATH, ese gana (ver
+# live_transcriber.ffmpeg_exe).
+imageio-ffmpeg>=0.5.1

@@ -12,10 +12,19 @@ const PORT = 8732;   // puerto único para no chocar con adam
 let   win  = null;
 let   py   = null;
 
+// El `python3` del PATH es el del sistema y no tiene las dependencias
+// instaladas (en macOS además no se le pueden instalar sin ensuciar el Python
+// global). start.sh crea .venv/ en el repo: si está, ese es el intérprete
+// correcto; si no, se cae al del PATH como antes.
+function devPython() {
+  const venv = path.join(__dirname, '.venv', 'bin', process.platform === 'win32' ? 'python.exe' : 'python3');
+  return fs.existsSync(venv) ? venv : 'python3';
+}
+
 // ── Arranca el servidor FastAPI ─────────────────────────────
 function startServer() {
   const isDev = !app.isPackaged;
-  const exe     = isDev ? 'python3'                                         : path.join(process.resourcesPath, 'server', 'server');
+  const exe     = isDev ? devPython()                                       : path.join(process.resourcesPath, 'server', 'server');
   const args    = isDev ? [path.join(__dirname, 'server.py')]               : [];
   const cwd     = isDev ? __dirname                                          : path.join(process.resourcesPath, 'server');
 
@@ -89,7 +98,8 @@ function createWindow() {
         <html><body style="font-family:system-ui;padding:40px;font-weight:700">
           <h2>Error iniciando el servidor</h2>
           <p>Asegúrate de tener Python 3 y las dependencias instaladas:</p>
-          <pre>pip3 install -r requirements.txt --break-system-packages</pre>
+          <pre>python3 -m venv .venv &amp;&amp; .venv/bin/pip install -r requirements.txt</pre>
+          <p>O simplemente corré <code>./start.sh</code>, que lo hace solo.</p>
         </body></html>`);
     }
   });
