@@ -334,11 +334,10 @@
       return;
     }
 
-    const gl = document.createElement('div');
-    gl.className = 'chat-group-label';
-    gl.textContent = 'Historial';
-    chatList.appendChild(gl);
-
+    // El rótulo "Historial" ya está fijo en index.html, justo encima de
+    // #chat-list. Agregar otro acá lo mostraba dos veces apenas existía una
+    // conversación (con la lista vacía solo se veía el de index.html, por eso
+    // pasaba desapercibido).
     for (const c of convs) {
       const el = document.createElement('div');
       el.className = 'chat-item' + (c.id === activeId ? ' active' : '');
@@ -426,6 +425,14 @@
       if (!card) return;
       card.classList.remove('is-loading');
       card.querySelector('.metric-card-value').innerHTML = valueHTML;
+      // El valor se reemplaza (innerHTML), pero el subtítulo y el botón se
+      // AGREGAN. Si fill() corre más de una vez sobre la misma tarjeta —
+      // /dashboard-metrics tarda ~20 s con caché fría, así que un segundo
+      // showWelcome() puede resolver encima del primero — la tarjeta termina
+      // con el pie repetido N veces (visto en vivo: 3 copias por tarjeta).
+      // Limpiar antes de agregar hace que fill() sea idempotente pase lo que
+      // pase con el orden de las respuestas.
+      card.querySelectorAll('.metric-card-sub, .metric-card-ver').forEach(n => n.remove());
       if (subText) {
         const sub = document.createElement('span');
         sub.className = 'metric-card-sub';
