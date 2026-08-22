@@ -1,12 +1,27 @@
-## Formato para PROYECTOS
+## Formato para PROPOSICIONES LEGISLATIVAS
 
-El número del proyecto siempre es un link markdown con el campo enlace: `[[numero](enlace)]`. Si no hay enlace, el número sin link.
+Usá la misma tabla que el portal oficial de SPLEY, con estas columnas y en
+este orden exacto:
 
-| N° PROYECTO | FECHA | ESTADO | PROPONENTE | COMISIÓN | SUMILLA |
+| PROPOSICIÓN LEGISLATIVA | FECHA DE PRESENTACIÓN | TÍTULO | ESTADO PROCESAL | PROPONENTE | AUTORES |
 |---|---|---|---|---|---|
-| [[numero](enlace)] | fecha | estado | proponente | comision | sumilla |
+| [numero](enlace) | fecha | titulo | estado | proponente | autores |
 
-Máximo 15 filas. Si buscaste por materia y los resultados no corresponden al tema, decilo.
+Reglas de la tabla:
+
+- **La primera columna SIEMPRE es un link markdown**: `[00006-2026-2031-S](enlace)`,
+  usando el campo `enlace` del proyecto. Ese link abre la ficha oficial —
+  título, sumilla, autores, seguimiento— en el portal del Congreso. Sin
+  corchetes dobles y sin texto extra: solo el número, enlazado. Si un proyecto
+  no trae `enlace`, poné el número sin link.
+- **TÍTULO va completo**, sin recortar ni resumir. Es el título formal de la
+  proposición, no una paráfrasis.
+- **AUTORES**: lista todos los que vengan en el campo `autor`, separados por
+  coma. Si son más de tres, poné los tres primeros y "y N más".
+- El término oficial es **proposición legislativa**, no "proyecto de ley".
+  Escribilo así en encabezados y texto.
+- Máximo 15 filas. Si buscaste por materia y los resultados no corresponden al
+  tema, decilo.
 
 ### Conteos: nunca inventes el total
 Si la respuesta trae `truncado: true`, el campo `total` es SOLO lo que se te
@@ -20,12 +35,16 @@ mostró, no lo que existe. El total real está en `total_disponible`. En ese cas
   herramienta con `limit` ≥ `total_disponible` antes de responder. Recién ahí
   contás.
 
-Cada proyecto trae su `camara` (Congreso, Diputados o Senado). Usala tal cual;
+Cada proposición trae su `camara` (Congreso, Diputados o Senado). Usala tal cual;
 no la deduzcas del sufijo del número.
 
-### Detalle
-Para cada proyecto de la tabla, una línea abajo:
-**[numero]** — [sumilla completa sin abreviar]. Autores: [autor si viene en los datos, copiado literal].
+### Sumilla
+Debajo de la tabla, una línea por proposición con su sumilla completa:
+
+**[numero](enlace)** — [sumilla completa, sin abreviar].
+
+El número va enlazado también acá, para que se pueda saltar directo a la
+sumilla en la página oficial.
 
 ⚠️ El campo `autor` ya viene en formato "Nombre Apellido" (ej. `Susel Ana
 María Paredes Piqué`). Puede que tu instinto sea "corregirlo" al estilo
@@ -34,8 +53,11 @@ escribir: `Paredes Piqué, Susel Ana María`. Lo correcto es copiar el campo
 exactamente como llega, sin invertir apellido y nombre ni agregar una coma.
 
 ### Adjuntos
-Si algún proyecto tiene PDF o archivos adjuntos en el campo enlace, listalos:
-- **[numero]:** [Texto del proyecto](url_pdf) | [Exposición de motivos](url) — según lo que devuelva la herramienta.
+Si alguna proposición tiene PDF o archivos adjuntos, listalos:
+- **[numero]:** [Texto de la proposición](url_pdf) | [Exposición de motivos](url)
 Si no hay adjuntos: omití esta sección.
 
-Esta herramienta no trae el expediente completo de cada proyecto (solo lo del campo enlace, si acaso). Si el usuario preguntó por UN proyecto puntual, cerrá con: "¿Quieres que te traiga el expediente completo de [numero] — seguimiento, comisiones y todos sus documentos/adjuntos?". Si fue una búsqueda de varios, basta una línea general al final ofreciendo el expediente de cualquiera de la lista.
+Esta herramienta no trae el expediente completo. Si el usuario preguntó por UNA
+proposición puntual, cerrá con: "¿Quieres que te traiga el expediente completo
+de [numero] — seguimiento, comisiones, documentación anexa y opinión
+ciudadana?". Si fue una búsqueda de varias, basta una línea general al final.

@@ -69,14 +69,31 @@ def _client():
                              follow_redirects=True, headers=HEADERS)
 
 def _fmt_date(s):
+    """
+    Fecha a dd/mm/aaaa, el formato que usa el portal del Congreso.
+
+    OJO con el recorte: SPLEY devuelve '2026-08-21T00:00:00.000-05:00', que
+    son 29 caracteres. El código cortaba en [:25] y partía el huso horario a
+    la mitad ('...000-05'), así que NINGÚN formato casaba y todo caía al
+    fallback [:10] — o sea que las fechas de SPLEY salían en ISO
+    ('2026-08-21') en las tablas y en los expedientes, en vez de 21/08/2026.
+    fromisoformat se come el string completo sin recortar nada.
+    """
+    if not s:
+        return ""
+    txt = str(s).strip()
+    try:
+        return datetime.fromisoformat(txt).strftime("%d/%m/%Y")
+    except ValueError:
+        pass
     for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z",
                 "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%d/%m/%Y"):
         try:
-            dt = datetime.strptime(str(s)[:25], fmt)
-            return dt.strftime("%d/%m/%Y")
-        except Exception as _e:
-            logger.debug("scraper silenced: %s", _e)
-    return str(s)[:10] if s else ""
+            return datetime.strptime(txt[:26], fmt).strftime("%d/%m/%Y")
+        except ValueError:
+            continue
+    logger.debug("_fmt_date no pudo parsear %r", txt[:40])
+    return txt[:10]
 
 
 _MESES_ES = {
@@ -287,6 +304,29 @@ def _num_proyecto(numero) -> str:
     """
     m = re.match(r"\s*0*(\d+)", str(numero or ""))
     return m.group(1) if m else str(numero or "").strip()
+
+
+def _periodo_desde_numero(numero) -> str:
+    """
+    Periodo parlamentario que viene dentro del número: '00006-2026-2031-S' ->
+    '2026-2031'. Devuelve '' si el número es del formato viejo ('14864/2025-CR',
+    que no lo lleva) — mejor vacío que afirmar un periodo equivocado.
+    """
+    m = re.search(r"-(\d{4}-\d{4})-", str(numero or ""))
+    return m.group(1) if m else ""
+
+
+def _periodo_desde_perpar(per_par) -> str:
+    """
+    Periodo a partir del perParId de SPLEY: 2021 -> '2021-2026'. Se usa para
+    los números del formato viejo ('14864/2025-CR'), que no lo llevan dentro.
+    Los periodos parlamentarios duran 5 años.
+    """
+    try:
+        ini = int(per_par)
+    except (TypeError, ValueError):
+        return ""
+    return f"{ini}-{ini + 5}"
 
 
 def _camara_de_numero(numero) -> str | None:
@@ -1326,13 +1366,18 @@ async def fetch_expediente(numero: str):
             "adjuntos":  sec_adjuntos,
         })
 
-    # Opinión ciudadana
+    # Opinión ciudadana. La ficha oficial muestra CUATRO contadores: a favor,
+    # en contra, propuesta alternativa y total — faltaba el tercero, así que el
+    # asistente nunca podía mencionarlo aunque la página sí lo muestra.
     opinion = {}
     if isinstance(data_opinion, dict):
         opinion = {
             "total_opiniones": data_opinion.get("total") or data_opinion.get("totalOpiniones") or 0,
             "a_favor":         data_opinion.get("aFavor") or data_opinion.get("favor") or 0,
             "en_contra":       data_opinion.get("enContra") or data_opinion.get("contra") or 0,
+            "propuesta_alternativa": (data_opinion.get("propuestaAlternativa")
+                                      or data_opinion.get("alternativa")
+                                      or data_opinion.get("propAlternativa") or 0),
             "comentarios":     len(data_opinion.get("comentarios") or data_opinion.get("opiniones") or []),
         }
 
@@ -1347,7 +1392,14 @@ async def fetch_expediente(numero: str):
         "sumilla":               general.get("sumilla") or general.get("titulo", ""),
         "estado":                general.get("desEstado", ""),
         "fecha_presentacion":    _fmt_date(general.get("fecPresentacion") or ""),
-        "periodo_parlamentario": general.get("desPerPar") or "2021-2026",
+        # El fallback era el literal "2021-2026": cuando la API no manda
+        # desPerPar (pasa seguido), la ficha afirmaba el periodo ANTERIOR. Un
+        # 00006-2026-2031-S salía como "2021-2026", contradiciendo su propio
+        # número y la ficha oficial. El periodo va dentro del número, así que
+        # se saca de ahí antes de inventarlo.
+        "periodo_parlamentario": (general.get("desPerPar")
+                                  or _periodo_desde_numero(general.get("proyectoLey") or numero)
+                                  or _periodo_desde_perpar(per_par)),
         "legislatura":           general.get("desLegis", ""),
         "proponente":            general.get("desProponente", ""),
         "autor_principal":       ", ".join(_autores_principales) if _autores_principales else (general.get("autores") or general.get("desProponente") or ""),

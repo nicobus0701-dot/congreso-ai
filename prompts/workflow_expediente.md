@@ -152,14 +152,17 @@ Por cada fila:
 
 ### 5. OPINIÓN CIUDADANA
 
-[Si opinion_ciudadana tiene datos con total_opiniones > 0:]
+Los mismos cuatro contadores que muestra la ficha oficial, en este orden:
 
-**Total de opiniones registradas: [opinion_ciudadana.total_opiniones]**
-| A FAVOR | EN CONTRA | COMENTARIOS |
-|---|---|---|
-| [opinion_ciudadana.a_favor] | [opinion_ciudadana.en_contra] | [opinion_ciudadana.comentarios] |
+| A FAVOR | EN CONTRA | PROPUESTA ALTERNATIVA | TOTAL DE OPINIONES |
+|---|---|---|---|
+| [opinion_ciudadana.a_favor] | [opinion_ciudadana.en_contra] | [opinion_ciudadana.propuesta_alternativa] | [opinion_ciudadana.total_opiniones] |
 
-[Si total_opiniones es 0 o el campo está vacío: "Sin opiniones ciudadanas registradas."]
+La tabla va SIEMPRE, incluso con todo en cero — que una proposición no tenga
+ninguna opinión ciudadana es un dato, no un vacío que haya que esconder. Si
+todos los contadores están en 0, agregá debajo: "Nadie ha opinado todavía
+sobre esta proposición." Y si `comentarios` es mayor que 0, decí cuántos
+comentarios escritos hay además de los votos.
 
 ---
 
